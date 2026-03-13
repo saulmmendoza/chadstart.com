@@ -188,7 +188,7 @@
       try {
         const col = getAdminCollections()[0];
         if (col) {
-          const r = await apiFetch(`/auth/${toSlug(col.name)}/me`);
+          const r = await apiFetch(`/api/auth/${toSlug(col.name)}/me`);
           if (r.ok) { authUser = await r.json(); authCollection = col.name; showApp(); return; }
         }
       } catch { /* fall through to login */ }
@@ -244,7 +244,7 @@
     if (!col) { showLoginError('Collection not found'); return; }
 
     try {
-      const r = await fetch(`/auth/${toSlug(col.name)}/login`, {
+      const r = await fetch(`/api/auth/${toSlug(col.name)}/login`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
@@ -412,7 +412,7 @@
       if (editingRecord) {
         r = await apiFetch(`${apiPath}/${editingRecord.id}`, { method: 'PATCH', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } });
       } else if (isCollection) {
-        r = await apiFetch(`/auth/${toSlug(currentItem.name)}/signup`, { method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } });
+        r = await apiFetch(`/api/auth/${toSlug(currentItem.name)}/signup`, { method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } });
       } else {
         r = await apiFetch(apiPath, { method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } });
       }
