@@ -11,7 +11,7 @@ const { loadYaml } = require('../core/yaml-loader');
 const { validateSchema } = require('../core/schema-validator');
 const { buildCore } = require('../core/entity-engine');
 const { initDb, findAll, findAllSimple } = require('../core/db');
-const { registerApiRoutes } = require('../core/api-generator');
+const { registerApiRoutes, createBackendSdk } = require('../core/api-generator');
 const { registerAuthRoutes, verifyToken, omitPassword } = require('../core/auth');
 const { initRealtime, emit } = require('../core/realtime');
 const { generateOpenApiSpec } = require('../core/openapi');
@@ -24,8 +24,19 @@ function limiter(windowMs, max) {
   return rateLimit({ windowMs, max, standardHeaders: true, legacyHeaders: false, message: { error: 'Too many requests, please try again later.' } });
 }
 const authLimiter  = limiter(15 * 60 * 1000, 30);
-const apiLimiter   = limiter(60 * 1000, 200);
 const adminRateLimiter = limiter(60 * 1000, 100);
+
+/**
+ * Build the API rate limiters from settings.rateLimits (if configured)
+ * or fall back to the default single limiter.
+ */
+function buildApiLimiters(core) {
+  const configured = core.settings && core.settings.rateLimits;
+  if (configured && configured.length > 0) {
+    return configured.map((rl) => limiter(rl.ttl, rl.limit));
+  }
+  return [limiter(60 * 1000, 200)];
+}
 
 async function createServer(yamlPath) {
   const config = loadYaml(yamlPath);
@@ -59,14 +70,20 @@ async function createServer(yamlPath) {
   app.use('/api/auth', authLimiter);
   registerAuthRoutes(app, core);
 
-  app.use('/api', apiLimiter);
+  const apiLimiters = buildApiLimiters(core);
+  app.use('/api', ...apiLimiters);
   registerApiRoutes(app, core, emit);
 
   await registerCustomEndpoints(app, core);
 
   const openApiSpec = generateOpenApiSpec(core);
-  app.get('/openapi.json', (_req, res) => res.json(openApiSpec));
-  app.use('/docs', swaggerUi.serve, swaggerUi.setup(openApiSpec));
+  const showApiDocs = process.env.OPEN_API_DOCS !== undefined
+    ? process.env.OPEN_API_DOCS === 'true'
+    : process.env.NODE_ENV !== 'production';
+  if (showApiDocs) {
+    app.get('/openapi.json', (_req, res) => res.json(openApiSpec));
+    app.use('/docs', swaggerUi.serve, swaggerUi.setup(openApiSpec));
+  }
 
   // 11. Admin UI — serve the SPA, vendor assets, and API endpoints
   const adminHtml = path.join(__dirname, '..', 'admin', 'index.html');
@@ -133,9 +150,7 @@ async function createServer(yamlPath) {
 }
 
 async function registerCustomEndpoints(app, core) {
-  const jwt = require('jsonwebtoken');
   const { requireAuth, optionalAuth } = require('../core/auth');
-  const db = require('../core/db');
 
   // Create a simple backend "SDK" object for handlers (mimics the JS SDK interface)
   const manifestSdk = createBackendSdk(core);
@@ -143,7 +158,7 @@ async function registerCustomEndpoints(app, core) {
   for (const [name, ep] of Object.entries(core.endpoints || {})) {
     const epPath = `/endpoints${ep.path}`;
     const method = ep.method.toLowerCase();
-    const handlerFile = path.resolve(process.env.MANIFEST_HANDLERS_FOLDER || 'handlers', `${ep.handler}.js`);
+    const handlerFile = path.resolve(process.env.CHADSTART_HANDLERS_FOLDER || process.env.MANIFEST_HANDLERS_FOLDER || 'handlers', `${ep.handler}.js`);
 
     // Build middleware chain from endpoint policies (default: public)
     const middlewares = buildEndpointPolicyMiddleware(ep);
@@ -195,58 +210,6 @@ function buildEndpointPolicyMiddleware(ep) {
   }
 }
 
-/**
- * Create a simple backend SDK for custom endpoint handlers.
- * Provides a `from(slug)` interface that maps to CRUD operations.
- */
-function createBackendSdk(core) {
-  const db = require('../core/db');
-
-  return {
-    from(slug) {
-      // Find entity by slug
-      const entity = Object.values(core.entities).find(
-        (e) => e.slug === slug || e.slug + 's' === slug || slug === e.tableName
-      );
-      if (!entity) throw new Error(`Entity not found for slug: ${slug}`);
-      const table = entity.tableName;
-
-      return {
-        find(opts) { return db.findAll(table, {}, opts || {}); },
-        findOneById(id) { return db.findById(table, id); },
-        create(data) { return db.create(table, data); },
-        update(id, data) { return db.update(table, id, data); },
-        patch(id, data) { return db.update(table, id, data); },
-        delete(id) { return db.remove(table, id); },
-      };
-    },
-    single(slug) {
-      const entity = Object.values(core.entities).find(
-        (e) => (e.slug === slug || e.tableName === slug) && e.single
-      );
-      if (!entity) throw new Error(`Single entity not found for slug: ${slug}`);
-      const table = entity.tableName;
-
-      return {
-        get() {
-          const rows = db.findAllSimple(table);
-          return rows[0] || null;
-        },
-        update(data) {
-          const rows = db.findAllSimple(table);
-          if (!rows[0]) return null;
-          return db.update(table, rows[0].id, data);
-        },
-        patch(data) {
-          const rows = db.findAllSimple(table);
-          if (!rows[0]) return null;
-          return db.update(table, rows[0].id, data);
-        },
-      };
-    },
-  };
-}
-
 async function startServer(yamlPath) {
   const { server, core } = await createServer(yamlPath);
   server.listen(core.port, () => {
@@ -258,7 +221,7 @@ async function startServer(yamlPath) {
   return { server, core };
 }
 
-module.exports = { createServer, startServer };
+module.exports = { createServer, startServer, buildApiLimiters };
 
 // ─── Admin UI helpers ─────────────────────────────────────────────────────────
 
