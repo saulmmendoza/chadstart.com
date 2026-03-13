@@ -36,7 +36,7 @@ function randomWords(count) {
   return Array.from({ length: count }, randomWord).join(' ');
 }
 
-function fakeValueForProp(prop, idx) {
+function fakeValueForProp(prop, idx, groups = {}) {
   const { name, type, options } = prop;
   const n = idx + 1;
 
@@ -85,6 +85,22 @@ function fakeValueForProp(prop, idx) {
       return `/uploads/placeholder-${n}.png`;
     case 'json':
       return JSON.stringify({ id: n, value: randomWord() });
+    case 'group': {
+      const groupName = options && options.group;
+      const groupDef = groups && groupName ? groups[groupName] : null;
+      if (groupDef && groupDef.properties) {
+        const multiple = !options || options.multiple !== false;
+        const count = multiple ? 2 : 1;
+        const items = Array.from({ length: count }, (_, j) =>
+          groupDef.properties.reduce((item, gp) => {
+            item[gp.name] = fakeValueForProp(gp, j, groups);
+            return item;
+          }, {})
+        );
+        return JSON.stringify(multiple ? items : items[0]);
+      }
+      return JSON.stringify([]);
+    }
     default:
       return `${name} ${n} ${randomWord()}`;
   }
@@ -152,9 +168,9 @@ async function seedAll(core) {
       // Regular properties
       for (const prop of entity.properties) {
         if (prop.type === 'password') {
-          record[prop.name] = bcrypt.hashSync(fakeValueForProp(prop, i), 10);
+          record[prop.name] = bcrypt.hashSync(fakeValueForProp(prop, i, core.groups), 10);
         } else {
-          record[prop.name] = fakeValueForProp(prop, i);
+          record[prop.name] = fakeValueForProp(prop, i, core.groups);
         }
       }
 

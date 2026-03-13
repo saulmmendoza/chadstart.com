@@ -71,7 +71,7 @@ function registerApiRoutes(app, core, emit) {
     const slug = entity.slug;
     const table = entity.tableName;
     const clean = entity.authenticable ? omitPassword : (r) => r;
-    const hide = (row) => hideHiddenProps(clean(row), entity);
+    const hide = (row) => hideHiddenProps(deserializeGroupProps(clean(row), entity), entity);
 
     if (entity.single) {
       const base = `/singles/${slug}`;
@@ -98,7 +98,7 @@ function registerApiRoutes(app, core, emit) {
           const row = rows[0];
           if (!row) return res.status(404).json({ error: 'Not found' });
           if (!await runMiddlewares('beforeUpdate', entity, req, res, sdk)) return;
-          const v = validateBody(req.body, entity);
+          const v = validateBody(req.body, entity, core.groups);
           if (v.errors) return res.status(400).json(v.errors);
           fireWebhooks(entity, 'beforeUpdate', req.body);
           const sanitized = sanitizeBody(req.body, entity, true);
@@ -117,7 +117,7 @@ function registerApiRoutes(app, core, emit) {
           const row = rows[0];
           if (!row) return res.status(404).json({ error: 'Not found' });
           if (!await runMiddlewares('beforeUpdate', entity, req, res, sdk)) return;
-          const v = validateBody(req.body, entity);
+          const v = validateBody(req.body, entity, core.groups);
           if (v.errors) return res.status(400).json(v.errors);
           fireWebhooks(entity, 'beforeUpdate', req.body);
           const updated = db.update(table, row.id, sanitizeBody(req.body, entity));
@@ -142,7 +142,11 @@ function registerApiRoutes(app, core, emit) {
       // GET list (paginated)
       router.get(base, mw.read, (req, res) => {
         try {
-          const result = db.findAll(table, req.query, {
+          // Ownership filter: condition: self forces a FK filter on the current user
+          const query = req._selfFilter
+            ? { ...req.query, [req._selfFilter.fk]: req._selfFilter.userId }
+            : req.query;
+          const result = db.findAll(table, query, {
             page: req.query.page,
             perPage: req.query.perPage,
             orderBy: req.query.orderBy,
@@ -162,6 +166,10 @@ function registerApiRoutes(app, core, emit) {
         try {
           const row = db.findById(table, req.params.id);
           if (!row) return res.status(404).json({ error: 'Not found' });
+          // Ownership check for read with condition: self
+          if (req._selfFilter && row[req._selfFilter.fk] !== req._selfFilter.userId) {
+            return res.status(403).json({ error: 'Access denied' });
+          }
           if (req.query.relations) db.loadRelations(row, entity, req.query.relations);
           res.json(hide(row));
         } catch (e) { res.status(500).json({ error: e.message }); }
@@ -172,7 +180,7 @@ function registerApiRoutes(app, core, emit) {
         try {
           if (!await runMiddlewares('beforeCreate', entity, req, res, sdk)) return;
           const body = applyDefaults(req.body, entity);
-          const v = validateBody(body, entity);
+          const v = validateBody(body, entity, core.groups);
           if (v.errors) return res.status(400).json(v.errors);
           fireWebhooks(entity, 'beforeCreate', body);
           const row = db.create(table, sanitizeBody(body, entity));
@@ -189,7 +197,7 @@ function registerApiRoutes(app, core, emit) {
         try {
           if (!db.findById(table, req.params.id)) return res.status(404).json({ error: 'Not found' });
           if (!await runMiddlewares('beforeUpdate', entity, req, res, sdk)) return;
-          const v = validateBody(req.body, entity);
+          const v = validateBody(req.body, entity, core.groups);
           if (v.errors) return res.status(400).json(v.errors);
           fireWebhooks(entity, 'beforeUpdate', req.body);
           const sanitized = sanitizeBody(req.body, entity, true);
@@ -207,7 +215,7 @@ function registerApiRoutes(app, core, emit) {
         try {
           if (!db.findById(table, req.params.id)) return res.status(404).json({ error: 'Not found' });
           if (!await runMiddlewares('beforeUpdate', entity, req, res, sdk)) return;
-          const v = validateBody(req.body, entity);
+          const v = validateBody(req.body, entity, core.groups);
           if (v.errors) return res.status(400).json(v.errors);
           fireWebhooks(entity, 'beforeUpdate', req.body);
           const row = db.update(table, req.params.id, sanitizeBody(req.body, entity));
@@ -310,6 +318,9 @@ function enforceSelfCondition(rule, entity, req, core) {
       throw err;
     }
     if (req.body) req.body[fk] = userId;
+  } else if (rule === 'read') {
+    // Force a FK filter so only the user's own records are returned
+    req._selfFilter = { fk, userId };
   } else if (rule === 'update' || rule === 'delete') {
     // Verify the record belongs to the user
     if (req.params && req.params.id) {
@@ -327,7 +338,6 @@ function enforceSelfCondition(rule, entity, req, core) {
       }
     }
   }
-  // For read, we would need to add a filter — handled in route handler if needed
 }
 
 // ─── Middleware execution ───────────────────────────────────────────────────
@@ -388,7 +398,7 @@ const VALIDATORS = {
   isMimeType:     (v)      => typeof v === 'string' && /^[a-zA-Z0-9][a-zA-Z0-9!#$&\-^_]*\/[a-zA-Z0-9][a-zA-Z0-9!#$&\-^_.+]*$/.test(v),
 };
 
-function validateBody(body, entity) {
+function validateBody(body, entity, groups) {
   const errors = [];
   for (const [prop, rules] of Object.entries(entity.validation || {})) {
     const val = body ? body[prop] : undefined;
@@ -403,6 +413,44 @@ function validateBody(body, entity) {
     }
     if (Object.keys(constraints).length) errors.push({ property: prop, constraints });
   }
+
+  // Validate group properties against group-level validation rules
+  if (groups) {
+    for (const p of entity.properties || []) {
+      if (p.type !== 'group') continue;
+      const val = body ? body[p.name] : undefined;
+      if (val === undefined || val === null) continue;
+      const groupName = p.options && p.options.group;
+      const groupDef = groups[groupName];
+      if (!groupDef || !groupDef.validation) continue;
+      const multiple = !p.options || p.options.multiple !== false;
+      const rawItems = multiple ? (Array.isArray(val) ? val : []) : [val];
+      rawItems.forEach((item, idx) => {
+        // Skip validation if item is not an object (e.g. primitives or invalid payloads)
+        if (!item || typeof item !== 'object' || Array.isArray(item)) return;
+        for (const [propName, rules] of Object.entries(groupDef.validation)) {
+          const itemVal = item[propName];
+          if (rules.isOptional && (itemVal === undefined || itemVal === null)) continue;
+          const constraints = {};
+          for (const [name, param] of Object.entries(rules)) {
+            if (name === 'isOptional') continue;
+            const fn = VALIDATORS[name];
+            if (fn && !fn(itemVal, param)) {
+              constraints[name] = `Validation failed: ${name}`;
+            }
+          }
+          if (Object.keys(constraints).length) {
+            // For single (non-multiple) groups use `prop.subProp`; for lists use `prop[idx].subProp`
+            const errorPath = multiple
+              ? `${p.name}[${idx}].${propName}`
+              : `${p.name}.${propName}`;
+            errors.push({ property: errorPath, constraints });
+          }
+        }
+      });
+    }
+  }
+
   return errors.length ? { errors } : { errors: null };
 }
 
@@ -486,7 +534,33 @@ function sanitizeBody(body, entity, fullReplace) {
     }
   }
 
+  // Serialize group properties to JSON strings for SQLite TEXT storage
+  for (const p of entity.properties) {
+    if (p.type === 'group' && result[p.name] !== undefined && result[p.name] !== null) {
+      if (typeof result[p.name] !== 'string') {
+        result[p.name] = JSON.stringify(result[p.name]);
+      }
+    }
+  }
+
   return result;
 }
 
-module.exports = { registerApiRoutes, validateBody, applyDefaults, hideHiddenProps, createBackendSdk };
+/**
+ * Parse group-type properties from JSON strings back to JS objects/arrays.
+ * Called before returning rows to the client.
+ */
+function deserializeGroupProps(row, entity) {
+  if (!row || !entity.properties) return row;
+  const hasGroups = entity.properties.some((p) => p.type === 'group');
+  if (!hasGroups) return row;
+  const result = { ...row };
+  for (const p of entity.properties) {
+    if (p.type === 'group' && result[p.name] && typeof result[p.name] === 'string') {
+      try { result[p.name] = JSON.parse(result[p.name]); } catch { /* leave as string if invalid JSON */ }
+    }
+  }
+  return result;
+}
+
+module.exports = { registerApiRoutes, validateBody, applyDefaults, hideHiddenProps, deserializeGroupProps, createBackendSdk };
