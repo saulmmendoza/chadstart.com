@@ -1,0 +1,38 @@
+name: Blog
+
+port: 3000
+
+userCollections:
+  Admin:
+    properties:
+      - name
+  Customer:
+    properties:
+      - name
+      - phone
+
+entities:
+  Post:
+    properties:
+      - title
+      - content
+      - published
+    permissions:
+      read: public
+      write: user:Admin
+  Comment:
+    properties:
+      - text
+    belongsTo:
+      - Post
+    permissions:
+      read: public
+      write: restricted
+
+files:
+  uploads:
+    path: ./uploads
+    public: true
+
+public:
+  folder: ./public
