@@ -440,6 +440,440 @@ const { seedAll } = require('../core/seeder');
   });
 }
 
+// ─── db – advanced filter suffixes ───────────────────────────────────────────
+
+console.log('\ndb – advanced filters');
+{
+  const tmp = path.join(os.tmpdir(), `chadstart-advfilter-${Date.now()}.db`);
+  const core = buildCore({
+    name: 'T',
+    entities: {
+      Score: { properties: [{ name: 'value', type: 'integer' }, { name: 'tag', type: 'string' }] },
+    },
+  });
+  dbModule.initDb(core, tmp);
+  dbModule.create('score', { value: 10, tag: 'alpha' });
+  dbModule.create('score', { value: 20, tag: 'bravo' });
+  dbModule.create('score', { value: 30, tag: 'charlie' });
+  dbModule.create('score', { value: 40, tag: 'delta' });
+
+  await test('_eq filter returns exact match', () => {
+    const result = dbModule.findAll('score', { tag_eq: 'alpha' });
+    assert.ok(result.data.every((r) => r.tag === 'alpha'));
+    assert.strictEqual(result.data.length, 1);
+  });
+
+  await test('_gt filter returns rows greater than value', () => {
+    const result = dbModule.findAll('score', { value_gt: '15' });
+    assert.ok(result.data.every((r) => r.value > 15));
+    assert.strictEqual(result.data.length, 3);
+  });
+
+  await test('_gte filter returns rows >= value', () => {
+    const result = dbModule.findAll('score', { value_gte: '20' });
+    assert.ok(result.data.every((r) => r.value >= 20));
+    assert.strictEqual(result.data.length, 3);
+  });
+
+  await test('_lt filter returns rows below value', () => {
+    const result = dbModule.findAll('score', { value_lt: '25' });
+    assert.ok(result.data.every((r) => r.value < 25));
+    assert.strictEqual(result.data.length, 2);
+  });
+
+  await test('_lte filter returns rows <= value', () => {
+    const result = dbModule.findAll('score', { value_lte: '20' });
+    assert.ok(result.data.every((r) => r.value <= 20));
+    assert.strictEqual(result.data.length, 2);
+  });
+
+  await test('_like filter matches pattern', () => {
+    const result = dbModule.findAll('score', { tag_like: '%lph%' });
+    assert.ok(result.data.every((r) => r.tag.includes('lph')));
+    assert.strictEqual(result.data.length, 1);
+  });
+
+  await test('_in filter returns rows matching any listed value', () => {
+    const result = dbModule.findAll('score', { tag_in: 'alpha,bravo' });
+    assert.ok(result.data.every((r) => r.tag === 'alpha' || r.tag === 'bravo'));
+    assert.strictEqual(result.data.length, 2);
+  });
+
+  await test('findAllSimple with filter returns matching rows', () => {
+    const rows = dbModule.findAllSimple('score', { tag: 'alpha' });
+    assert.ok(rows.every((r) => r.tag === 'alpha'));
+    assert.strictEqual(rows.length, 1);
+  });
+
+  await test('findAllSimple with unknown filter key returns all rows', () => {
+    const rows = dbModule.findAllSimple('score', { nonexistent_col: 'xyz' });
+    assert.ok(Array.isArray(rows));
+    assert.ok(rows.length >= 4);
+  });
+
+  fs.unlinkSync(tmp);
+}
+
+// ─── db – relations ───────────────────────────────────────────────────────────
+
+console.log('\ndb – relations');
+{
+  const tmp = path.join(os.tmpdir(), `chadstart-rel-${Date.now()}.db`);
+  const core = buildCore({
+    name: 'T',
+    entities: {
+      Post:    { properties: ['title'] },
+      Comment: { properties: ['body'], belongsTo: ['Post'] },
+      Player:  { properties: ['name'], belongsToMany: ['Skill'] },
+      Skill:   { properties: ['label'] },
+    },
+  });
+  dbModule.initDb(core, tmp);
+
+  const post    = dbModule.create('post',    { title: 'Hello World' });
+  dbModule.create('comment', { body: 'Great!', post_id: post.id });
+  dbModule.create('comment', { body: 'Thanks', post_id: post.id });
+  const commentNoPost = dbModule.create('comment', { body: 'Orphan', post_id: null });
+  const comment1      = dbModule.create('comment', { body: 'Reply', post_id: post.id });
+  const player  = dbModule.create('player', { name: 'Alice' });
+  const skill1  = dbModule.create('skill',  { label: 'Jump' });
+  const skill2  = dbModule.create('skill',  { label: 'Swim' });
+
+  await test('loadRelations: noop when row is null', () => {
+    const result = dbModule.loadRelations(null, core.entities.Comment, 'Post');
+    assert.strictEqual(result, null);
+  });
+
+  await test('loadRelations: belongsTo resolves related row', () => {
+    const row = { ...comment1 };
+    dbModule.loadRelations(row, core.entities.Comment, 'Post');
+    assert.ok(row.Post, 'related row should be attached');
+    assert.strictEqual(row.Post.id, post.id);
+    assert.strictEqual(row.Post.title, 'Hello World');
+  });
+
+  await test('loadRelations: belongsTo with null FK sets null', () => {
+    const row = { ...commentNoPost };
+    dbModule.loadRelations(row, core.entities.Comment, 'Post');
+    assert.strictEqual(row.Post, null);
+  });
+
+  await test('loadRelations: hasMany (reverse) resolves children', () => {
+    const row = { ...post };
+    dbModule.loadRelations(row, core.entities.Post, 'comment');
+    assert.ok(Array.isArray(row.comment));
+    assert.ok(row.comment.length >= 3);
+    assert.ok(row.comment.every((c) => c.post_id === post.id));
+  });
+
+  await test('loadRelations: comma-separated names loads multiple relations', () => {
+    const row = { ...comment1 };
+    dbModule.loadRelations(row, core.entities.Comment, 'Post,nonexistent');
+    assert.ok(row.Post, 'Post relation should be loaded');
+    // nonexistent relation is silently ignored
+  });
+
+  await test('saveBelongsToMany: saves junction rows and loadRelations retrieves them', () => {
+    dbModule.saveBelongsToMany(core.entities.Player, player.id, { skillIds: [skill1.id, skill2.id] });
+    const row = { ...player };
+    dbModule.loadRelations(row, core.entities.Player, 'Skill');
+    assert.ok(Array.isArray(row.Skill));
+    assert.strictEqual(row.Skill.length, 2);
+  });
+
+  await test('saveBelongsToMany: clears and replaces existing junction rows', () => {
+    dbModule.saveBelongsToMany(core.entities.Player, player.id, { skillIds: [skill1.id] });
+    const row = { ...player };
+    dbModule.loadRelations(row, core.entities.Player, 'Skill');
+    assert.strictEqual(row.Skill.length, 1);
+    assert.strictEqual(row.Skill[0].id, skill1.id);
+  });
+
+  await test('saveBelongsToMany: skips when no ids key in body', () => {
+    dbModule.saveBelongsToMany(core.entities.Player, player.id, {});
+    // state unchanged from previous test (skill1 only)
+    const row = { ...player };
+    dbModule.loadRelations(row, core.entities.Player, 'Skill');
+    assert.strictEqual(row.Skill.length, 1);
+  });
+
+  fs.unlinkSync(tmp);
+}
+
+// ─── auth – middleware ────────────────────────────────────────────────────────
+
+console.log('\nauth – middleware');
+const { requireAuth, optionalAuth } = require('../core/auth');
+
+function mockReq(headers = {}) {
+  return { headers, user: undefined };
+}
+
+function mockRes() {
+  const r = { _status: 200, _body: undefined };
+  r.status = (s) => { r._status = s; return r; };
+  r.json   = (b) => { r._body  = b; };
+  return r;
+}
+
+await test('requireAuth: 401 when no Authorization header', () => {
+  const mw  = requireAuth();
+  const req = mockReq();
+  const res = mockRes();
+  let nextCalled = false;
+  mw(req, res, () => { nextCalled = true; });
+  assert.strictEqual(res._status, 401);
+  assert.ok(!nextCalled);
+});
+
+await test('requireAuth: 401 when header lacks Bearer prefix', () => {
+  const mw  = requireAuth();
+  const req = mockReq({ authorization: 'Basic abc123' });
+  const res = mockRes();
+  let nextCalled = false;
+  mw(req, res, () => { nextCalled = true; });
+  assert.strictEqual(res._status, 401);
+  assert.ok(!nextCalled);
+});
+
+await test('requireAuth: 401 for invalid token', () => {
+  const mw  = requireAuth();
+  const req = mockReq({ authorization: 'Bearer not-a-valid-jwt' });
+  const res = mockRes();
+  let nextCalled = false;
+  mw(req, res, () => { nextCalled = true; });
+  assert.strictEqual(res._status, 401);
+  assert.ok(!nextCalled);
+});
+
+await test('requireAuth: 403 when entity does not match', () => {
+  const token = signToken({ id: 'u1', entity: 'Admin' });
+  const mw    = requireAuth('User');
+  const req   = mockReq({ authorization: `Bearer ${token}` });
+  const res   = mockRes();
+  let nextCalled = false;
+  mw(req, res, () => { nextCalled = true; });
+  assert.strictEqual(res._status, 403);
+  assert.ok(!nextCalled);
+});
+
+await test('requireAuth: sets req.user and calls next for valid token (with entity filter)', () => {
+  const token = signToken({ id: 'u2', entity: 'Admin' });
+  const mw    = requireAuth('Admin');
+  const req   = mockReq({ authorization: `Bearer ${token}` });
+  const res   = mockRes();
+  let nextCalled = false;
+  mw(req, res, () => { nextCalled = true; });
+  assert.ok(nextCalled);
+  assert.strictEqual(req.user.id, 'u2');
+  assert.strictEqual(req.user.entity, 'Admin');
+});
+
+await test('requireAuth: sets req.user and calls next without entity filter', () => {
+  const token = signToken({ id: 'u3', entity: 'Member' });
+  const mw    = requireAuth();
+  const req   = mockReq({ authorization: `Bearer ${token}` });
+  const res   = mockRes();
+  let nextCalled = false;
+  mw(req, res, () => { nextCalled = true; });
+  assert.ok(nextCalled);
+  assert.strictEqual(req.user.entity, 'Member');
+});
+
+await test('optionalAuth: calls next without user when no header', () => {
+  const req = mockReq();
+  const res = mockRes();
+  let nextCalled = false;
+  optionalAuth(req, res, () => { nextCalled = true; });
+  assert.ok(nextCalled);
+  assert.ok(!req.user);
+});
+
+await test('optionalAuth: calls next without user when token is invalid', () => {
+  const req = mockReq({ authorization: 'Bearer bad-token' });
+  const res = mockRes();
+  let nextCalled = false;
+  optionalAuth(req, res, () => { nextCalled = true; });
+  assert.ok(nextCalled);
+  assert.ok(!req.user);
+});
+
+await test('optionalAuth: sets req.user when token is valid', () => {
+  const token = signToken({ id: 'u4', entity: 'Guest' });
+  const req   = mockReq({ authorization: `Bearer ${token}` });
+  const res   = mockRes();
+  let nextCalled = false;
+  optionalAuth(req, res, () => { nextCalled = true; });
+  assert.ok(nextCalled);
+  assert.strictEqual(req.user.id, 'u4');
+  assert.strictEqual(req.user.entity, 'Guest');
+});
+
+// ─── validation – additional validators ──────────────────────────────────────
+
+console.log('\nvalidation – additional validators');
+
+await test('validates isEmail', () => {
+  const ent = { properties: [{ name: 'e', type: 'email' }], validation: { e: { isEmail: true } } };
+  assert.ok(validateBody({ e: 'not-an-email' }, ent).errors, 'invalid email should fail');
+  assert.strictEqual(validateBody({ e: 'user@example.com' }, ent).errors, null);
+});
+
+await test('validates isMimeType', () => {
+  const ent = { properties: [{ name: 'm', type: 'string' }], validation: { m: { isMimeType: true } } };
+  assert.ok(validateBody({ m: 'not a mime type' }, ent).errors, 'invalid mime type should fail');
+  assert.strictEqual(validateBody({ m: 'image/png' }, ent).errors, null);
+});
+
+await test('validates maxLength', () => {
+  const ent = { properties: [{ name: 'n', type: 'string' }], validation: { n: { maxLength: 5 } } };
+  assert.ok(validateBody({ n: 'toolongstring' }, ent).errors, 'too long should fail');
+  assert.strictEqual(validateBody({ n: 'ok' }, ent).errors, null);
+});
+
+await test('validates isNotEmpty', () => {
+  const ent = { properties: [{ name: 'n', type: 'string' }], validation: { n: { isNotEmpty: true } } };
+  assert.ok(validateBody({ n: '' }, ent).errors, 'empty string should fail');
+  assert.strictEqual(validateBody({ n: 'hello' }, ent).errors, null);
+});
+
+// ─── seeder – property types ──────────────────────────────────────────────────
+
+console.log('\nseeder – property types');
+{
+  const tmp = path.join(os.tmpdir(), `chadstart-seedtypes-${Date.now()}.db`);
+  const core = buildCore({
+    name: 'TypeTest',
+    entities: {
+      Sample: {
+        properties: [
+          { name: 'myText',      type: 'text' },
+          { name: 'myRichText',  type: 'richText' },
+          { name: 'myInt',       type: 'integer' },
+          { name: 'myFloat',     type: 'float' },
+          { name: 'myReal',      type: 'real' },
+          { name: 'myMoney',     type: 'money' },
+          { name: 'myBool',      type: 'boolean' },
+          { name: 'myDate',      type: 'date' },
+          { name: 'myTimestamp', type: 'timestamp' },
+          { name: 'myEmail',     type: 'email' },
+          { name: 'myLink',      type: 'link' },
+          { name: 'myPass',      type: 'password' },
+          { name: 'myChoice',    type: 'choice' },
+          { name: 'myLocation',  type: 'location' },
+          { name: 'myFile',      type: 'file' },
+          { name: 'myImage',     type: 'image' },
+          { name: 'myJson',      type: 'json' },
+          { name: 'myUnknown',   type: 'custom_unknown' },
+          { name: 'myOption',    type: 'string', options: ['a', 'b', 'c'] },
+        ],
+        seedCount: 3,
+      },
+    },
+  });
+  const { initDb: initTypeDb, findAll: findTypeAll } = require('../core/db');
+  initTypeDb(core, tmp);
+
+  await test('seedAll generates values for every property type', async () => {
+    const summary = await seedAll(core);
+    assert.strictEqual(summary.Sample, 3);
+    const rows = findTypeAll('sample', {}, { perPage: 100 });
+    assert.strictEqual(rows.total, 3);
+    const r = rows.data[0];
+    assert.ok(typeof r.myText === 'string' && r.myText.length > 0);
+    assert.ok(typeof r.myRichText === 'string');
+    assert.ok(typeof r.myInt === 'number');
+    assert.ok(typeof r.myFloat === 'number');
+    assert.ok(typeof r.myReal === 'number');
+    assert.ok(typeof r.myMoney === 'number');
+    assert.ok(r.myBool === 0 || r.myBool === 1);
+    assert.ok(typeof r.myDate === 'string' && r.myDate.length === 10);
+    assert.ok(typeof r.myTimestamp === 'string');
+    assert.ok(r.myEmail.includes('@'));
+    assert.ok(r.myLink.startsWith('https://'));
+    assert.ok(typeof r.myPass === 'string' && r.myPass.length > 0);
+    assert.ok(typeof r.myChoice === 'string');
+    assert.ok(r.myLocation.includes(','));
+    assert.ok(r.myFile.startsWith('/uploads/'));
+    assert.ok(r.myImage.startsWith('/uploads/'));
+    assert.doesNotThrow(() => JSON.parse(r.myJson));
+    assert.ok(typeof r.myUnknown === 'string');
+    assert.ok(['a', 'b', 'c'].includes(r.myOption));
+  });
+
+  await test('seedAll seeds a single entity exactly once', async () => {
+    const singleCore = buildCore({
+      name: 'SingleTest',
+      entities: { Config: { single: true, properties: ['key', 'value'] } },
+    });
+    const singleTmp = path.join(os.tmpdir(), `chadstart-seedsingle-${Date.now()}.db`);
+    initTypeDb(singleCore, singleTmp);
+    const summary = await seedAll(singleCore);
+    assert.strictEqual(summary.Config, 1);
+    fs.unlinkSync(singleTmp);
+  });
+
+  fs.unlinkSync(tmp);
+}
+
+// ─── entity-engine – remaining branches ──────────────────────────────────────
+
+console.log('\nentity-engine – branches');
+const { buildEntities } = require('../core/entity-engine');
+
+await test('normalizeRelation: object with only entity key', () => {
+  const core = buildCore({
+    name: 'App',
+    entities: {
+      Post:    { properties: ['t'] },
+      Comment: { properties: ['b'], belongsTo: [{ entity: 'Post' }] },
+    },
+  });
+  assert.strictEqual(core.entities.Comment.belongsTo[0].entity, 'Post');
+  assert.strictEqual(core.entities.Comment.belongsTo[0].name, 'Post');
+});
+
+await test('normalizeRelation: object with only name key', () => {
+  const core = buildCore({
+    name: 'App',
+    entities: {
+      Post:    { properties: ['t'] },
+      Comment: { properties: ['b'], belongsTo: [{ name: 'Post' }] },
+    },
+  });
+  assert.strictEqual(core.entities.Comment.belongsTo[0].entity, 'Post');
+  assert.strictEqual(core.entities.Comment.belongsTo[0].name, 'Post');
+});
+
+await test('normalizeProperty: carries hidden, default, options, helpText, validation', () => {
+  const core = buildCore({
+    name: 'App',
+    entities: {
+      Item: {
+        properties: [{
+          name: 'status', type: 'string',
+          hidden: true,
+          default: 'draft',
+          options: ['draft', 'published'],
+          helpText: 'Choose a status',
+          validation: { isIn: ['draft', 'published'] },
+        }],
+      },
+    },
+  });
+  const prop = core.entities.Item.properties[0];
+  assert.strictEqual(prop.hidden, true);
+  assert.strictEqual(prop.default, 'draft');
+  assert.deepStrictEqual(prop.options, ['draft', 'published']);
+  assert.strictEqual(prop.helpText, 'Choose a status');
+  assert.deepStrictEqual(prop.validation, { isIn: ['draft', 'published'] });
+});
+
+await test('buildCore entity with no properties defaults to empty array', () => {
+  const core = buildCore({ name: 'App', entities: { Tag: {} } });
+  assert.deepStrictEqual(core.entities.Tag.properties, []);
+});
+
 // ─── Summary ─────────────────────────────────────────────────────────────────
 
 console.log(`\n${passed + failed} tests: ${passed} passed, ${failed} failed\n`);
