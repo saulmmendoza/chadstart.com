@@ -7,7 +7,7 @@ const express = require('express');
 const swaggerUi = require('swagger-ui-express');
 const rateLimit = require('express-rate-limit');
 
-const { loadYaml } = require('../core/yaml-loader');
+const { loadYaml, saveYaml } = require('../core/yaml-loader');
 const { validateSchema } = require('../core/schema-validator');
 const { buildCore } = require('../core/entity-engine');
 const { initDb, findAll, findAllSimple } = require('../core/db');
@@ -38,11 +38,20 @@ function buildApiLimiters(core) {
   return [limiter(60 * 1000, 200)];
 }
 
-async function createServer(yamlPath) {
+/**
+ * Build an Express application for the given YAML config.
+ *
+ * @param {string}        yamlPath  Path to the chadstart.yaml file.
+ * @param {Function|null} reloadFn  When provided, the PUT /admin/config route will
+ *                                  trigger this callback after saving so the running
+ *                                  server picks up the new config without a restart.
+ * @returns {{ app: import('express').Application, core: object }}
+ */
+async function buildApp(yamlPath, reloadFn) {
   const config = loadYaml(yamlPath);
   validateSchema(config);
   const core = buildCore(config);
-  logger.info(`Starting "${core.name}"...`);
+  logger.info(`Loading "${core.name}"...`);
 
   const dbPath = core.database
     ? path.resolve(path.dirname(yamlPath), core.database)
@@ -85,7 +94,7 @@ async function createServer(yamlPath) {
     app.use('/docs', swaggerUi.serve, swaggerUi.setup(openApiSpec));
   }
 
-  // 11. Admin UI — serve the SPA, vendor assets, and API endpoints
+  // Admin UI — serve the SPA, vendor assets, and API endpoints
   const adminHtml = path.join(__dirname, '..', 'admin', 'index.html');
   const nodeModulesDir = path.join(__dirname, '..', 'node_modules');
   // Vendor assets served from node_modules (HTMX, Animate.css, Tailwind browser)
@@ -116,6 +125,58 @@ async function createServer(yamlPath) {
     });
   });
 
+  // ── Admin config endpoints ────────────────────────────────────────────
+  // GET /admin/config — return the current YAML config as JSON (auth required)
+  app.get('/admin/config', adminRateLimiter, (req, res) => {
+    const header = req.headers.authorization;
+    if (!header || !header.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    try { verifyToken(header.slice(7)); } catch {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    try {
+      res.json(loadYaml(yamlPath));
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // PUT /admin/config — receive JSON config, validate, save as YAML, then hot-reload
+  app.put('/admin/config', adminRateLimiter, (req, res) => {
+    const header = req.headers.authorization;
+    if (!header || !header.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    try { verifyToken(header.slice(7)); } catch {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    const newConfig = req.body;
+    if (!newConfig || typeof newConfig !== 'object' || Array.isArray(newConfig)) {
+      return res.status(400).json({ error: 'Invalid config: expected a JSON object' });
+    }
+    try {
+      validateSchema(newConfig);
+    } catch (e) {
+      return res.status(400).json({ error: e.message });
+    }
+    try {
+      saveYaml(yamlPath, newConfig);
+      if (reloadFn) {
+        // Schedule hot reload after the response has been fully flushed
+        res.on('finish', () => {
+          reloadFn().catch((e) => logger.error('Hot reload failed after config save:', e.message));
+        });
+        res.json({ success: true, reloading: true, message: 'Config saved. Reloading server…' });
+      } else {
+        res.json({ success: true, message: 'Config saved. Restart the server to apply changes.' });
+      }
+    } catch (e) {
+      logger.error('Failed to save config:', e.message);
+      res.status(500).json({ error: 'Failed to save config' });
+    }
+  });
+
   // HTMX table partial – returns an HTML fragment used by the Admin UI
   app.get('/admin/partials/table', adminRateLimiter, (req, res) => {
     const header = req.headers.authorization;
@@ -144,6 +205,11 @@ async function createServer(yamlPath) {
   await loadPlugins(app, core);
   app.get('/health', (_req, res) => res.json({ status: 'ok', name: core.name }));
 
+  return { app, core };
+}
+
+async function createServer(yamlPath) {
+  const { app, core } = await buildApp(yamlPath, null);
   const server = http.createServer(app);
   initRealtime(server);
   return { app, server, core };
@@ -211,7 +277,26 @@ function buildEndpointPolicyMiddleware(ep) {
 }
 
 async function startServer(yamlPath) {
-  const { server, core } = await createServer(yamlPath);
+  // ── Dispatcher pattern ───────────────────────────────────────────────
+  // The HTTP server and WebSocket server are created once and never replaced.
+  // Hot reload works by rebuilding the Express app and swapping the handler
+  // reference that the dispatcher forwards every request to.
+  let currentApp = null;
+  const dispatcher = (req, res) => currentApp(req, res);
+
+  const server = http.createServer(dispatcher);
+  initRealtime(server);
+
+  async function reload() {
+    logger.info('Reloading config…');
+    const result = await buildApp(yamlPath, reload);
+    currentApp = result.app;
+    logger.info(`Config loaded: "${result.core.name}"`);
+    return result;
+  }
+
+  const { core } = await reload();
+
   server.listen(core.port, () => {
     logger.info(`\n🚀 ${core.name} is running at http://localhost:${core.port}`);
     logger.info(`   API docs:  http://localhost:${core.port}/docs`);
@@ -221,7 +306,7 @@ async function startServer(yamlPath) {
   return { server, core };
 }
 
-module.exports = { createServer, startServer, buildApiLimiters };
+module.exports = { createServer, startServer, buildApiLimiters, buildApp };
 
 // ─── Admin UI helpers ─────────────────────────────────────────────────────────
 
