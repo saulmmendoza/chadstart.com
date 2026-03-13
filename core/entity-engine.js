@@ -104,7 +104,8 @@ function buildCore(config) {
     plugins: config.plugins || [],
     files: config.files || {},
     public: config.public || null,
-    port: parseInt(process.env.CHADSTART_PORT || config.port || 3000, 10),
+    port: parseInt(process.env.CHADSTART_PORT || process.env.PORT || config.port || 3000, 10),
+    settings: config.settings || null,
   };
 }
 

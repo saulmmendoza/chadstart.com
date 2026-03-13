@@ -23,8 +23,19 @@ function limiter(windowMs, max) {
   return rateLimit({ windowMs, max, standardHeaders: true, legacyHeaders: false, message: { error: 'Too many requests, please try again later.' } });
 }
 const authLimiter  = limiter(15 * 60 * 1000, 30);
-const apiLimiter   = limiter(60 * 1000, 200);
 const adminRateLimiter = limiter(60 * 1000, 100);
+
+/**
+ * Build the API rate limiters from settings.rateLimits (if configured)
+ * or fall back to the default single limiter.
+ */
+function buildApiLimiters(core) {
+  const configured = core.settings && core.settings.rateLimits;
+  if (configured && configured.length > 0) {
+    return configured.map((rl) => limiter(rl.ttl, rl.limit));
+  }
+  return [limiter(60 * 1000, 200)];
+}
 
 async function createServer(yamlPath) {
   const config = loadYaml(yamlPath);
@@ -57,14 +68,20 @@ async function createServer(yamlPath) {
   app.use('/api/auth', authLimiter);
   registerAuthRoutes(app, core);
 
-  app.use('/api', apiLimiter);
+  const apiLimiters = buildApiLimiters(core);
+  app.use('/api', ...apiLimiters);
   registerApiRoutes(app, core, emit);
 
   await registerCustomEndpoints(app, core);
 
   const openApiSpec = generateOpenApiSpec(core);
-  app.get('/openapi.json', (_req, res) => res.json(openApiSpec));
-  app.use('/docs', swaggerUi.serve, swaggerUi.setup(openApiSpec));
+  const showApiDocs = process.env.OPEN_API_DOCS !== undefined
+    ? process.env.OPEN_API_DOCS === 'true'
+    : process.env.NODE_ENV !== 'production';
+  if (showApiDocs) {
+    app.get('/openapi.json', (_req, res) => res.json(openApiSpec));
+    app.use('/docs', swaggerUi.serve, swaggerUi.setup(openApiSpec));
+  }
 
   // 11. Admin UI — serve the SPA, vendor assets, and API endpoints
   const adminHtml = path.join(__dirname, '..', 'admin', 'index.html');
@@ -141,7 +158,7 @@ async function registerCustomEndpoints(app, core) {
   for (const [name, ep] of Object.entries(core.endpoints || {})) {
     const epPath = `/endpoints${ep.path}`;
     const method = ep.method.toLowerCase();
-    const handlerFile = path.resolve(process.env.MANIFEST_HANDLERS_FOLDER || 'handlers', `${ep.handler}.js`);
+    const handlerFile = path.resolve(process.env.CHADSTART_HANDLERS_FOLDER || process.env.MANIFEST_HANDLERS_FOLDER || 'handlers', `${ep.handler}.js`);
 
     // Build middleware chain from endpoint policies (default: public)
     const middlewares = buildEndpointPolicyMiddleware(ep);
@@ -256,7 +273,7 @@ async function startServer(yamlPath) {
   return { server, core };
 }
 
-module.exports = { createServer, startServer };
+module.exports = { createServer, startServer, buildApiLimiters };
 
 // ─── Admin UI helpers ─────────────────────────────────────────────────────────
 
