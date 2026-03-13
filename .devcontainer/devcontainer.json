@@ -1,9 +1,8 @@
 {
   "name": "chadstart",
-  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:24-trixie",
   "features": {},
-  "onCreateCommand": "sudo apt-get update && sudo apt-get install -y python3 make g++",
-  "updateContentCommand": "npm install",
+  "onCreateCommand": "sudo apt-get update && sudo apt-get install -y python3 make g++ curl wget && npm ci",
   "postCreateCommand": "cp -n .env.example .env || true",
   "forwardPorts": [3000],
   "portsAttributes": {
