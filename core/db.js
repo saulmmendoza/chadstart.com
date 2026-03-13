@@ -25,7 +25,7 @@ function generateUUID() {
 }
 
 function initDb(core, dbPath) {
-  const resolved = dbPath ? path.resolve(dbPath) : path.resolve(process.env.DB_PATH || 'chadstart.db');
+  const resolved = dbPath ? path.resolve(dbPath) : path.resolve(process.env.DB_PATH || 'data/chadstart.db');
   try {
     fs.mkdirSync(path.dirname(resolved), { recursive: true });
   } catch (err) {
