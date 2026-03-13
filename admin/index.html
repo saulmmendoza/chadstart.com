@@ -42,11 +42,18 @@
     <div class="font-semibold text-cs-text text-base mb-6">ChadStart Admin</div>
     <div id="login-error" class="text-red-400 text-sm mb-4 hidden"></div>
 
-    <label class="block text-sm text-cs-muted mb-1">Collection</label>
-    <select id="login-collection"
-      class="w-full bg-cs-bg border border-cs-border rounded text-cs-text px-3 py-2 text-sm mb-4 outline-none focus:border-cs-primary" style="transition: border-color 150ms ease;">
-      <option value="">Loading…</option>
-    </select>
+    <div id="login-collection-section" class="hidden mb-4">
+      <label class="block text-sm text-cs-muted mb-1">Collection</label>
+      <input type="text" id="login-collection"
+        class="w-full bg-cs-bg border border-cs-border rounded text-cs-text px-3 py-2 text-sm outline-none focus:border-cs-primary" style="transition: border-color 150ms ease;"
+        placeholder="Admin collection name" autocomplete="off" />
+    </div>
+    <div class="mb-4 text-right">
+      <button type="button" id="toggle-collection-btn" onclick="toggleCollectionField()"
+        class="text-xs text-cs-muted hover:text-cs-primary cursor-pointer" style="transition: color 150ms ease; background: none; border: none; padding: 0;">
+        Change collection
+      </button>
+    </div>
 
     <label class="block text-sm text-cs-muted mb-1">Email</label>
     <input type="email" id="login-email" placeholder="admin@example.com" autocomplete="email"
@@ -193,18 +200,33 @@
 
   // ── Auth ───────────────────────────────────────────────────────────────
   function getAdminCollections() {
-    return (schema.userCollections || []).filter(uc => uc.admin !== false);
+    return (schema.entities || []).filter(e => e.authenticable && e.admin !== false);
   }
 
   function populateLoginCollections() {
     const cols = getAdminCollections();
-    document.getElementById('login-collection').innerHTML = cols.length
-      ? cols.map(c => `<option value="${c.name}">${c.name}</option>`).join('')
-      : '<option value="">No admin collections</option>';
+    const input = document.getElementById('login-collection');
+    if (cols.length) {
+      input.value = cols[0].name;
+    } else {
+      input.value = '';
+      const errEl = document.getElementById('login-error');
+      errEl.textContent = 'No admin collections configured'; errEl.classList.remove('hidden');
+      document.getElementById('login-btn').disabled = true;
+    }
+  }
+
+  function toggleCollectionField() {
+    const section = document.getElementById('login-collection-section');
+    const btn = document.getElementById('toggle-collection-btn');
+    const isHidden = section.classList.contains('hidden');
+    section.classList.toggle('hidden', !isHidden);
+    btn.textContent = isHidden ? 'Hide collection' : 'Change collection';
+    if (isHidden) document.getElementById('login-collection').focus();
   }
 
   async function doLogin() {
-    const collectionName = document.getElementById('login-collection').value;
+    const collectionName = document.getElementById('login-collection').value.trim().replace(/[^a-zA-Z0-9 _-]/g, '');
     const email = document.getElementById('login-email').value.trim();
     const password = document.getElementById('login-password').value;
     const errEl = document.getElementById('login-error');
