@@ -97,7 +97,7 @@ function registerApiRoutes(app, core, emit) {
           const rows = db.findAllSimple(table);
           const row = rows[0];
           if (!row) return res.status(404).json({ error: 'Not found' });
-          if (!await runMiddlewares('beforeUpdate', entity, req, res)) return;
+          if (!await runMiddlewares('beforeUpdate', entity, req, res, sdk)) return;
           const v = validateBody(req.body, entity, core.groups);
           if (v.errors) return res.status(400).json(v.errors);
           fireWebhooks(entity, 'beforeUpdate', req.body);
@@ -116,7 +116,7 @@ function registerApiRoutes(app, core, emit) {
           const rows = db.findAllSimple(table);
           const row = rows[0];
           if (!row) return res.status(404).json({ error: 'Not found' });
-          if (!await runMiddlewares('beforeUpdate', entity, req, res)) return;
+          if (!await runMiddlewares('beforeUpdate', entity, req, res, sdk)) return;
           const v = validateBody(req.body, entity, core.groups);
           if (v.errors) return res.status(400).json(v.errors);
           fireWebhooks(entity, 'beforeUpdate', req.body);
@@ -196,7 +196,7 @@ function registerApiRoutes(app, core, emit) {
       router.put(`${base}/:id`, mw.update, async (req, res) => {
         try {
           if (!db.findById(table, req.params.id)) return res.status(404).json({ error: 'Not found' });
-          if (!await runMiddlewares('beforeUpdate', entity, req, res)) return;
+          if (!await runMiddlewares('beforeUpdate', entity, req, res, sdk)) return;
           const v = validateBody(req.body, entity, core.groups);
           if (v.errors) return res.status(400).json(v.errors);
           fireWebhooks(entity, 'beforeUpdate', req.body);
@@ -214,7 +214,7 @@ function registerApiRoutes(app, core, emit) {
       router.patch(`${base}/:id`, mw.update, async (req, res) => {
         try {
           if (!db.findById(table, req.params.id)) return res.status(404).json({ error: 'Not found' });
-          if (!await runMiddlewares('beforeUpdate', entity, req, res)) return;
+          if (!await runMiddlewares('beforeUpdate', entity, req, res, sdk)) return;
           const v = validateBody(req.body, entity, core.groups);
           if (v.errors) return res.status(400).json(v.errors);
           fireWebhooks(entity, 'beforeUpdate', req.body);

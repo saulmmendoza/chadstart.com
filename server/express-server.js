@@ -16,6 +16,7 @@ const { registerAuthRoutes, verifyToken, omitPassword } = require('../core/auth'
 const { initRealtime, emit } = require('../core/realtime');
 const { generateOpenApiSpec } = require('../core/openapi');
 const { registerFileRoutes } = require('../core/file-storage');
+const { registerUploadRoutes } = require('../core/upload');
 const { loadPlugins } = require('../core/plugin-loader');
 const logger = require('../utils/logger');
 
@@ -64,6 +65,7 @@ async function createServer(yamlPath) {
   }
 
   registerFileRoutes(app, core);
+  registerUploadRoutes(app, core);
 
   app.use('/api/auth', authLimiter);
   registerAuthRoutes(app, core);

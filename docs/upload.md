@@ -89,7 +89,48 @@ A file should be related to a property with the [file property type](./entities.
 
 An image should be related to a property with the [image property type](./entities.md#image). ChadStart accepts **.PNG** and **.JPG** images only.
 
-Each image uploaded will be optimized and resized into several sizes based on [the property parameters](./entities.md#property-params). By default it generates a _thumbnail_ of 80x80 and a _medium_ of 160x160
+### Default behavior
+
+By default, uploaded images are **compressed to JPEG** at quality 80. Resizing is **not applied** unless sizes are explicitly configured in the YAML — the image is stored as-is (after compression).
+
+### Disable compression
+
+Set `compress: false` on the image property to keep the original file untouched:
+
+```yaml
+entities:
+  Cat:
+    properties:
+      - name: avatar
+        type: image
+        options:
+          compress: false
+```
+
+You can also adjust the JPEG quality (1–100, default `80`):
+
+```yaml
+options:
+  quality: 60
+```
+
+### Enable resizing
+
+Define `sizes` on the image property to resize the image into one or more named variants. Each variant is stored as a separate JPEG file and the response contains a URL for each:
+
+```yaml
+entities:
+  Cat:
+    properties:
+      - name: avatar
+        type: image
+        options:
+          sizes:
+            thumbnail: [80, 80]
+            medium: [160, 160]
+```
+
+When sizes are configured, compression also applies to each resized variant (set `compress: false` to use lossless quality instead).
 
 <Tabs>
   <TabItem value="sdk" label="JS SDK" default>
@@ -99,13 +140,17 @@ Each image uploaded will be optimized and resized into several sizes based on [t
       'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/wcAAwAB/eb7jLwAAAAASUVORK5CYII='
     const imageBlob: Blob = base64ToBlob(base64Image, 'image/png')
 
-    // Upload the image.
+    // Upload the image (default: compressed to JPEG, no resize).
     const image = await chadstart.from('cats').uploadImage('avatar', imageBlob)
 
     console.log(image)
-    // Output: {
-    // "medium": "http://localhost:3000/cats/avatar/Oct2024/8dabo9qm1q4n1nk-medium.jpg",
-    // "thumbnail": "http://localhost:3000/cats/avatar/Oct2024/8dabo9qm1q4n1nk-thumbnail.jpg"
+    // Output (no sizes configured):
+    // { "path": "http://localhost:3000/cats/avatar/Oct2024/8dabo9qm1q4n1nk-avatar.jpg" }
+
+    // Output (sizes configured in YAML):
+    // {
+    //   "medium": "http://localhost:3000/cats/avatar/Oct2024/8dabo9qm1q4n1nk-medium.jpg",
+    //   "thumbnail": "http://localhost:3000/cats/avatar/Oct2024/8dabo9qm1q4n1nk-thumbnail.jpg"
     // }
 
     // Then you can store the path in the database.
@@ -127,10 +172,15 @@ Each image uploaded will be optimized and resized into several sizes based on [t
         property: avatar
     }
 
-    // Response.
+    // Response (no sizes configured — default):
     {
-     "medium": "http://localhost:3000/cats/avatar/Oct2024/8dabo9qm1q4n1nk-medium.jpg",
-     "thumbnail": "http://localhost:3000/cats/avatar/Oct2024/8dabo9qm1q4n1nk-thumbnail.jpg"
+      "path": "http://localhost:3000/cats/avatar/Oct2024/8dabo9qm1q4n1nk-avatar.jpg"
+    }
+
+    // Response (sizes configured in YAML):
+    {
+      "medium": "http://localhost:3000/cats/avatar/Oct2024/8dabo9qm1q4n1nk-medium.jpg",
+      "thumbnail": "http://localhost:3000/cats/avatar/Oct2024/8dabo9qm1q4n1nk-thumbnail.jpg"
     }
     ```
 
