@@ -31,15 +31,10 @@ Optionally, you can set a folder prefix to prepend your object path:
 S3_FOLDER_PREFIX=development/chadstart
 ```
 
-:::note  
-S3 storage in ChadStart has been **validated** with **AWS S3** and **Digital Ocean Spaces**. Other S3-compatible providers may work, but they have not been officially tested.  
-:::
+!!! note
+    S3 storage in ChadStart has been **validated** with **AWS S3** and **Digital Ocean Spaces**. Other S3-compatible providers may work, but they have not been officially tested.
 
 ## ChadStart guides
 
-<a href="https://chadstart.com/integrations/s3-storage" download>
-AWS S3 Storage guide
-</a>
-<a href="https://chadstart.com/integrations/digital-ocean-spaces" download>
-Digital Ocean Spaces guide
-</a>
+- [AWS S3 Storage guide](https://chadstart.com/integrations/s3-storage)
+- [Digital Ocean Spaces guide](https://chadstart.com/integrations/digital-ocean-spaces)

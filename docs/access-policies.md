@@ -12,9 +12,8 @@ Access policies are a way to implement **Authorization** following the RBAC (Rol
 
 Policies can be added to [entities](./entities.md) and [endpoints](./endpoints.md).
 
-:::info
-By default, all CRUD rules access are set to **admin** and thus only available for logged-in admins. Custom endpoints are **public** by default.
-:::
+!!! info
+    By default, all CRUD rules access are set to **admin** and thus only available for logged-in admins. Custom endpoints are **public** by default.
 
 ## Syntax
 
