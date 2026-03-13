@@ -1,0 +1,52 @@
+'use strict';
+
+const assert = require('assert');
+const path = require('path');
+const fs = require('fs');
+
+describe('schema-validator', () => {
+  const { validateSchema } = require('../core/schema-validator');
+
+  it('accepts valid minimal config', () => assert.strictEqual(validateSchema({ name: 'Test' }), true));
+  it('rejects missing name', () => assert.throws(() => validateSchema({}), /name/i));
+  it('rejects non-string name', () => assert.throws(() => validateSchema({ name: 42 }), /name/i));
+  it('accepts entities map', () => assert.strictEqual(validateSchema({ name: 'App', entities: { Post: { properties: ['title'] } } }), true));
+  it('rejects entities as array', () => assert.throws(() => validateSchema({ name: 'App', entities: [] }), /entities/i));
+  it('rejects unknown property type', () => {
+    assert.throws(() => validateSchema({ name: 'App', entities: { Post: { properties: [{ name: 'x', type: 'banana' }] } } }));
+  });
+  it('accepts authenticable entity', () => assert.strictEqual(validateSchema({ name: 'App', entities: { Admin: { authenticable: true, properties: ['name'] } } }), true));
+  it('rejects authenticable as non-boolean', () => assert.throws(() => validateSchema({ name: 'App', entities: { Admin: { authenticable: 'yes' } } })));
+  it('accepts policies', () => assert.strictEqual(validateSchema({ name: 'App', entities: { Post: { properties: ['title'], policies: { read: [{ access: 'public' }], create: [{ access: 'restricted', allow: 'Admin' }] } } } }), true));
+  it('rejects unknown policy rule', () => assert.throws(() => validateSchema({ name: 'App', entities: { Post: { policies: { unknown: [{ access: 'public' }] } } } })));
+  it('accepts validation rules', () => assert.strictEqual(validateSchema({ name: 'App', entities: { Post: { properties: ['title'], validation: { title: { required: true } } } } }), true));
+  it('accepts hooks', () => assert.strictEqual(validateSchema({ name: 'App', entities: { Post: { hooks: { beforeCreate: [{ url: 'https://example.com' }] } } } }), true));
+  it('accepts middlewares', () => assert.strictEqual(validateSchema({ name: 'App', entities: { Post: { middlewares: { afterCreate: [{ handler: 'sendEmail' }] } } } }), true));
+  it('accepts belongsToMany', () => assert.strictEqual(validateSchema({ name: 'App', entities: { Player: { properties: ['name'], belongsToMany: ['Skill'] }, Skill: { properties: ['name'] } } }), true));
+  it('accepts single entity', () => assert.strictEqual(validateSchema({ name: 'App', entities: { Home: { single: true, properties: ['title'] } } }), true));
+  it('accepts endpoints', () => assert.strictEqual(validateSchema({ name: 'App', endpoints: { hello: { path: '/hello', method: 'GET', handler: 'hello' } } }), true));
+  it('rejects endpoint missing handler', () => assert.throws(() => validateSchema({ name: 'App', endpoints: { bad: { path: '/bad', method: 'GET' } } })));
+  it('accepts groups', () => assert.strictEqual(validateSchema({ name: 'App', groups: { T: { properties: [{ name: 'author', type: 'string' }] } } }), true));
+  it('rejects invalid file bucket', () => assert.throws(() => validateSchema({ name: 'App', files: { uploads: {} } }), /path/i));
+  it('rejects invalid plugin', () => assert.throws(() => validateSchema({ name: 'App', plugins: [{ name: 'bad' }] })));
+  it('accepts emoji access', () => assert.strictEqual(validateSchema({ name: 'App', entities: { Post: { policies: { read: [{ access: '🌐' }] } } } }), true));
+  it('rejects unknown top-level key', () => assert.throws(() => validateSchema({ name: 'App', userCollections: { Admin: {} } })));
+});
+
+describe('json-schema', () => {
+  const { validateSchema } = require('../core/schema-validator');
+  const { loadYaml } = require('../core/yaml-loader');
+
+  it('chadstart.schema.json is valid JSON', () => {
+    const schema = JSON.parse(fs.readFileSync(path.resolve(__dirname, '..', 'chadstart.schema.json'), 'utf8'));
+    assert.strictEqual(schema.$schema, 'http://json-schema.org/draft-07/schema#');
+    assert.ok(schema.properties.entities);
+    assert.ok(schema.$defs.entity);
+    assert.ok(schema.$defs.policies);
+  });
+
+  it('schema file can validate the example config', () => {
+    const config = loadYaml(path.resolve(__dirname, '..', 'chadstart.yaml'));
+    assert.strictEqual(validateSchema(config), true);
+  });
+});
