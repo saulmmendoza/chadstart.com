@@ -148,7 +148,10 @@
       <!-- Section description -->
       <p id="cfg-section-desc" class="text-xs mb-3" style="color:#888;"></p>
 
-      <!-- JSON editor -->
+      <!-- Form-based editor (General / Entities / Endpoints / Files / Settings tabs) -->
+      <div id="cfg-form" class="hidden"></div>
+
+      <!-- Raw JSON editor (All tab) -->
       <textarea id="cfg-editor"
         class="w-full bg-cs-bg border border-cs-border rounded text-cs-text px-3 py-2.5 text-xs font-mono outline-none focus:border-cs-primary resize-y"
         style="min-height:400px;transition:border-color 150ms;line-height:1.6;tab-size:2;"
@@ -510,26 +513,427 @@
 
   // ── Config Editor ─────────────────────────────────────────────────────
   let configMode = false;
-  let configData = null;     // full config object from server
+  let configData = null;
   let configActiveTab = 'general';
+  let _cfgEntityId = 0, _cfgEndpointId = 0, _cfgFileId = 0, _cfgRlId = 0;
 
   const CFG_TABS = {
     general:   { keys: ['name', 'port', 'database', 'public'],  desc: 'Application name, port, database path, and public static folder.' },
-    entities:  { keys: ['entities'],  desc: 'Entity definitions including properties, relations, access policies, webhooks, and middlewares.' },
-    endpoints: { keys: ['endpoints'], desc: 'Custom REST endpoint definitions (path, method, handler, policies).' },
+    entities:  { keys: ['entities'],  desc: 'Entity definitions — properties, relations, and flags.' },
+    endpoints: { keys: ['endpoints'], desc: 'Custom REST endpoint definitions (path, method, handler).' },
     files:     { keys: ['files'],     desc: 'File bucket definitions for local uploads.', s3: true },
     settings:  { keys: ['settings', 'groups'], desc: 'API rate limits and reusable property groups.' },
-    all:       { keys: null,          desc: 'Full configuration — all sections combined.' },
+    all:       { keys: null,          desc: 'Full configuration — all sections combined (raw JSON for advanced use).' },
   };
 
+  const CFG_FORM_TABS = new Set(['general', 'entities', 'endpoints', 'files', 'settings']);
+
+  const PROP_TYPES = [
+    'string','text','richText','integer','number','float','money',
+    'boolean','email','password','date','timestamp','link',
+    'file','image','choice','location','json',
+  ];
+
+  // Shared Tailwind class strings for consistent form styling
+  const _INP    = 'bg-cs-bg border border-cs-border rounded text-cs-text px-2 py-1.5 text-sm outline-none focus:border-cs-primary';
+  const _INP_XS = 'bg-cs-bg border border-cs-border rounded text-cs-text px-2 py-1 text-xs outline-none focus:border-cs-primary';
+  const _LBL    = 'block text-xs mb-1';
+
+  // General tab: labeled inputs for name, port, database, public folder
+  function renderGeneralForm() {
+    const d   = configData || {};
+    const pub = d.public || {};
+    function fld(label, id, val, ph, type, hint) {
+      return '<div>'
+        + '<label class="' + _LBL + '" style="color:#888;">' + label + '</label>'
+        + '<input type="' + (type || 'text') + '" id="' + id + '" value="' + escAttr(String(val != null ? val : '')) + '" placeholder="' + escAttr(ph) + '"'
+        + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" />'
+        + (hint ? '<p class="text-xs mt-1" style="color:#666;">' + hint + '</p>' : '')
+        + '</div>';
+    }
+    return '<div class="space-y-4 max-w-lg">'
+      + fld('App Name <span style="color:#f87171;">*</span>', 'cfg-f-name',          d.name || '',                       'My App',           'text')
+      + fld('Port',                                          'cfg-f-port',          d.port !== undefined ? d.port : '', '3000',             'number', 'Default: 3000')
+      + fld('Database path',                                 'cfg-f-database',      d.database || '',                   'data/chadstart.db','text',   'Path relative to the config file. Leave blank for the default.')
+      + fld('Public folder',                                 'cfg-f-public-folder', pub.folder || '',                   'public',           'text',   'Folder for static files served at the root (HTML, CSS, JS, etc.).')
+      + '</div>';
+  }
+
+  function collectGeneralForm() {
+    const name    = document.getElementById('cfg-f-name').value.trim();
+    const portStr = document.getElementById('cfg-f-port').value.trim();
+    const db      = document.getElementById('cfg-f-database').value.trim();
+    const folder  = document.getElementById('cfg-f-public-folder').value.trim();
+    const result  = { name: name || (configData && configData.name) || 'App' };
+    if (portStr) result.port     = parseInt(portStr, 10);
+    if (db)      result.database = db;
+    if (folder)  result.public   = { folder: folder };
+    return result;
+  }
+
+  // Entities tab: card list with name, flags, relations, property rows
+  function renderEntitiesForm() {
+    _cfgEntityId = 0;
+    const entities = (configData && configData.entities) || {};
+    let cards = '';
+    for (const key of Object.keys(entities)) cards += renderEntityCard(key, entities[key]);
+    return '<div id="cfg-entities-list" class="space-y-3">' + cards + '</div>'
+      + '<button type="button" onclick="addEntityCard()"'
+      + ' class="mt-3 text-xs border border-cs-border rounded px-3 py-1.5 text-cs-muted hover:text-cs-text cursor-pointer"'
+      + ' style="transition:color 150ms,background 150ms;">+ Add entity</button>';
+  }
+
+  function _propTypeSelect(cls, sel) {
+    let opts = '';
+    for (const t of PROP_TYPES) opts += '<option value="' + t + '"' + (t === sel ? ' selected' : '') + '>' + t + '</option>';
+    return '<select class="' + cls + '" style="transition:border-color 150ms;">' + opts + '</select>';
+  }
+
+  function renderEntityCard(entityName, def) {
+    const id     = _cfgEntityId++;
+    const props  = def.properties || [];
+    const btArr  = (def.belongsTo     || []).map(function(r) { return typeof r === 'string' ? r : (r.entity || ''); }).filter(Boolean);
+    const btmArr = (def.belongsToMany || []).map(function(r) { return typeof r === 'string' ? r : (r.entity || ''); }).filter(Boolean);
+    let propsHtml = '';
+    for (const p of props) {
+      propsHtml += renderPropRow(
+        typeof p === 'string' ? p : (p.name || ''),
+        typeof p === 'string' ? 'string' : (p.type || 'string')
+      );
+    }
+    return '<div class="entity-card rounded border p-4" style="border-color:#2a2a2a;background:#181818;"'
+      + ' data-entity-id="' + id + '" data-original-name="' + escAttr(entityName) + '">'
+      + '<div class="flex flex-wrap items-end gap-3 mb-3">'
+        + '<div class="flex-1" style="min-width:160px;">'
+          + '<label class="' + _LBL + '" style="color:#888;">Entity name</label>'
+          + '<input type="text" id="cfg-e-name-' + id + '" value="' + escAttr(entityName) + '" placeholder="Post"'
+          + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" />'
+        + '</div>'
+        + '<div class="flex gap-4 items-center" style="padding-bottom:2px;">'
+          + '<label class="flex items-center gap-1.5 text-xs cursor-pointer select-none" style="color:#888;">'
+          + '<input type="checkbox" id="cfg-e-auth-' + id + '"' + (def.authenticable ? ' checked' : '') + ' />'
+          + ' User collection</label>'
+          + '<label class="flex items-center gap-1.5 text-xs cursor-pointer select-none" style="color:#888;">'
+          + '<input type="checkbox" id="cfg-e-single-' + id + '"' + (def.single ? ' checked' : '') + ' />'
+          + ' Single</label>'
+        + '</div>'
+        + '<button type="button" onclick="removeEntityCard(' + id + ')"'
+        + ' class="text-xs px-2 py-1.5 rounded border cursor-pointer"'
+        + ' style="border-color:rgba(239,68,68,0.3);color:#f87171;background:transparent;">Remove</button>'
+      + '</div>'
+      + '<div class="grid gap-3 mb-3" style="grid-template-columns:1fr 1fr;">'
+        + '<div><label class="' + _LBL + '" style="color:#888;">Belongs to <span style="color:#555;">(comma-separated)</span></label>'
+        + '<input type="text" id="cfg-e-bt-' + id + '" value="' + escAttr(btArr.join(', ')) + '" placeholder="User, Category"'
+        + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
+        + '<div><label class="' + _LBL + '" style="color:#888;">Belongs to many <span style="color:#555;">(comma-separated)</span></label>'
+        + '<input type="text" id="cfg-e-btm-' + id + '" value="' + escAttr(btmArr.join(', ')) + '" placeholder="Tag"'
+        + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
+      + '</div>'
+      + '<div>'
+        + '<div class="flex items-center justify-between mb-1.5">'
+          + '<span class="text-xs" style="color:#888;">Properties</span>'
+          + '<button type="button" onclick="addPropRow(' + id + ')"'
+          + ' class="text-xs px-2 py-0.5 rounded border cursor-pointer"'
+          + ' style="border-color:#2a2a2a;color:#888;background:transparent;transition:color 150ms;">+ Add property</button>'
+        + '</div>'
+        + '<div id="cfg-e-props-' + id + '" class="space-y-1.5">' + propsHtml + '</div>'
+      + '</div>'
+      + '</div>';
+  }
+
+  function renderPropRow(name, type) {
+    return '<div class="flex gap-2 items-center prop-row">'
+      + '<input type="text" value="' + escAttr(name) + '" placeholder="property name"'
+      + ' class="flex-1 ' + _INP_XS + ' prop-name" style="transition:border-color 150ms;" />'
+      + _propTypeSelect(_INP_XS + ' prop-type', type)
+      + '<button type="button" onclick="_cfgRmPropRow(this)"'
+      + ' class="text-xs px-1.5 rounded cursor-pointer" style="color:#555;background:transparent;" title="Remove">×</button>'
+      + '</div>';
+  }
+
+  function addPropRow(entityId) {
+    document.getElementById('cfg-e-props-' + entityId).insertAdjacentHTML('beforeend', renderPropRow('', 'string'));
+  }
+
+  function _cfgRmPropRow(btn)         { btn.closest('.prop-row').remove(); }
+  function _cfgRmEndpointCard(btn)    { btn.closest('.endpoint-card').remove(); }
+  function _cfgRmFileBucketCard(btn)  { btn.closest('.file-bucket-card').remove(); }
+  function _cfgRmRateLimitRow(btn)    { btn.closest('.rl-row').remove(); }
+
+  function addEntityCard() {
+    document.getElementById('cfg-entities-list').insertAdjacentHTML('beforeend', renderEntityCard('', {}));
+  }
+
+  function removeEntityCard(id) {
+    const card = document.querySelector('[data-entity-id="' + id + '"]');
+    if (card) card.remove();
+  }
+
+  function collectEntitiesForm() {
+    const entities = {};
+    for (const card of document.querySelectorAll('.entity-card')) {
+      const id       = card.dataset.entityId;
+      const origName = card.dataset.originalName;
+      const nameEl   = document.getElementById('cfg-e-name-' + id);
+      const name     = nameEl ? nameEl.value.trim() : '';
+      if (!name) continue;
+
+      const authEl   = document.getElementById('cfg-e-auth-' + id);
+      const singleEl = document.getElementById('cfg-e-single-' + id);
+      const btEl     = document.getElementById('cfg-e-bt-' + id);
+      const btmEl    = document.getElementById('cfg-e-btm-' + id);
+
+      const authenticable = authEl   ? authEl.checked   : false;
+      const single        = singleEl ? singleEl.checked : false;
+      const btStr         = btEl  ? btEl.value.trim()  : '';
+      const btmStr        = btmEl ? btmEl.value.trim() : '';
+
+      // Preserve advanced entity-level fields (hooks, middlewares, policies, etc.)
+      const existing = (configData && configData.entities && configData.entities[origName]) || {};
+      const def = Object.assign({}, existing);
+
+      if (authenticable) def.authenticable = true; else delete def.authenticable;
+      if (single)        def.single        = true; else delete def.single;
+
+      const bt  = btStr  ? btStr.split(',').map(function(s) { return s.trim(); }).filter(Boolean)  : [];
+      const btm = btmStr ? btmStr.split(',').map(function(s) { return s.trim(); }).filter(Boolean) : [];
+      if (bt.length)  def.belongsTo     = bt;  else delete def.belongsTo;
+      if (btm.length) def.belongsToMany = btm; else delete def.belongsToMany;
+
+      // Build property list, preserving advanced per-property config (validation, hidden, etc.)
+      const origProps  = existing.properties || [];
+      const origByName = {};
+      for (const p of origProps) {
+        const n = typeof p === 'string' ? p : p.name;
+        if (n) origByName[n] = p;
+      }
+      const properties = [];
+      for (const row of card.querySelectorAll('.prop-row')) {
+        const pNameEl = row.querySelector('.prop-name');
+        const pTypeEl = row.querySelector('.prop-type');
+        const pName = pNameEl ? pNameEl.value.trim() : '';
+        const pType = pTypeEl ? pTypeEl.value : 'string';
+        if (!pName) continue;
+        const orig = origByName[pName];
+        if (orig && typeof orig === 'object') {
+          properties.push(Object.assign({}, orig, { type: pType }));
+        } else {
+          properties.push(pType === 'string' ? pName : { name: pName, type: pType });
+        }
+      }
+      if (properties.length) def.properties = properties; else delete def.properties;
+
+      entities[name] = def;
+    }
+    return entities;
+  }
+
+  // Endpoints tab: card list with name, path, method, handler, description
+  function renderEndpointsForm() {
+    _cfgEndpointId = 0;
+    const endpoints = (configData && configData.endpoints) || {};
+    let cards = '';
+    for (const key of Object.keys(endpoints)) cards += renderEndpointCard(key, endpoints[key]);
+    return '<div id="cfg-endpoints-list" class="space-y-3">' + cards + '</div>'
+      + '<button type="button" onclick="addEndpointCard()"'
+      + ' class="mt-3 text-xs border border-cs-border rounded px-3 py-1.5 text-cs-muted hover:text-cs-text cursor-pointer"'
+      + ' style="transition:color 150ms,background 150ms;">+ Add endpoint</button>';
+  }
+
+  function renderEndpointCard(epName, def) {
+    const id      = _cfgEndpointId++;
+    const methods = ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'];
+    let methodOpts = '';
+    for (const m of methods) methodOpts += '<option value="' + m + '"' + (m === (def.method || 'GET') ? ' selected' : '') + '>' + m + '</option>';
+    const methodSel = '<select id="cfg-ep-method-' + id + '" class="w-full ' + _INP + '" style="transition:border-color 150ms;">' + methodOpts + '</select>';
+    return '<div class="endpoint-card rounded border p-4" style="border-color:#2a2a2a;background:#181818;" data-endpoint-id="' + id + '">'
+      + '<div class="grid gap-3 mb-3" style="grid-template-columns:1fr 1fr;">'
+        + '<div><label class="' + _LBL + '" style="color:#888;">Name</label>'
+        + '<input type="text" id="cfg-ep-name-' + id + '" value="' + escAttr(epName) + '" placeholder="sendEmail"'
+        + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
+        + '<div><label class="' + _LBL + '" style="color:#888;">Path</label>'
+        + '<input type="text" id="cfg-ep-path-' + id + '" value="' + escAttr(def.path || '') + '" placeholder="/send-email"'
+        + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
+        + '<div><label class="' + _LBL + '" style="color:#888;">Method</label>' + methodSel + '</div>'
+        + '<div><label class="' + _LBL + '" style="color:#888;">Handler</label>'
+        + '<input type="text" id="cfg-ep-handler-' + id + '" value="' + escAttr(def.handler || '') + '" placeholder="sendEmailHandler"'
+        + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
+      + '</div>'
+      + '<div class="flex items-end gap-3">'
+        + '<div class="flex-1"><label class="' + _LBL + '" style="color:#888;">Description <span style="color:#555;">(optional)</span></label>'
+        + '<input type="text" id="cfg-ep-desc-' + id + '" value="' + escAttr(def.description || '') + '" placeholder="What this endpoint does"'
+        + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
+        + '<button type="button" onclick="_cfgRmEndpointCard(this)"'
+        + ' class="text-xs px-2 py-1.5 rounded border cursor-pointer"'
+        + ' style="border-color:rgba(239,68,68,0.3);color:#f87171;background:transparent;">Remove</button>'
+      + '</div>'
+      + '</div>';
+  }
+
+  function addEndpointCard() {
+    document.getElementById('cfg-endpoints-list').insertAdjacentHTML('beforeend', renderEndpointCard('', {}));
+  }
+
+  function collectEndpointsForm() {
+    const endpoints = {};
+    for (const card of document.querySelectorAll('.endpoint-card')) {
+      const id      = card.dataset.endpointId;
+      const nameEl  = document.getElementById('cfg-ep-name-' + id);
+      const pathEl  = document.getElementById('cfg-ep-path-' + id);
+      const methEl  = document.getElementById('cfg-ep-method-' + id);
+      const handEl  = document.getElementById('cfg-ep-handler-' + id);
+      const descEl  = document.getElementById('cfg-ep-desc-' + id);
+      const name    = nameEl ? nameEl.value.trim() : '';
+      const path    = pathEl ? pathEl.value.trim() : '';
+      const method  = methEl ? methEl.value : 'GET';
+      const handler = handEl ? handEl.value.trim() : '';
+      const desc    = descEl ? descEl.value.trim() : '';
+      if (!name || !path || !handler) continue;
+      const existing = (configData && configData.endpoints && configData.endpoints[name]) || {};
+      const def = Object.assign({}, existing, { path: path, method: method, handler: handler });
+      if (desc) def.description = desc; else delete def.description;
+      endpoints[name] = def;
+    }
+    return endpoints;
+  }
+
+  // Files tab: card list with bucket name, path, public checkbox
+  function renderFilesForm() {
+    _cfgFileId = 0;
+    const files = (configData && configData.files) || {};
+    let cards = '';
+    for (const key of Object.keys(files)) cards += renderFileBucketCard(key, files[key]);
+    return '<div id="cfg-files-list" class="space-y-2">' + cards + '</div>'
+      + '<button type="button" onclick="addFileBucketCard()"'
+      + ' class="mt-3 text-xs border border-cs-border rounded px-3 py-1.5 text-cs-muted hover:text-cs-text cursor-pointer"'
+      + ' style="transition:color 150ms,background 150ms;">+ Add file bucket</button>';
+  }
+
+  function renderFileBucketCard(bucketName, def) {
+    const id = _cfgFileId++;
+    return '<div class="file-bucket-card flex flex-wrap gap-3 items-end rounded border p-3"'
+      + ' style="border-color:#2a2a2a;background:#181818;" data-bucket-id="' + id + '">'
+      + '<div><label class="' + _LBL + '" style="color:#888;">Name</label>'
+      + '<input type="text" id="cfg-fb-name-' + id + '" value="' + escAttr(bucketName) + '" placeholder="images"'
+      + ' class="' + _INP + '" style="transition:border-color 150ms;width:130px;" /></div>'
+      + '<div class="flex-1"><label class="' + _LBL + '" style="color:#888;">Path</label>'
+      + '<input type="text" id="cfg-fb-path-' + id + '" value="' + escAttr(def.path || '') + '" placeholder="uploads/images"'
+      + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
+      + '<label class="flex items-center gap-1.5 text-xs cursor-pointer select-none" style="color:#888;padding-bottom:6px;">'
+      + '<input type="checkbox" id="cfg-fb-public-' + id + '"' + (def.public ? ' checked' : '') + ' /> Public</label>'
+      + '<button type="button" onclick="_cfgRmFileBucketCard(this)"'
+      + ' class="text-xs px-2 py-1.5 rounded border cursor-pointer"'
+      + ' style="border-color:rgba(239,68,68,0.3);color:#f87171;background:transparent;">Remove</button>'
+      + '</div>';
+  }
+
+  function addFileBucketCard() {
+    document.getElementById('cfg-files-list').insertAdjacentHTML('beforeend', renderFileBucketCard('', {}));
+  }
+
+  function collectFilesForm() {
+    const files = {};
+    for (const card of document.querySelectorAll('.file-bucket-card')) {
+      const id     = card.dataset.bucketId;
+      const nameEl = document.getElementById('cfg-fb-name-' + id);
+      const pathEl = document.getElementById('cfg-fb-path-' + id);
+      const pubEl  = document.getElementById('cfg-fb-public-' + id);
+      const name   = nameEl ? nameEl.value.trim() : '';
+      const path   = pathEl ? pathEl.value.trim() : '';
+      const isPublic = pubEl ? pubEl.checked : false;
+      if (!name || !path) continue;
+      const def = { path: path };
+      if (isPublic) def.public = true;
+      files[name] = def;
+    }
+    return files;
+  }
+
+  // Settings tab: rate limit rows
+  function renderSettingsForm() {
+    _cfgRlId = 0;
+    const rls = (configData && configData.settings && configData.settings.rateLimits) || [];
+    let rows = '';
+    for (const rl of rls) rows += renderRateLimitRow(rl);
+    return '<div>'
+      + '<p class="text-xs mb-3" style="color:#666;">Rate limits cap the number of API requests per time window.</p>'
+      + '<div id="cfg-rl-list" class="space-y-2">' + rows + '</div>'
+      + '<button type="button" onclick="addRateLimitRow()"'
+      + ' class="mt-3 text-xs border border-cs-border rounded px-3 py-1.5 text-cs-muted hover:text-cs-text cursor-pointer"'
+      + ' style="transition:color 150ms,background 150ms;">+ Add rate limit</button>'
+      + '</div>';
+  }
+
+  function renderRateLimitRow(rl) {
+    const id = _cfgRlId++;
+    return '<div class="flex flex-wrap gap-2 items-end rl-row" data-rl-id="' + id + '">'
+      + '<div><label class="' + _LBL + '" style="color:#888;">Name</label>'
+      + '<input type="text" id="cfg-rl-name-' + id + '" value="' + escAttr(rl.name || '') + '" placeholder="api"'
+      + ' class="' + _INP_XS + '" style="transition:border-color 150ms;width:90px;" /></div>'
+      + '<div><label class="' + _LBL + '" style="color:#888;">Max requests</label>'
+      + '<input type="number" id="cfg-rl-limit-' + id + '" value="' + escAttr(rl.limit !== undefined ? String(rl.limit) : '') + '" placeholder="200"'
+      + ' class="' + _INP_XS + '" style="transition:border-color 150ms;width:105px;" /></div>'
+      + '<div><label class="' + _LBL + '" style="color:#888;">Window (ms)</label>'
+      + '<input type="number" id="cfg-rl-ttl-' + id + '" value="' + escAttr(rl.ttl !== undefined ? String(rl.ttl) : '') + '" placeholder="60000"'
+      + ' class="' + _INP_XS + '" style="transition:border-color 150ms;width:105px;" /></div>'
+      + '<button type="button" onclick="_cfgRmRateLimitRow(this)"'
+      + ' class="text-xs px-2 py-1.5 rounded border cursor-pointer"'
+      + ' style="border-color:rgba(239,68,68,0.3);color:#f87171;background:transparent;">Remove</button>'
+      + '</div>';
+  }
+
+  function addRateLimitRow() {
+    document.getElementById('cfg-rl-list').insertAdjacentHTML('beforeend', renderRateLimitRow({}));
+  }
+
+  function collectSettingsForm() {
+    const rateLimits = [];
+    for (const row of document.querySelectorAll('.rl-row')) {
+      const id       = row.dataset.rlId;
+      const nameEl   = document.getElementById('cfg-rl-name-' + id);
+      const limitEl  = document.getElementById('cfg-rl-limit-' + id);
+      const ttlEl    = document.getElementById('cfg-rl-ttl-' + id);
+      const name     = nameEl  ? nameEl.value.trim()  : '';
+      const limitStr = limitEl ? limitEl.value.trim() : '';
+      const ttlStr   = ttlEl   ? ttlEl.value.trim()   : '';
+      if (!name || !limitStr || !ttlStr) continue;
+      rateLimits.push({ name: name, limit: parseInt(limitStr, 10), ttl: parseInt(ttlStr, 10) });
+    }
+    const result = {};
+    if (rateLimits.length) result.settings = { rateLimits: rateLimits };
+    if (configData && configData.groups) result.groups = configData.groups;
+    return result;
+  }
+
+  // Form dispatcher
+  function renderConfigForm(tab) {
+    const el = document.getElementById('cfg-form');
+    if (tab === 'general')   { el.innerHTML = renderGeneralForm();   return; }
+    if (tab === 'entities')  { el.innerHTML = renderEntitiesForm();  return; }
+    if (tab === 'endpoints') { el.innerHTML = renderEndpointsForm(); return; }
+    if (tab === 'files')     { el.innerHTML = renderFilesForm();     return; }
+    if (tab === 'settings')  { el.innerHTML = renderSettingsForm();  return; }
+    el.innerHTML = '';
+  }
+
+  function collectFormData() {
+    if (configActiveTab === 'general')   return collectGeneralForm();
+    if (configActiveTab === 'entities')  return { entities: collectEntitiesForm() };
+    if (configActiveTab === 'endpoints') return { endpoints: collectEndpointsForm() };
+    if (configActiveTab === 'files')     return { files: collectFilesForm() };
+    if (configActiveTab === 'settings')  return collectSettingsForm();
+    return null;
+  }
+
   function selectConfig(el) {
-    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.remove('active'); });
     el.classList.add('active');
     configMode = true;
     document.getElementById('page-title').textContent = 'Config Editor';
     document.getElementById('btn-add').classList.add('hidden');
     document.getElementById('table-area').classList.add('hidden');
     document.getElementById('config-area').classList.remove('hidden');
+    closeSidebar();
     loadConfig();
   }
 
@@ -549,7 +953,7 @@
 
   function showConfigTab(tab) {
     configActiveTab = tab;
-    document.querySelectorAll('.cfg-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.cfg-tab').forEach(function(t) { t.classList.remove('active'); });
     const tabEl = document.getElementById('cfg-tab-' + tab);
     if (tabEl) tabEl.classList.add('active');
 
@@ -557,37 +961,43 @@
     document.getElementById('cfg-section-desc').textContent = def.desc || '';
 
     const s3Note = document.getElementById('cfg-s3-note');
-    if (def.s3) { s3Note.classList.remove('hidden'); } else { s3Note.classList.add('hidden'); }
+    if (def.s3) s3Note.classList.remove('hidden'); else s3Note.classList.add('hidden');
 
-    let data;
-    if (!def.keys) {
-      data = configData || {};
+    const formEl   = document.getElementById('cfg-form');
+    const editorEl = document.getElementById('cfg-editor');
+
+    if (CFG_FORM_TABS.has(tab)) {
+      editorEl.classList.add('hidden');
+      formEl.classList.remove('hidden');
+      renderConfigForm(tab);
     } else {
-      data = {};
-      for (const key of def.keys) {
-        if (configData && configData[key] !== undefined) data[key] = configData[key];
-      }
+      formEl.classList.add('hidden');
+      editorEl.classList.remove('hidden');
+      editorEl.value = JSON.stringify(configData || {}, null, 2);
     }
-    document.getElementById('cfg-editor').value = JSON.stringify(data, null, 2);
   }
 
   async function saveConfig() {
-    const rawText = document.getElementById('cfg-editor').value.trim();
     let sectionData;
-    try {
-      sectionData = JSON.parse(rawText);
-    } catch (e) {
-      toast('Invalid JSON: ' + e.message, 'error');
-      return;
-    }
-    if (typeof sectionData !== 'object' || Array.isArray(sectionData) || sectionData === null) {
-      toast('Config must be a JSON object', 'error');
-      return;
+
+    if (CFG_FORM_TABS.has(configActiveTab)) {
+      sectionData = collectFormData();
+      if (sectionData === null) { toast('Could not read form data', 'error'); return; }
+    } else {
+      const rawText = document.getElementById('cfg-editor').value.trim();
+      try {
+        sectionData = JSON.parse(rawText);
+      } catch (e) {
+        toast('Invalid JSON: ' + e.message, 'error');
+        return;
+      }
+      if (typeof sectionData !== 'object' || Array.isArray(sectionData) || sectionData === null) {
+        toast('Config must be a JSON object', 'error');
+        return;
+      }
     }
 
-    // Merge section data into full config.
-    // For non-'all' tabs, remove all keys belonging to this section first
-    // so that keys the user deleted from the editor are properly removed.
+    // Merge section into full config
     let fullConfig;
     if (configActiveTab === 'all') {
       fullConfig = sectionData;
@@ -615,15 +1025,14 @@
       if (data.reloading) {
         document.getElementById('cfg-status').textContent = 'Reloading…';
         toast('Config saved — reloading server…', 'info');
-        // Re-fetch schema after the server has rebuilt its routes
-        setTimeout(async () => {
+        setTimeout(async function() {
           try {
-            schema = await fetch('/admin/schema').then(r => r.json());
+            schema = await fetch('/admin/schema').then(function(r2) { return r2.json(); });
             document.getElementById('project-name').textContent = schema.name;
             buildSidebar();
             document.getElementById('cfg-status').textContent = '✓ Config applied.';
             toast('Config applied', 'success');
-          } catch {
+          } catch (ex) {
             document.getElementById('cfg-status').textContent = '✓ Saved — reload the page to see changes.';
           }
         }, 800);
@@ -643,7 +1052,6 @@
     showConfigTab(configActiveTab);
     toast('Reset to last saved state', 'info');
   }
-
   init();
 </script>
 </body>
