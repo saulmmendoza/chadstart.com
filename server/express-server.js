@@ -47,6 +47,7 @@ async function createServer(yamlPath) {
     if (!publicDir.startsWith(cwd + path.sep) && publicDir !== cwd) {
       throw new Error(`public.folder "${core.public.folder}" resolves outside the working directory.`);
     }
+    logger.info(`Serving public files from: ${publicDir}`);
     fs.mkdirSync(publicDir, { recursive: true });
     app.use(express.static(publicDir));
   }
