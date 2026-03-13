@@ -1,97 +1,83 @@
-# ChadStart
+---
+id: get-started
+title: Get Started
+slug: /
+description: ChadStart is an Open Source backend that fits in a single YAML file. Easy to edit, validate and version for humans and LLMs.
+---
 
-> YAML-first Backend as a Service — define your entire backend in a single YAML file.
+# ChadStart Documentation 👋
 
-Inspired by [Manifest](https://backend.manifest.build/), ChadStart auto-generates a fully functional backend from one `chadstart.yaml` file.
+## Introduction
 
-## Features
+ChadStart is a **1-file backend** for prototypes and MVPs.
 
-| Feature | URL |
-|---------|-----|
-| REST API | `/api/posts`, `/api/comments`, … |
-| Auth (signup/login/me) | `/auth/admin/signup`, `/auth/admin/login`, … |
-| Admin UI | `/admin` |
-| Swagger UI | `/docs` |
-| OpenAPI JSON | `/openapi.json` |
-| Realtime WebSocket | `ws://localhost:3000/realtime` |
-| File uploads | `POST /files/uploads` |
-| Health check | `/health` |
+Most backend tools feel too heavy for simple apps. They force you to use bloated configuration UIs. Even with AI tools that generate frontend code, the backend remains a pain to set up and validate. It slows you down when you just want to test an idea or build something simple..
+The solution
 
-## Quick Start
+ChadStart is an open source backend that fits in only 1 file. You define it in a simple yaml language to get data, auth, storage, logic and an admin panel.
 
-```bash
-npm install
-npx chadstart dev     # development with hot-reload
-npx chadstart start   # production
-npx chadstart build   # validate config and print summary
-```
+**Key advantages:**
 
-## Minimal Example
+- 🧠 Zero friction setup
+- 🚀 Ship your backend fast and stay focused on building your app
+- 🤖 Easy for LLMs to generate
+- 💻 Can run everywhere
 
-Create a `chadstart.yaml`:
+## Install ChadStart
 
-```yaml
-name: Blog
+Follow the steps below to install ChadStart in your local machine.
 
-userCollections:
-  Admin:
-    properties:
-      - name
+### Prerequisites
 
-entities:
-  Post:
-    properties:
-      - title
-      - content
-      - published
-    permissions:
-      read: public
-      write: user:Admin
+- [NodeJS](https://nodejs.org/en/) (**20.x** or superior).
 
-files:
-  uploads:
-    path: ./uploads
-    public: true
-```
+### Installation steps
 
-Then start the server:
+Run this command to create a ChadStart project ready to use with Cursor IDE.
 
 ```bash
-npx chadstart dev
+# NPX
+npx chadstart my-project --cursor
+
+# Yarn
+yarn create chadstart my-project --cursor
 ```
 
-## Design Principles
+This will create a `my-project` folder with a ChadStart backend configured for Cursor.
 
-- **YAML-first** — one file defines everything
-- **Minimal dependencies** — express, ws, yaml, better-sqlite3, bcryptjs, jsonwebtoken, swagger-ui-express, express-rate-limit
-- **Readable code** — easy to hack and extend
-- **No magic** — every generated route is straightforward Express code
-- **Self-hosted** — runs anywhere Node.js runs
+You can replace `--cursor` with another option if you're using a different AI tool;
 
-## Project Structure
+- `--copilot` if you're using **GitHub Copilot**
+- `--windsurf` for **Windsurf**
+- or remove it entirely if you're not using any AI coding tool
+
+To start the ChadStart backend, run the following command in the new project folder:
 
 ```
-chadstart/
-  core/
-    yaml-loader.js       # Read & parse chadstart.yaml
-    schema-validator.js  # Validate YAML structure
-    entity-engine.js     # Build internal model from config
-    db.js                # SQLite CRUD layer
-    auth.js              # JWT auth + user collection endpoints
-    api-generator.js     # Generate Express REST routes
-    realtime.js          # WebSocket realtime subscriptions
-    openapi.js           # OpenAPI 3.0 spec generator
-    file-storage.js      # File upload/download routes
-    plugin-loader.js     # Dynamic plugin loading
-  server/
-    express-server.js    # Bootstrap everything together
-  admin/
-    index.html           # Admin UI single-page app
-  cli/
-    cli.js               # npx chadstart dev|start|build
-  utils/
-    logger.js            # Simple leveled logger
-  test/
-    test.js              # Tests
-  chadstart.yaml         # Example config
+cd my-project
+npm run start
+```
+
+You can now:
+<br/> - See your **Admin panel** at http://localhost:3000 using the email `admin@chadstart.com` and the password `admin`
+<br/> - Use your **REST API** at http://localhost:3000/api
+
+:::tip
+
+If you already have a frontend app, we recommend that you use a **monorepo** structure with one folder for the backend and one folder for the frontend. For example you can run `npx chadstart server` at root level to add your ChadStart to a `server` folder that you put next to the `client` folder that will contain your frontend.
+
+:::
+
+#### Note with PNMP
+
+As [PNPM](https://pnpm.io/fr/) blocks postinstall scripts, we have to adapt the `package.json`. Add this to your `package.json` file before doing `pnpm install`:
+
+```json
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@nestjs/core",
+      "sharp",
+      "sqlite3"
+    ]
+  }
 ```

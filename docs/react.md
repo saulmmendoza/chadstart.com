@@ -1,0 +1,78 @@
+---
+id: react
+title: Create a Full-Stack app with React and ChadStart
+description: Quick start guide to create a full-stack app using React as a frontend and ChadStart as a backend.
+---
+
+# Quick start with React
+
+Give a proper backend to your React app.
+
+:::warning
+
+This quick start guide focuses exclusively on the **frontend**. To ensure the functionality of this code, your ChadStart backend must be [up and running](./index.md#install-chadstart) at `http://localhost:3000`.
+
+:::
+
+## 1. Create a React app
+
+If you already have a React app, you can skip this step.
+
+There are several ways to do that. We will use the easiest one: **create-react-app**. You can replace `my-client` by the name of your front-end app.
+
+```
+npx create-react-app my-client
+cd my-client
+npm start
+```
+
+## 2. Install ChadStart SDK
+
+Install the JS SDK from the root of your React app.
+
+```
+npm i @chadstart/sdk
+```
+
+## 3. Use it in your app
+
+In that example we are using a Cat entity [created previously](entities.md). Replace it by your own entity. This example uses TypeScript, you can remove the typing to have plain JS.
+
+```js title="App.tsx"
+import ChadStart from '@chadstart/sdk';
+import { useEffect, useState } from "react";
+
+function App() {
+  interface Cat {
+    id: string;
+    name: string;
+  }
+
+  const [cats, setCat] = useState<Cat[]>([]);
+
+  useEffect(() => {
+    // Init SDK.
+    const chadstart = new ChadStart();
+
+    // Fetch the list of Cats.
+    chadstart.from("cats")
+      .find<Cat>()
+      .then((res) => {
+        setCat(res.data);
+      });
+  }, []);
+
+  // Display a list of Cats.
+  return (
+    <ul>
+      {cats.map((cat) => (
+        <li>{cat.name}</li>
+      ))}
+    </ul>
+  );
+}
+
+export default App;
+```
+
+Checkout the [SDK doc](./crud.md#using-the-javascript-sdk) to see more usages of the SDK: CRUD operations, file upload, authentication,

@@ -32,17 +32,37 @@ theme:
     repo: fontawesome/brands/github
 
 nav:
-  - Home: index.md
-  - Configuration: configuration.md
-  - Authentication: authentication.md
-  - REST API: rest-api.md
-  - Permissions: permissions.md
+  - Get Started: index.md
+  - Core:
+    - Entities: entities.md
+    - CRUD: crud.md
+    - Authentication: auth.md
+    - Access Policies: access-policies.md
+    - Validation: validation.md
+    - Configuration: config.md
+  - Features:
+    - File & Image Uploads: upload.md
+    - S3 Storage: s3-storage.md
+    - Realtime: realtime.md
+    - Webhooks: webhooks.md
+    - Custom Endpoints: endpoints.md
+    - Middlewares: middlewares.md
+    - Groups: groups.md
+    - Security: security.md
+    - Telemetry: telemetry.md
+    - LLM Rules: llm-rules.md
   - Admin UI: admin-ui.md
-  - Realtime: realtime.md
-  - File Storage: file-storage.md
-  - Plugins: plugins.md
   - CLI: cli.md
-  - Docker: docker.md
+  - Deploy:
+    - Deploy to Production: deploy.md
+    - Docker: docker.md
+  - Integrations:
+    - React: react.md
+    - Vue: vue.md
+    - Angular: angular.md
+    - Svelte: svelte.md
+    - Astro: astro.md
+  - Plugins: plugins.md
 
 markdown_extensions:
   - admonition
