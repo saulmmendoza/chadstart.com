@@ -31,7 +31,7 @@ function initDb(core, dbPath) {
   } catch (err) {
     throw new Error(`Failed to create database directory "${path.dirname(resolved)}": ${err.message}`);
   }
-  db = new Database(resolved);
+  const db = require('better-sqlite3')(dbPath)
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
   _core = core;
