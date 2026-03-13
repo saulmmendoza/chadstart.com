@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ChadStart Admin</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --sidebar-bg: #161b22;
+      --card: #1c2333;
+      --border: #30363d;
+      --accent: #58a6ff;
+      --accent-hover: #79b8ff;
+      --danger: #f85149;
+      --success: #3fb950;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --radius: 6px;
+      --sidebar-w: 240px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+    }
+
+    /* ── Login overlay ─────────────────────────────────────────────── */
+    #login-overlay {
+      position: fixed; inset: 0;
+      background: var(--bg);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 9999;
+    }
+    #login-overlay.hidden { display: none; }
+
+    .login-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 40px;
+      width: 100%;
+      max-width: 400px;
+    }
+    .login-card h1 {
+      font-size: 1.5rem;
+      margin-bottom: 4px;
+    }
+    .login-card .subtitle {
+      color: var(--muted);
+      font-size: .875rem;
+      margin-bottom: 28px;
+    }
+    .login-card label {
+      display: block;
+      font-size: .8rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      margin-bottom: 6px;
+    }
+    .login-card select,
+    .login-card input {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      padding: 10px 12px;
+      font-size: .95rem;
+      margin-bottom: 16px;
+      outline: none;
+      transition: border-color .15s;
+    }
+    .login-card select:focus,
+    .login-card input:focus { border-color: var(--accent); }
+    .login-card .error {
+      color: var(--danger);
+      font-size: .85rem;
+      margin-bottom: 14px;
+      display: none;
+    }
+    .login-card .error.visible { display: block; }
+
+    /* ── Sidebar ───────────────────────────────────────────────────── */
+    #sidebar {
+      width: var(--sidebar-w);
+      background: var(--sidebar-bg);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      flex-shrink: 0;
+    }
+    .sidebar-header {
+      padding: 20px 16px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-header .logo {
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: var(--accent);
+    }
+    .sidebar-header .project-name {
+      font-size: .8rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .sidebar-section {
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-section-title {
+      padding: 4px 16px 8px;
+      font-size: .7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--muted);
+    }
+    .nav-item {
+      display: block;
+      padding: 7px 16px;
+      font-size: .9rem;
+      color: var(--text);
+      cursor: pointer;
+      border-left: 3px solid transparent;
+      transition: background .1s, border-color .1s;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .nav-item:hover { background: rgba(255,255,255,.05); }
+    .nav-item.active { background: rgba(88,166,255,.1); border-left-color: var(--accent); color: var(--accent); }
+    .nav-item .badge {
+      float: right;
+      font-size: .7rem;
+      background: var(--border);
+      color: var(--muted);
+      padding: 1px 6px;
+      border-radius: 10px;
+    }
+    .sidebar-footer {
+      margin-top: auto;
+      padding: 14px 16px;
+      border-top: 1px solid var(--border);
+    }
+    .user-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: .8rem;
+      color: var(--muted);
+    }
+    .user-badge .avatar {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700;
+      font-size: .8rem;
+      color: #fff;
+      flex-shrink: 0;
+    }
+    .user-badge .info { flex: 1; min-width: 0; }
+    .user-badge .info .name { color: var(--text); font-size: .85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .user-badge .info .collection { color: var(--muted); font-size: .72rem; }
+
+    /* ── Main area ─────────────────────────────────────────────────── */
+    #main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+    .topbar {
+      padding: 14px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--sidebar-bg);
+    }
+    .topbar h2 { font-size: 1.1rem; }
+    .topbar .actions { display: flex; gap: 8px; }
+
+    .content { padding: 24px; flex: 1; overflow: auto; }
+
+    /* ── Buttons ───────────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 7px 16px;
+      border-radius: var(--radius);
+      font-size: .875rem;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: background .15s, opacity .15s;
+    }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-primary { background: var(--accent); color: #000; }
+    .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-danger:hover:not(:disabled) { background: #da3633; }
+    .btn-ghost { background: transparent; color: var(--text); border: 1px solid var(--border); }
+    .btn-ghost:hover:not(:disabled) { background: rgba(255,255,255,.05); }
+    .btn-logout { background: transparent; color: var(--muted); border: 1px solid var(--border); padding: 5px 10px; font-size: .8rem; }
+    .btn-logout:hover { border-color: var(--danger); color: var(--danger); }
+
+    /* ── Table ─────────────────────────────────────────────────────── */
+    .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); }
+    table { width: 100%; border-collapse: collapse; font-size: .875rem; }
+    thead { background: var(--card); }
+    th { padding: 10px 14px; text-align: left; font-weight: 600; color: var(--muted); font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    td { padding: 10px 14px; border-bottom: 1px solid var(--border); max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,.02); }
+    .td-actions { display: flex; gap: 6px; }
+    .btn-sm { padding: 4px 10px; font-size: .8rem; }
+
+    /* ── Empty state ───────────────────────────────────────────────── */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--muted);
+    }
+    .empty-state .icon { font-size: 3rem; margin-bottom: 12px; }
+    .empty-state p { font-size: .9rem; }
+
+    /* ── Modal ─────────────────────────────────────────────────────── */
+    .modal-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.6);
+      z-index: 1000;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .modal-backdrop.hidden { display: none; }
+    .modal {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      width: 100%;
+      max-width: 520px;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .modal-header {
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .modal-header h3 { font-size: 1rem; }
+    .modal-close { background: none; border: none; color: var(--muted); font-size: 1.3rem; cursor: pointer; line-height: 1; }
+    .modal-close:hover { color: var(--text); }
+    .modal-body { padding: 20px; overflow-y: auto; flex: 1; }
+    .modal-footer {
+      padding: 14px 20px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    /* ── Form ──────────────────────────────────────────────────────── */
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: .8rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      padding: 9px 12px;
+      font-size: .9rem;
+      outline: none;
+      transition: border-color .15s;
+      font-family: inherit;
+    }
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus { border-color: var(--accent); }
+    .form-group textarea { resize: vertical; min-height: 80px; }
+
+    /* ── Toast ─────────────────────────────────────────────────────── */
+    #toast {
+      position: fixed;
+      bottom: 24px; right: 24px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 18px;
+      font-size: .875rem;
+      z-index: 9998;
+      transform: translateY(80px);
+      opacity: 0;
+      transition: transform .25s, opacity .25s;
+      max-width: 320px;
+    }
+    #toast.show { transform: translateY(0); opacity: 1; }
+    #toast.error { border-color: var(--danger); color: var(--danger); }
+    #toast.success { border-color: var(--success); color: var(--success); }
+
+    /* ── Spinner ───────────────────────────────────────────────────── */
+    .spinner {
+      display: inline-block;
+      width: 18px; height: 18px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading { display: flex; justify-content: center; padding: 60px; }
+  </style>
+</head>
+<body>
+
+<!-- ── Login overlay ─────────────────────────────────────────────────── -->
+<div id="login-overlay">
+  <div class="login-card">
+    <h1>⚡ ChadStart</h1>
+    <p class="subtitle">Sign in to the Admin UI</p>
+
+    <div class="error" id="login-error"></div>
+
+    <label for="login-collection">Collection</label>
+    <select id="login-collection">
+      <option value="">Loading…</option>
+    </select>
+
+    <label for="login-email">Email</label>
+    <input type="email" id="login-email" placeholder="admin@example.com" autocomplete="email" />
+
+    <label for="login-password">Password</label>
+    <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password" />
+
+    <button class="btn btn-primary" id="login-btn" style="width:100%;justify-content:center" onclick="doLogin()">Sign in</button>
+  </div>
+</div>
+
+<!-- ── App shell ─────────────────────────────────────────────────────── -->
+<div id="sidebar">
+  <div class="sidebar-header">
+    <div class="logo">⚡ ChadStart</div>
+    <div class="project-name" id="project-name">Admin</div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">Collections</div>
+    <div id="nav-user-collections"></div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">Entities</div>
+    <div id="nav-entities"></div>
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="user-badge">
+      <div class="avatar" id="user-avatar">?</div>
+      <div class="info">
+        <div class="name" id="user-name">–</div>
+        <div class="collection" id="user-collection-label">–</div>
+      </div>
+    </div>
+    <button class="btn btn-logout" style="width:100%;justify-content:center;margin-top:10px" onclick="logout()">Log out</button>
+  </div>
+</div>
+
+<div id="main">
+  <div class="topbar">
+    <h2 id="page-title">Select a collection</h2>
+    <div class="actions">
+      <button class="btn btn-primary" id="btn-add" onclick="openAddModal()" style="display:none">+ New record</button>
+    </div>
+  </div>
+  <div class="content">
+    <div class="loading" id="loading"><div class="spinner"></div></div>
+    <div id="table-area" style="display:none"></div>
+  </div>
+</div>
+
+<!-- ── Record modal ───────────────────────────────────────────────────── -->
+<div class="modal-backdrop hidden" id="modal-backdrop">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modal-title">New record</h3>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" id="modal-save-btn" onclick="saveRecord()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Toast ──────────────────────────────────────────────────────────── -->
+<div id="toast"></div>
+
+<script>
+  // ── State ────────────────────────────────────────────────────────────
+  let schema = null;
+  let currentItem = null; // { type: 'entity'|'collection', name }
+  let editingRecord = null; // null = new, object = existing
+  let authToken = localStorage.getItem('cs_token') || null; // NOTE: localStorage is susceptible to XSS. Use a server-side session or httpOnly cookie for production.
+  let authUser = null;
+  let authCollection = null;
+
+  // ── Bootstrap ────────────────────────────────────────────────────────
+  async function init() {
+    // Load schema
+    try {
+      const r = await fetch('/admin/schema');
+      schema = await r.json();
+    } catch (e) {
+      toast('Failed to load schema', 'error');
+      return;
+    }
+
+    document.getElementById('project-name').textContent = schema.name;
+    populateLoginCollections();
+    buildSidebar();
+
+    if (authToken) {
+      // Try to verify the stored token
+      try {
+        const col = getAdminCollections()[0];
+        if (col) {
+          const slug = toSlug(col.name);
+          const r = await apiFetch(`/auth/${slug}/me`);
+          if (r.ok) {
+            authUser = await r.json();
+            authCollection = col.name;
+            showApp();
+            return;
+          }
+        }
+      } catch { /* fall through to login */ }
+      authToken = null;
+      localStorage.removeItem('cs_token');
+    }
+
+    showLogin();
+  }
+
+  // ── Auth ─────────────────────────────────────────────────────────────
+  function getAdminCollections() {
+    return (schema.userCollections || []).filter(uc => uc.admin !== false);
+  }
+
+  function populateLoginCollections() {
+    const sel = document.getElementById('login-collection');
+    const cols = getAdminCollections();
+    if (cols.length === 0) {
+      sel.innerHTML = '<option value="">No admin collections</option>';
+      return;
+    }
+    sel.innerHTML = cols.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+  }
+
+  async function doLogin() {
+    const collectionName = document.getElementById('login-collection').value;
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    const errEl = document.getElementById('login-error');
+    const btn = document.getElementById('login-btn');
+
+    errEl.classList.remove('visible');
+    if (!collectionName || !email || !password) {
+      errEl.textContent = 'All fields are required';
+      errEl.classList.add('visible');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Signing in…';
+
+    const col = getAdminCollections().find(c => c.name === collectionName);
+    if (!col) { errEl.textContent = 'Collection not found'; errEl.classList.add('visible'); btn.disabled = false; btn.textContent = 'Sign in'; return; }
+
+    const slug = toSlug(col.name);
+    try {
+      const r = await fetch(`/auth/${slug}/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        errEl.textContent = data.error || 'Login failed';
+        errEl.classList.add('visible');
+        btn.disabled = false; btn.textContent = 'Sign in';
+        return;
+      }
+      authToken = data.token;
+      authUser = data.user;
+      authCollection = col.name;
+      localStorage.setItem('cs_token', authToken);
+      showApp();
+    } catch (e) {
+      errEl.textContent = 'Network error';
+      errEl.classList.add('visible');
+      btn.disabled = false; btn.textContent = 'Sign in';
+    }
+  }
+
+  // Allow Enter key to submit login
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !document.getElementById('login-overlay').classList.contains('hidden')) {
+      doLogin();
+    }
+  });
+
+  function logout() {
+    authToken = null; authUser = null; authCollection = null;
+    localStorage.removeItem('cs_token');
+    currentItem = null;
+    showLogin();
+  }
+
+  function showLogin() {
+    document.getElementById('login-overlay').classList.remove('hidden');
+    document.getElementById('loading').style.display = 'none';
+  }
+
+  function showApp() {
+    document.getElementById('login-overlay').classList.add('hidden');
+    document.getElementById('loading').style.display = 'none';
+
+    // Update user info in sidebar
+    const email = authUser ? (authUser.email || '') : '';
+    const name = authUser ? (authUser.name || email) : '?';
+    document.getElementById('user-name').textContent = name;
+    document.getElementById('user-collection-label').textContent = authCollection || '';
+    document.getElementById('user-avatar').textContent = (name[0] || '?').toUpperCase();
+
+    // Select first nav item
+    const first = document.querySelector('.nav-item');
+    if (first) first.click();
+  }
+
+  // ── Sidebar ──────────────────────────────────────────────────────────
+  function buildSidebar() {
+    const ucNav = document.getElementById('nav-user-collections');
+    const entNav = document.getElementById('nav-entities');
+
+    ucNav.innerHTML = (schema.userCollections || []).map(uc => `
+      <div class="nav-item" data-type="collection" data-name="${uc.name}" onclick="selectItem('collection','${uc.name}',this)">
+        👤 ${uc.name}
+      </div>`).join('');
+
+    entNav.innerHTML = (schema.entities || []).map(e => `
+      <div class="nav-item" data-type="entity" data-name="${e.name}" onclick="selectItem('entity','${e.name}',this)">
+        📦 ${e.name}
+      </div>`).join('');
+  }
+
+  function selectItem(type, name, el) {
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    el.classList.add('active');
+    currentItem = { type, name };
+    loadData();
+  }
+
+  // ── Data loading ─────────────────────────────────────────────────────
+  async function loadData() {
+    if (!currentItem) return;
+
+    const { type, name } = currentItem;
+    const apiPath = type === 'entity' ? `/api/${toKebab(name)}s` : `/api/${toKebab(name)}s`;
+
+    document.getElementById('page-title').textContent = name;
+    document.getElementById('btn-add').style.display = 'inline-flex';
+    document.getElementById('loading').style.display = 'flex';
+    document.getElementById('table-area').style.display = 'none';
+
+    try {
+      const r = await apiFetch(apiPath);
+      const rows = await r.json();
+      if (!r.ok) throw new Error(rows.error || 'Failed to load');
+      renderTable(rows, type, name);
+    } catch (e) {
+      toast(e.message, 'error');
+      document.getElementById('loading').style.display = 'none';
+    }
+  }
+
+  function renderTable(rows, type, name) {
+    document.getElementById('loading').style.display = 'none';
+    const area = document.getElementById('table-area');
+    area.style.display = 'block';
+
+    if (rows.length === 0) {
+      area.innerHTML = `<div class="empty-state"><div class="icon">📭</div><p>No records yet. Click <strong>+ New record</strong> to create one.</p></div>`;
+      return;
+    }
+
+    const cols = Object.keys(rows[0]).filter(k => k !== 'password');
+    const ths = cols.map(c => `<th>${c}</th>`).join('') + '<th>Actions</th>';
+    const trs = rows.map(row => {
+      const tds = cols.map(c => `<td title="${escHtml(String(row[c] ?? ''))}">${escHtml(String(row[c] ?? ''))}</td>`).join('');
+      const actions = `
+        <td>
+          <div class="td-actions">
+            <button class="btn btn-ghost btn-sm" onclick='openEditModal(${JSON.stringify(row)})'>Edit</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteRecord(${row.id})">Delete</button>
+          </div>
+        </td>`;
+      return `<tr>${tds}${actions}</tr>`;
+    }).join('');
+
+    area.innerHTML = `
+      <div class="table-wrap">
+        <table>
+          <thead><tr>${ths}</tr></thead>
+          <tbody>${trs}</tbody>
+        </table>
+      </div>`;
+  }
+
+  // ── Modal ─────────────────────────────────────────────────────────────
+  function getCurrentSchema() {
+    if (!currentItem) return null;
+    const { type, name } = currentItem;
+    if (type === 'entity') return schema.entities.find(e => e.name === name);
+    return schema.userCollections.find(uc => uc.name === name);
+  }
+
+  function getFields(isCollection) {
+    const s = getCurrentSchema();
+    if (!s) return [];
+    const fields = isCollection
+      ? [{ name: 'email', type: 'text' }, { name: 'password', type: 'text' }, ...s.properties]
+      : [...s.properties];
+    // Add FK fields for entities
+    if (!isCollection && s.belongsTo) {
+      for (const rel of s.belongsTo) {
+        const relName = typeof rel === 'string' ? rel : rel;
+        fields.push({ name: `${toSnake(relName)}_id`, type: 'integer' });
+      }
+    }
+    return fields;
+  }
+
+  function openAddModal() {
+    if (!currentItem) return;
+    editingRecord = null;
+    const isCollection = currentItem.type === 'collection';
+    const fields = getFields(isCollection);
+
+    document.getElementById('modal-title').textContent = `New ${currentItem.name}`;
+    document.getElementById('modal-body').innerHTML = fields.map(f => `
+      <div class="form-group">
+        <label>${f.name}</label>
+        <input type="${f.name === 'password' ? 'password' : 'text'}" id="field-${f.name}" placeholder="${f.name}" />
+      </div>`).join('');
+
+    document.getElementById('modal-backdrop').classList.remove('hidden');
+  }
+
+  function openEditModal(record) {
+    if (!currentItem) return;
+    editingRecord = record;
+    const isCollection = currentItem.type === 'collection';
+    const fields = getFields(isCollection).filter(f => f.name !== 'password');
+
+    document.getElementById('modal-title').textContent = `Edit ${currentItem.name} #${record.id}`;
+    document.getElementById('modal-body').innerHTML = fields.map(f => `
+      <div class="form-group">
+        <label>${f.name}</label>
+        <input type="text" id="field-${f.name}" value="${escAttr(String(record[f.name] ?? ''))}" placeholder="${f.name}" />
+      </div>`).join('');
+
+    document.getElementById('modal-backdrop').classList.remove('hidden');
+  }
+
+  function closeModal() {
+    document.getElementById('modal-backdrop').classList.add('hidden');
+    editingRecord = null;
+  }
+
+  async function saveRecord() {
+    if (!currentItem) return;
+    const isCollection = currentItem.type === 'collection';
+    const fields = getFields(isCollection);
+    const editFields = editingRecord ? fields.filter(f => f.name !== 'password') : fields;
+
+    const body = {};
+    for (const f of editFields) {
+      const el = document.getElementById(`field-${f.name}`);
+      if (el) {
+        const val = el.value;
+        if (val !== '') body[f.name] = val;
+      }
+    }
+
+    const apiPath = `/api/${toKebab(currentItem.name)}s`;
+    const btn = document.getElementById('modal-save-btn');
+    btn.disabled = true; btn.textContent = 'Saving…';
+
+    try {
+      let r;
+      if (editingRecord) {
+        r = await apiFetch(`${apiPath}/${editingRecord.id}`, { method: 'PATCH', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } });
+      } else {
+        // For user collections use signup endpoint
+        if (isCollection) {
+          const slug = toSlug(currentItem.name);
+          r = await apiFetch(`/auth/${slug}/signup`, { method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } });
+        } else {
+          r = await apiFetch(apiPath, { method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } });
+        }
+      }
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'Save failed');
+      toast(editingRecord ? 'Record updated' : 'Record created', 'success');
+      closeModal();
+      loadData();
+    } catch (e) {
+      toast(e.message, 'error');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Save';
+    }
+  }
+
+  async function deleteRecord(id) {
+    if (!currentItem) return;
+    if (!confirm(`Delete record #${id}?`)) return;
+    const apiPath = `/api/${toKebab(currentItem.name)}s/${id}`;
+    try {
+      const r = await apiFetch(apiPath, { method: 'DELETE' });
+      if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Delete failed'); }
+      toast('Record deleted', 'success');
+      loadData();
+    } catch (e) {
+      toast(e.message, 'error');
+    }
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────
+  function apiFetch(url, opts = {}) {
+    return fetch(url, {
+      ...opts,
+      headers: {
+        ...(opts.headers || {}),
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+      },
+    });
+  }
+
+  let toastTimer;
+  function toast(msg, type = 'info') {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = `show ${type}`;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { el.className = ''; }, 3000);
+  }
+
+  function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function escAttr(s) { return s.replace(/"/g,'&quot;'); }
+
+  function toKebab(str) {
+    return str.replace(/([A-Z])/g,(m,p,offset)=>(offset>0?'-':'')+p.toLowerCase()).replace(/^-/,'');
+  }
+  function toSlug(str) {
+    return str.replace(/([A-Z])/g,(m,p,offset)=>(offset>0?'-':'')+p.toLowerCase()).replace(/^-/,'').replace(/[^a-z0-9-]/g,'-');
+  }
+  function toSnake(str) {
+    return str.replace(/([A-Z])/g,(m,p,offset)=>(offset>0?'_':'')+p.toLowerCase()).replace(/^_/,'');
+  }
+
+  // ── Start ─────────────────────────────────────────────────────────────
+  init();
+</script>
+</body>
+</html>

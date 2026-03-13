@@ -238,8 +238,151 @@ await test('loads the example chadstart.yaml', () => {
   assert.ok(config.entities.Post);
 });
 
+await test('loads userCollections from chadstart.yaml', () => {
+  const config = loadYaml(path.resolve(__dirname, '..', 'chadstart.yaml'));
+  assert.ok(config.userCollections);
+  assert.ok(config.userCollections.Admin);
+  assert.ok(config.userCollections.Customer);
+});
+
 await test('throws when file does not exist', () => {
   assert.throws(() => loadYaml('/nonexistent/path/chadstart.yaml'), /not found/i);
+});
+
+// --- schema-validator: userCollections ----------------------------------------
+
+console.log('\nschema-validator – userCollections');
+
+await test('accepts valid userCollections', () => {
+  assert.strictEqual(
+    validateSchema({ name: 'App', userCollections: { Admin: { properties: ['name'] } } }),
+    true
+  );
+});
+
+await test('rejects userCollections as array', () => {
+  assert.throws(() => validateSchema({ name: 'App', userCollections: [] }), /userCollections/);
+});
+
+await test('rejects invalid userCollection property', () => {
+  assert.throws(
+    () => validateSchema({ name: 'App', userCollections: { Admin: { properties: [42] } } }),
+    /property/i
+  );
+});
+
+// --- entity-engine: userCollections -------------------------------------------
+
+console.log('\nentity-engine – userCollections');
+const { buildUserCollections } = require('../core/entity-engine');
+
+await test('buildUserCollections builds user collections', () => {
+  const config = {
+    name: 'App',
+    userCollections: {
+      Admin: { properties: ['name'] },
+      Customer: { properties: ['name', 'phone'] },
+    },
+  };
+  const ucs = buildUserCollections(config);
+  assert.ok(ucs.Admin);
+  assert.ok(ucs.Customer);
+  assert.strictEqual(ucs.Admin.tableName, 'admin');
+  assert.strictEqual(ucs.Admin.admin, true);
+});
+
+await test('buildCore includes userCollections', () => {
+  const core = buildCore({
+    name: 'App',
+    userCollections: { Admin: { properties: ['name'] } },
+  });
+  assert.ok(core.userCollections.Admin);
+});
+
+// --- db: user collections -------------------------------------------------------
+
+console.log('\ndb – user collections');
+{
+  const tmpDb2 = path.join(os.tmpdir(), `chadstart-uc-test-${Date.now()}.db`);
+  const ucCore = buildCore({
+    name: 'TestApp2',
+    entities: {},
+    userCollections: {
+      Admin: { properties: ['name'] },
+    },
+  });
+
+  const dbModule2 = (() => {
+    // We need a fresh db module instance for each test run
+    // Re-use the already-loaded module but re-init with a new path
+    return require('../core/db');
+  })();
+
+  await test('user collection table is created with email + password', () => {
+    dbModule2.initDb(ucCore, tmpDb2);
+    const cols = dbModule2.getDb().pragma('table_info("admin")').map(r => r.name);
+    assert.ok(cols.includes('id'));
+    assert.ok(cols.includes('email'));
+    assert.ok(cols.includes('password'));
+    assert.ok(cols.includes('name'));
+  });
+
+  fs.unlinkSync(tmpDb2);
+}
+
+// --- auth module ----------------------------------------------------------------
+
+console.log('\nauth');
+const { signToken, verifyToken, omitPassword } = require('../core/auth');
+
+await test('signToken and verifyToken round-trip', () => {
+  const payload = { id: 1, collection: 'Admin' };
+  const token = signToken(payload);
+  const decoded = verifyToken(token);
+  assert.strictEqual(decoded.id, payload.id);
+  assert.strictEqual(decoded.collection, payload.collection);
+});
+
+await test('verifyToken throws on invalid token', () => {
+  assert.throws(() => verifyToken('not-a-token'), /malformed|invalid/i);
+});
+
+await test('omitPassword removes password field', () => {
+  const user = { id: 1, email: 'a@b.com', password: 'hashed', name: 'Alice' };
+  const safe = omitPassword(user);
+  assert.ok(!('password' in safe));
+  assert.strictEqual(safe.email, 'a@b.com');
+});
+
+// --- openapi: auth endpoints ---------------------------------------------------
+
+console.log('\nopenapi – auth endpoints');
+
+await test('openapi spec includes auth paths for user collections', () => {
+  const core = buildCore({
+    name: 'App',
+    userCollections: { Admin: { properties: ['name'] } },
+  });
+  const spec = generateOpenApiSpec(core);
+  assert.ok(spec.paths['/auth/admin/signup']);
+  assert.ok(spec.paths['/auth/admin/login']);
+  assert.ok(spec.paths['/auth/admin/me']);
+  assert.ok(spec.components.securitySchemes.bearerAuth);
+});
+
+await test('openapi spec has security on restricted entity', () => {
+  const core = buildCore({
+    name: 'App',
+    entities: {
+      Post: {
+        properties: ['title'],
+        permissions: { read: 'public', write: 'restricted' },
+      },
+    },
+  });
+  const spec = generateOpenApiSpec(core);
+  assert.ok(!spec.paths['/api/posts'].get.security);
+  assert.ok(spec.paths['/api/posts'].post.security);
 });
 
 // --- Summary -----------------------------------------------------------------

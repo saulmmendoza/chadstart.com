@@ -35,6 +35,32 @@ function buildEntities(config) {
 }
 
 /**
+ * Build user-collection models from YAML config.
+ * Each user collection automatically has: email (unique), password, plus any extra properties.
+ */
+function buildUserCollections(config) {
+  const userCollections = {};
+
+  for (const [name, def] of Object.entries(config.userCollections || {})) {
+    const properties = (def.properties || []).map((prop) => {
+      if (typeof prop === 'string') return { name: prop, type: 'text' };
+      return { name: prop.name, type: prop.type || 'text', ...prop };
+    });
+
+    userCollections[name] = {
+      name,
+      tableName: toSnakeCase(name),
+      // email and password are always injected as first two columns
+      properties,
+      // controls whether this collection can log in to the Admin UI
+      admin: def.admin !== false, // default: true (all user-collections can access admin)
+    };
+  }
+
+  return userCollections;
+}
+
+/**
  * Convert CamelCase or PascalCase name to snake_case table name.
  */
 function toSnakeCase(str) {
@@ -44,12 +70,22 @@ function toSnakeCase(str) {
 }
 
 /**
+ * Convert PascalCase / camelCase to kebab-case slug used in API paths.
+ */
+function toKebabCase(str) {
+  return str
+    .replace(/([A-Z])/g, (m, p, offset) => (offset > 0 ? '-' : '') + p.toLowerCase())
+    .replace(/^-/, '');
+}
+
+/**
  * Build the full core model from a validated YAML config.
  */
 function buildCore(config) {
   return {
     name: config.name,
     entities: buildEntities(config),
+    userCollections: buildUserCollections(config),
     plugins: config.plugins || [],
     files: config.files || {},
     public: config.public || null,
@@ -57,4 +93,4 @@ function buildCore(config) {
   };
 }
 
-module.exports = { buildCore, buildEntities, toSnakeCase };
+module.exports = { buildCore, buildEntities, buildUserCollections, toSnakeCase, toKebabCase };

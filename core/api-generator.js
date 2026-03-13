@@ -3,11 +3,13 @@
 const express = require('express');
 const db = require('./db');
 const { toSnakeCase } = require('./entity-engine');
+const { requireAuth } = require('./auth');
 const logger = require('../utils/logger');
 
 /**
  * Register CRUD REST routes for all entities defined in core.
  * Emits realtime events via the provided emit function.
+ * Enforces entity permissions using JWT middleware.
  */
 function registerApiRoutes(app, core, emit) {
   const router = express.Router();
@@ -16,8 +18,11 @@ function registerApiRoutes(app, core, emit) {
     const basePath = `/${toKebabCase(entity.name)}s`;
     const table = entity.tableName;
 
+    const readMiddleware = buildPermissionMiddleware(entity.permissions.read, core);
+    const writeMiddleware = buildPermissionMiddleware(entity.permissions.write, core);
+
     // GET /api/<entities>  — list with optional filter query params
-    router.get(basePath, (req, res) => {
+    router.get(basePath, readMiddleware, (req, res) => {
       try {
         const filters = buildFilters(req.query);
         const rows = db.findAll(table, filters);
@@ -29,7 +34,7 @@ function registerApiRoutes(app, core, emit) {
     });
 
     // GET /api/<entities>/:id
-    router.get(`${basePath}/:id`, (req, res) => {
+    router.get(`${basePath}/:id`, readMiddleware, (req, res) => {
       try {
         const row = db.findById(table, req.params.id);
         if (!row) return res.status(404).json({ error: 'Not found' });
@@ -41,7 +46,7 @@ function registerApiRoutes(app, core, emit) {
     });
 
     // POST /api/<entities>
-    router.post(basePath, (req, res) => {
+    router.post(basePath, writeMiddleware, (req, res) => {
       try {
         const row = db.create(table, sanitizeBody(req.body, entity));
         emit(`${entity.name}.created`, row);
@@ -53,7 +58,7 @@ function registerApiRoutes(app, core, emit) {
     });
 
     // PATCH /api/<entities>/:id
-    router.patch(`${basePath}/:id`, (req, res) => {
+    router.patch(`${basePath}/:id`, writeMiddleware, (req, res) => {
       try {
         const existing = db.findById(table, req.params.id);
         if (!existing) return res.status(404).json({ error: 'Not found' });
@@ -67,7 +72,7 @@ function registerApiRoutes(app, core, emit) {
     });
 
     // DELETE /api/<entities>/:id
-    router.delete(`${basePath}/:id`, (req, res) => {
+    router.delete(`${basePath}/:id`, writeMiddleware, (req, res) => {
       try {
         const row = db.remove(table, req.params.id);
         if (!row) return res.status(404).json({ error: 'Not found' });
@@ -83,6 +88,30 @@ function registerApiRoutes(app, core, emit) {
   }
 
   app.use('/api', router);
+}
+
+/**
+ * Resolve a permission value into an Express middleware array.
+ *
+ * Permission values:
+ *   'public'               – no auth required (pass-through)
+ *   'restricted'           – any authenticated user (any collection)
+ *   'user:CollectionName'  – authenticated member of a specific collection
+ */
+function buildPermissionMiddleware(permission, _core) {
+  if (!permission || permission === 'public') {
+    // No-op middleware
+    return [(_req, _res, next) => next()];
+  }
+  if (permission === 'restricted') {
+    return [requireAuth()];
+  }
+  if (typeof permission === 'string' && permission.startsWith('user:')) {
+    const collectionName = permission.slice(5);
+    return [requireAuth(collectionName)];
+  }
+  // Unknown permission value — default to public
+  return [(_req, _res, next) => next()];
 }
 
 /**
@@ -121,3 +150,4 @@ function toKebabCase(str) {
 }
 
 module.exports = { registerApiRoutes };
+

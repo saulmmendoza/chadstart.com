@@ -81,6 +81,31 @@ function validateSchema(config) {
     }
   }
 
+  if (config.userCollections !== undefined) {
+    if (typeof config.userCollections !== 'object' || Array.isArray(config.userCollections)) {
+      throw new Error('"userCollections" must be an object (map of collection names to definitions)');
+    }
+
+    for (const [name, def] of Object.entries(config.userCollections)) {
+      if (!def || typeof def !== 'object') {
+        throw new Error(`User collection "${name}" must be an object`);
+      }
+
+      if (def.properties !== undefined) {
+        if (!Array.isArray(def.properties)) {
+          throw new Error(`User collection "${name}".properties must be an array`);
+        }
+        for (const prop of def.properties) {
+          if (typeof prop !== 'string' && (typeof prop !== 'object' || !prop.name)) {
+            throw new Error(
+              `User collection "${name}" property must be a string or object with a "name" field`
+            );
+          }
+        }
+      }
+    }
+  }
+
   return true;
 }
 

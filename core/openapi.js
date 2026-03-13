@@ -1,5 +1,7 @@
 'use strict';
 
+const { toKebabCase } = require('./entity-engine');
+
 /**
  * Generate an OpenAPI 3.0 specification from the core model.
  */
@@ -14,9 +16,83 @@ function generateOpenApiSpec(core) {
     paths: {},
     components: {
       schemas: {},
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+        },
+      },
     },
   };
 
+  // ── Auth endpoints per user collection ──────────────────────────────────
+  for (const uc of Object.values(core.userCollections || {})) {
+    const slug = toSlug(uc.name);
+    const ucSchema = buildUserCollectionSchema(uc);
+    spec.components.schemas[uc.name] = ucSchema;
+    spec.components.schemas[`${uc.name}Input`] = buildUserCollectionInputSchema(uc);
+    spec.components.schemas[`${uc.name}LoginInput`] = {
+      type: 'object',
+      required: ['email', 'password'],
+      properties: {
+        email: { type: 'string', format: 'email' },
+        password: { type: 'string', format: 'password' },
+      },
+    };
+    spec.components.schemas[`${uc.name}AuthResponse`] = {
+      type: 'object',
+      properties: {
+        token: { type: 'string' },
+        user: { $ref: `#/components/schemas/${uc.name}` },
+      },
+    };
+
+    spec.paths[`/auth/${slug}/signup`] = {
+      post: {
+        tags: [`Auth – ${uc.name}`],
+        summary: `Sign up as ${uc.name}`,
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: { $ref: `#/components/schemas/${uc.name}Input` } } },
+        },
+        responses: {
+          201: { description: 'Created', content: { 'application/json': { schema: { $ref: `#/components/schemas/${uc.name}AuthResponse` } } } },
+          400: { description: 'Validation error' },
+          409: { description: 'Email already registered' },
+        },
+      },
+    };
+
+    spec.paths[`/auth/${slug}/login`] = {
+      post: {
+        tags: [`Auth – ${uc.name}`],
+        summary: `Login as ${uc.name}`,
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: { $ref: `#/components/schemas/${uc.name}LoginInput` } } },
+        },
+        responses: {
+          200: { description: 'OK', content: { 'application/json': { schema: { $ref: `#/components/schemas/${uc.name}AuthResponse` } } } },
+          401: { description: 'Invalid credentials' },
+        },
+      },
+    };
+
+    spec.paths[`/auth/${slug}/me`] = {
+      get: {
+        tags: [`Auth – ${uc.name}`],
+        summary: `Get current ${uc.name}`,
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: 'OK', content: { 'application/json': { schema: { $ref: `#/components/schemas/${uc.name}` } } } },
+          401: { description: 'Unauthorized' },
+        },
+      },
+    };
+  }
+
+  // ── Entity CRUD endpoints ────────────────────────────────────────────────
   for (const entity of Object.values(core.entities)) {
     const tag = entity.name;
     const basePath = `/api/${toKebabCase(entity.name)}s`;
@@ -30,11 +106,15 @@ function generateOpenApiSpec(core) {
       ),
     };
 
+    const readSecurity = permToSecurity(entity.permissions.read);
+    const writeSecurity = permToSecurity(entity.permissions.write);
+
     // Collection endpoints
     spec.paths[basePath] = {
       get: {
         tags: [tag],
         summary: `List all ${entity.name}s`,
+        ...(readSecurity ? { security: readSecurity } : {}),
         parameters: entity.properties.map((p) => ({
           name: p.name,
           in: 'query',
@@ -56,6 +136,7 @@ function generateOpenApiSpec(core) {
       post: {
         tags: [tag],
         summary: `Create a ${entity.name}`,
+        ...(writeSecurity ? { security: writeSecurity } : {}),
         requestBody: {
           required: true,
           content: {
@@ -81,6 +162,7 @@ function generateOpenApiSpec(core) {
       get: {
         tags: [tag],
         summary: `Get ${entity.name} by id`,
+        ...(readSecurity ? { security: readSecurity } : {}),
         parameters: [idParam()],
         responses: {
           200: {
@@ -95,6 +177,7 @@ function generateOpenApiSpec(core) {
       patch: {
         tags: [tag],
         summary: `Update ${entity.name}`,
+        ...(writeSecurity ? { security: writeSecurity } : {}),
         parameters: [idParam()],
         requestBody: {
           required: true,
@@ -117,6 +200,7 @@ function generateOpenApiSpec(core) {
       delete: {
         tags: [tag],
         summary: `Delete ${entity.name}`,
+        ...(writeSecurity ? { security: writeSecurity } : {}),
         parameters: [idParam()],
         responses: {
           200: { description: 'Deleted' },
@@ -127,7 +211,7 @@ function generateOpenApiSpec(core) {
   }
 
   // File storage endpoints
-  for (const [bucketName, bucketDef] of Object.entries(core.files)) {
+  for (const [bucketName] of Object.entries(core.files)) {
     const uploadPath = `/files/${bucketName}`;
     spec.paths[uploadPath] = {
       post: {
@@ -171,6 +255,37 @@ function buildEntitySchema(entity, allEntities) {
   return { type: 'object', properties };
 }
 
+function buildUserCollectionSchema(uc) {
+  const properties = {
+    id: { type: 'integer', readOnly: true },
+    email: { type: 'string', format: 'email' },
+  };
+  for (const prop of uc.properties) {
+    properties[prop.name] = { type: openApiType(prop.type) };
+  }
+  return { type: 'object', properties };
+}
+
+function buildUserCollectionInputSchema(uc) {
+  const properties = {
+    email: { type: 'string', format: 'email' },
+    password: { type: 'string', format: 'password' },
+  };
+  for (const prop of uc.properties) {
+    properties[prop.name] = { type: openApiType(prop.type) };
+  }
+  return {
+    type: 'object',
+    required: ['email', 'password'],
+    properties,
+  };
+}
+
+function permToSecurity(permission) {
+  if (!permission || permission === 'public') return null;
+  return [{ bearerAuth: [] }];
+}
+
 function openApiType(sqlType) {
   const map = {
     text: 'string',
@@ -192,10 +307,11 @@ function idParam() {
   return { name: 'id', in: 'path', required: true, schema: { type: 'integer' } };
 }
 
-function toKebabCase(str) {
-  return str
+function toSlug(name) {
+  return name
     .replace(/([A-Z])/g, (m, p, offset) => (offset > 0 ? '-' : '') + p.toLowerCase())
-    .replace(/^-/, '');
+    .replace(/^-/, '')
+    .replace(/[^a-z0-9-]/g, '-');
 }
 
 module.exports = { generateOpenApiSpec };

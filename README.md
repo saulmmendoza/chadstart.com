@@ -2,13 +2,12 @@
 
 > YAML-first Backend as a Service — define your entire backend in a single YAML file.
 
-Inspired by [Manifest](https://backend.manifest.build/), ChadStart auto-generates a fully functional backend — database schema, REST API, realtime subscriptions, OpenAPI docs, file storage, and a plugin system — from one `chadstart.yaml` file.
+Inspired by [Manifest](https://backend.manifest.build/), ChadStart auto-generates a fully functional backend — database schema, REST API, realtime subscriptions, OpenAPI docs, file storage, plugin system, **JWT authentication**, and an **Admin UI** — from one `chadstart.yaml` file.
 
 ## Quick Start
 
 ```bash
-npm install chadstart
-# or clone this repo and npm install
+npm install
 ```
 
 Create a `chadstart.yaml`:
@@ -16,25 +15,37 @@ Create a `chadstart.yaml`:
 ```yaml
 name: Blog
 
+userCollections:
+  Admin:
+    properties:
+      - name
+  Customer:
+    properties:
+      - name
+      - phone
+
 entities:
   Post:
     properties:
       - title
       - content
       - published
+    permissions:
+      read: public
+      write: user:Admin
   Comment:
     properties:
       - text
     belongsTo:
       - Post
+    permissions:
+      read: public
+      write: restricted
 
 files:
   uploads:
     path: ./uploads
     public: true
-
-public:
-  folder: ./public
 ```
 
 Start the server:
@@ -52,11 +63,83 @@ From the YAML above, ChadStart automatically provides:
 | Feature | URL |
 |---------|-----|
 | REST API | `/api/posts`, `/api/comments`, ... |
+| Auth (signup/login/me) | `/auth/admin/signup`, `/auth/admin/login`, ... |
+| Admin UI | `/admin` |
 | Swagger UI | `/docs` |
 | OpenAPI JSON | `/openapi.json` |
 | Realtime WebSocket | `ws://localhost:3000/realtime` |
 | File uploads | `POST /files/uploads` |
 | Health check | `/health` |
+
+## Authentication & User Collections
+
+User collections are special entity types with built-in `email` + `password` fields. Each one generates its own auth endpoints.
+
+```yaml
+userCollections:
+  Admin:
+    properties:
+      - name          # extra fields beyond email + password
+  Customer:
+    properties:
+      - name
+      - phone
+```
+
+### Auth Endpoints
+
+```
+POST /auth/admin/signup     { email, password, name } → { token, user }
+POST /auth/admin/login      { email, password }       → { token, user }
+GET  /auth/admin/me         Authorization: Bearer <token> → user
+
+POST /auth/customer/signup  { email, password, ... }  → { token, user }
+POST /auth/customer/login   ...
+GET  /auth/customer/me      ...
+```
+
+Passwords are hashed with **bcrypt**. Tokens are signed **JWT** (7-day expiry by default).
+
+**Environment variables:**
+```bash
+JWT_SECRET=<long-random-string>   # Required in production (NODE_ENV=production)
+JWT_EXPIRES=7d                    # Optional — default 7d
+```
+
+> ⚠️ `JWT_SECRET` defaults to a well-known dev value. Always set it in production.
+
+## Entity Permissions
+
+Restrict who can read or write each entity:
+
+```yaml
+entities:
+  Post:
+    permissions:
+      read: public           # anyone
+      write: user:Admin      # only authenticated Admins
+  Comment:
+    permissions:
+      read: public
+      write: restricted      # any authenticated user (any collection)
+```
+
+Permission values:
+| Value | Meaning |
+|-------|---------|
+| `public` | No auth required |
+| `restricted` | Any authenticated user |
+| `user:CollectionName` | Authenticated member of that specific collection |
+
+## Admin UI
+
+A built-in dark-mode SPA at `/admin`:
+
+- **Sidebar** with all entities and user collections
+- **Data table** with CRUD (create, edit, delete) for every record
+- **Login screen** — any user collection with `admin: true` (default) can sign in
+
+> Multiple user collections can access the Admin UI. Set `admin: false` on a collection to exclude it.
 
 ## REST API
 
@@ -82,11 +165,7 @@ Connect via WebSocket at `ws://localhost:3000/realtime`:
 
 ```js
 const ws = new WebSocket('ws://localhost:3000/realtime');
-
-// Subscribe to an entity channel
 ws.send(JSON.stringify({ type: 'subscribe', channel: 'Post' }));
-
-// Receive events
 ws.onmessage = (e) => {
   const { event, data } = JSON.parse(e.data);
   // event: 'Post.created' | 'Post.updated' | 'Post.deleted'
@@ -105,11 +184,8 @@ files:
 ```
 
 ```bash
-# Upload
-curl -F "file=@photo.jpg" http://localhost:3000/files/uploads
-
-# Download
-GET /files/uploads/photo.jpg
+curl -F "file=@photo.jpg" http://localhost:3000/files/uploads   # upload
+GET /files/uploads/photo.jpg                                    # download
 ```
 
 ## Plugin System
@@ -131,36 +207,52 @@ module.exports = {
 };
 ```
 
+> ⚠️ Remote plugins execute arbitrary code. Only load plugins from trusted sources.
+
 ## YAML Schema Reference
 
 ```yaml
 name: string          # Required — project name
 port: 3000            # Optional — default 3000
 
+userCollections:
+  CollectionName:
+    properties:
+      - fieldName     # string shorthand (type: text)
+      - name: fieldName
+        type: text|integer|number|boolean|date|json
+    admin: true       # allow access to Admin UI (default: true)
+
 entities:
   EntityName:
     properties:
-      - fieldName                             # string shorthand (type: text)
-      - name: fieldName                       # object form
+      - fieldName
+      - name: fieldName
         type: text|integer|number|boolean|date|json
     belongsTo:
-      - OtherEntity                           # adds otherEntity_id FK column
+      - OtherEntity
     permissions:
-      read: public                            # future use
-      write: public
+      read: public|restricted|user:CollectionName
+      write: public|restricted|user:CollectionName
 
 files:
   bucketName:
-    path: ./uploads                           # directory on disk
-    public: true                              # serve GET statically
+    path: ./uploads
+    public: true
 
 public:
-  folder: ./public                            # served as static files at /
+  folder: ./public
 
 plugins:
-  - repo: https://github.com/org/plugin      # cloned automatically
-  - path: ./local-plugin                      # local directory
+  - repo: https://github.com/org/plugin
+  - path: ./local-plugin
 ```
+
+## Rate Limiting
+
+Auth endpoints: 30 req / 15 min per IP  
+API endpoints: 200 req / min per IP  
+Admin UI: 100 req / min per IP
 
 ## Project Structure
 
@@ -171,19 +263,22 @@ chadstart/
     schema-validator.js  # Validate YAML structure
     entity-engine.js     # Build internal model from config
     db.js                # SQLite CRUD layer
-    api-generator.js     # Generate Express REST routes
+    auth.js              # JWT auth + user collection endpoints
+    api-generator.js     # Generate Express REST routes with permission enforcement
     realtime.js          # WebSocket realtime subscriptions
     openapi.js           # OpenAPI 3.0 spec generator
     file-storage.js      # File upload/download routes
     plugin-loader.js     # Dynamic plugin loading
   server/
     express-server.js    # Bootstrap everything together
+  admin/
+    index.html           # Admin UI single-page app
   cli/
     cli.js               # npx chadstart dev|start|build
   utils/
     logger.js            # Simple leveled logger
   test/
-    test.js              # Built-in tests
+    test.js              # Built-in tests (39)
   chadstart.yaml         # Example config
 ```
 
@@ -198,7 +293,7 @@ npx chadstart build [--config path]             # Validate & summarize config
 ## Design Principles
 
 - **YAML-first** — one file defines everything
-- **Minimal dependencies** — express, ws, yaml, better-sqlite3, swagger-ui-express
+- **Minimal dependencies** — express, ws, yaml, better-sqlite3, bcryptjs, jsonwebtoken, swagger-ui-express, express-rate-limit
 - **Readable code** — easy to hack and extend
 - **No magic** — every generated route is straightforward Express code
 - **Self-hosted** — runs anywhere Node.js runs

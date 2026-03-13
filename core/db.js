@@ -48,6 +48,38 @@ function syncSchema(core) {
       }
     }
   }
+
+  // Sync user-collection tables (always have email + password)
+  for (const uc of Object.values(core.userCollections || {})) {
+    const existing = getExistingColumns(uc.tableName);
+    const extraCols = uc.properties.map((p) => ({
+      name: p.name,
+      def: `"${p.name}" ${propTypeToSql(p.type)}`,
+    }));
+    const allCols = [
+      { name: 'email', def: '"email" TEXT NOT NULL UNIQUE' },
+      { name: 'password', def: '"password" TEXT NOT NULL' },
+      ...extraCols,
+    ];
+
+    if (existing === null) {
+      const colDefs = ['id INTEGER PRIMARY KEY AUTOINCREMENT', ...allCols.map((c) => c.def)];
+      db.exec(`CREATE TABLE "${uc.tableName}" (${colDefs.join(', ')})`);
+      logger.debug(`Created user-collection table: ${uc.tableName}`);
+    } else {
+      for (const col of allCols) {
+        if (!existing.has(col.name)) {
+          // SQLite ALTER TABLE ADD COLUMN does not support column-level constraints
+          // (NOT NULL, UNIQUE, DEFAULT expressions with functions, etc.).
+          // Strip them so the migration succeeds; constraints on email/password are
+          // only enforced at the application layer for migrated databases.
+          const simpleDef = stripColumnConstraints(col.def);
+          db.exec(`ALTER TABLE "${uc.tableName}" ADD COLUMN ${simpleDef}`);
+          logger.debug(`Added column ${col.name} to ${uc.tableName}`);
+        }
+      }
+    }
+  }
 }
 
 function getExistingColumns(tableName) {
@@ -58,6 +90,21 @@ function getExistingColumns(tableName) {
   } catch {
     return null;
   }
+}
+
+/**
+ * Strip column-level constraints that SQLite does not support in ALTER TABLE ADD COLUMN.
+ * SQLite supports: NULL, NOT NULL (with a literal DEFAULT), DEFAULT, CHECK (limited),
+ * but rejects UNIQUE or REFERENCES without full-table re-creation.
+ * We strip the most common ones for graceful migration.
+ */
+function stripColumnConstraints(def) {
+  return def
+    .replace(/\bNOT\s+NULL\b/gi, '')
+    .replace(/\bUNIQUE\b/gi, '')
+    .replace(/\bREFERENCES\s+"[^"]+"\([^)]+\)/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 }
 
 function buildColumnDefs(entity, allEntities) {

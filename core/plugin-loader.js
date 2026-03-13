@@ -19,6 +19,12 @@ const logger = require('../utils/logger');
  */
 async function loadPlugins(app, core) {
   for (const pluginDef of core.plugins) {
+    if (pluginDef.repo) {
+      logger.warn(
+        `  ⚠️  Loading remote plugin from "${pluginDef.repo}". ` +
+          'Remote plugins execute arbitrary code. Only load plugins from trusted sources.'
+      );
+    }
     try {
       const plugin = await resolvePlugin(pluginDef);
       if (typeof plugin.register === 'function') {
