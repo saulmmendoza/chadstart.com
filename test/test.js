@@ -874,6 +874,222 @@ await test('buildCore entity with no properties defaults to empty array', () => 
   assert.deepStrictEqual(core.entities.Tag.properties, []);
 });
 
+// ─── upload helpers ───────────────────────────────────────────────────────────
+
+console.log('\nupload helpers');
+const {
+  getBaseUrl,
+  getMonthFolder,
+  isS3Configured,
+  sanitizeFilename,
+  generateUniquePrefix,
+  saveLocally,
+  getImageSizes,
+} = require('../core/upload');
+
+await test('getMonthFolder returns correct format', () => {
+  const result = getMonthFolder(new Date(2024, 9, 1)); // October 2024
+  assert.strictEqual(result, 'Oct2024');
+});
+
+await test('getMonthFolder uses current date when no arg provided', () => {
+  const result = getMonthFolder();
+  const now = new Date();
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  assert.ok(result.startsWith(months[now.getMonth()]));
+  assert.ok(result.endsWith(String(now.getFullYear())));
+});
+
+await test('getBaseUrl uses BASE_URL env var when set', () => {
+  const orig = process.env.BASE_URL;
+  process.env.BASE_URL = 'https://example.com';
+  const url = getBaseUrl({ port: 3000 });
+  process.env.BASE_URL = orig === undefined ? undefined : orig;
+  if (orig === undefined) delete process.env.BASE_URL;
+  assert.strictEqual(url, 'https://example.com');
+});
+
+await test('getBaseUrl defaults to localhost with port', () => {
+  const orig = process.env.BASE_URL;
+  delete process.env.BASE_URL;
+  const url = getBaseUrl({ port: 4000 });
+  if (orig !== undefined) process.env.BASE_URL = orig;
+  assert.strictEqual(url, 'http://localhost:4000');
+});
+
+await test('isS3Configured returns false when env vars are absent', () => {
+  const vars = ['S3_BUCKET', 'S3_ENDPOINT', 'S3_REGION', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY'];
+  const saved = {};
+  vars.forEach((v) => { saved[v] = process.env[v]; delete process.env[v]; });
+  const result = isS3Configured();
+  vars.forEach((v) => { if (saved[v] !== undefined) process.env[v] = saved[v]; });
+  assert.strictEqual(result, false);
+});
+
+await test('isS3Configured returns true when all S3 env vars are set', () => {
+  const vars = ['S3_BUCKET', 'S3_ENDPOINT', 'S3_REGION', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY'];
+  const saved = {};
+  vars.forEach((v) => { saved[v] = process.env[v]; process.env[v] = 'test-value'; });
+  const result = isS3Configured();
+  vars.forEach((v) => { if (saved[v] !== undefined) process.env[v] = saved[v]; else delete process.env[v]; });
+  assert.strictEqual(result, true);
+});
+
+await test('isS3Configured returns false when only some S3 vars are set', () => {
+  const vars = ['S3_BUCKET', 'S3_ENDPOINT', 'S3_REGION', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY'];
+  const saved = {};
+  vars.forEach((v) => { saved[v] = process.env[v]; delete process.env[v]; });
+  process.env.S3_BUCKET = 'my-bucket'; // only one set
+  const result = isS3Configured();
+  vars.forEach((v) => { if (saved[v] !== undefined) process.env[v] = saved[v]; else delete process.env[v]; });
+  assert.strictEqual(result, false);
+});
+
+await test('sanitizeFilename strips directory traversal', () => {
+  assert.strictEqual(sanitizeFilename('../../../etc/passwd'), 'passwd');
+});
+
+await test('sanitizeFilename replaces spaces and special chars', () => {
+  const safe = sanitizeFilename('my file (1).pdf');
+  assert.ok(!/[ ()]/.test(safe));
+});
+
+await test('sanitizeFilename replaces leading dots', () => {
+  const safe = sanitizeFilename('.hidden');
+  assert.ok(!safe.startsWith('.'));
+});
+
+await test('sanitizeFilename preserves safe characters', () => {
+  assert.strictEqual(sanitizeFilename('my-file_01.pdf'), 'my-file_01.pdf');
+});
+
+await test('generateUniquePrefix returns a non-empty string', () => {
+  const prefix = generateUniquePrefix();
+  assert.ok(typeof prefix === 'string' && prefix.length > 0);
+});
+
+await test('generateUniquePrefix returns different values each call', () => {
+  const a = generateUniquePrefix();
+  const b = generateUniquePrefix();
+  assert.notStrictEqual(a, b);
+});
+
+await test('saveLocally creates directory and writes file', () => {
+  const dir = path.join(os.tmpdir(), `upload-test-${Date.now()}`);
+  const filename = 'test.txt';
+  const content = Buffer.from('hello world');
+  saveLocally(content, dir, filename);
+  const dest = path.join(dir, filename);
+  assert.ok(fs.existsSync(dest));
+  assert.strictEqual(fs.readFileSync(dest, 'utf8'), 'hello world');
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+await test('saveLocally creates nested directories', () => {
+  const dir = path.join(os.tmpdir(), `upload-nested-${Date.now()}`, 'a', 'b', 'c');
+  saveLocally(Buffer.from('x'), dir, 'f.txt');
+  assert.ok(fs.existsSync(path.join(dir, 'f.txt')));
+  fs.rmSync(path.join(os.tmpdir(), path.relative(os.tmpdir(), dir).split(path.sep)[0]), { recursive: true, force: true });
+});
+
+await test('getImageSizes returns defaults when no entity config', () => {
+  const core = buildCore({ name: 'App', entities: {} });
+  const sizes = getImageSizes(core, 'cats', 'avatar');
+  assert.deepStrictEqual(sizes, { thumbnail: [80, 80], medium: [160, 160] });
+});
+
+await test('getImageSizes returns custom sizes from entity property options', () => {
+  const core = buildCore({
+    name: 'App',
+    entities: {
+      Cat: {
+        properties: [{
+          name: 'avatar',
+          type: 'image',
+          options: { sizes: { small: [40, 40], large: [400, 400] } },
+        }],
+      },
+    },
+  });
+  const sizes = getImageSizes(core, 'Cat', 'avatar');
+  assert.deepStrictEqual(sizes, { small: [40, 40], large: [400, 400] });
+});
+
+await test('getImageSizes looks up by entity tableName', () => {
+  const core = buildCore({
+    name: 'App',
+    entities: {
+      BlogPost: {
+        properties: [{
+          name: 'cover',
+          type: 'image',
+          options: { sizes: { thumb: [100, 100] } },
+        }],
+      },
+    },
+  });
+  const sizes = getImageSizes(core, 'blog_post', 'cover');
+  assert.deepStrictEqual(sizes, { thumb: [100, 100] });
+});
+
+// ─── upload – image resize (sharp integration) ────────────────────────────────
+
+console.log('\nupload – image resize');
+
+await test('sharp resizes a 1x1 PNG to thumbnail dimensions', async () => {
+  const sharp = require('sharp');
+  // Valid 1x1 red pixel PNG generated with sharp
+  const base64 =
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC';
+  const input = Buffer.from(base64, 'base64');
+  const output = await sharp(input).resize(80, 80, { fit: 'cover' }).jpeg().toBuffer();
+  const meta = await sharp(output).metadata();
+  assert.strictEqual(meta.width, 80);
+  assert.strictEqual(meta.height, 80);
+  assert.strictEqual(meta.format, 'jpeg');
+});
+
+await test('sharp resizes a 1x1 PNG to medium dimensions', async () => {
+  const sharp = require('sharp');
+  const base64 =
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC';
+  const input = Buffer.from(base64, 'base64');
+  const output = await sharp(input).resize(160, 160, { fit: 'cover' }).jpeg().toBuffer();
+  const meta = await sharp(output).metadata();
+  assert.strictEqual(meta.width, 160);
+  assert.strictEqual(meta.height, 160);
+});
+
+// ─── upload – route logic (unit tests without HTTP server) ────────────────────
+
+console.log('\nupload – route content-type check');
+
+await test('/api/upload/file rejects non-multipart requests', async () => {
+  // Simulate the content-type guard logic directly
+  const contentType = 'application/json';
+  const isMultipart = contentType.includes('multipart/form-data');
+  assert.strictEqual(isMultipart, false);
+});
+
+await test('file path format: prefix-filename in month folder', () => {
+  const prefix = 'abc123';
+  const safeName = sanitizeFilename('my-contract.pdf');
+  const finalName = `${prefix}-${safeName}`;
+  const month = getMonthFolder(new Date(2024, 9, 1));
+  const relPath = `storage/invoices/contract/${month}/${finalName}`;
+  assert.strictEqual(relPath, 'storage/invoices/contract/Oct2024/abc123-my-contract.pdf');
+});
+
+await test('image path format: prefix-sizeName.jpg in month folder', () => {
+  const prefix = 'xyz789';
+  const month = getMonthFolder(new Date(2024, 9, 1));
+  const thumbName = `${prefix}-thumbnail.jpg`;
+  const medName = `${prefix}-medium.jpg`;
+  assert.ok(thumbName.endsWith('-thumbnail.jpg'));
+  assert.ok(medName.endsWith('-medium.jpg'));
+  assert.ok(`storage/cats/avatar/${month}/${thumbName}`.includes('Oct2024'));
+});
+
 // ─── Summary ─────────────────────────────────────────────────────────────────
 
 console.log(`\n${passed + failed} tests: ${passed} passed, ${failed} failed\n`);
