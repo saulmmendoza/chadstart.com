@@ -11,7 +11,7 @@ const { loadYaml } = require('../core/yaml-loader');
 const { validateSchema } = require('../core/schema-validator');
 const { buildCore } = require('../core/entity-engine');
 const { initDb, findAll, findAllSimple } = require('../core/db');
-const { registerApiRoutes } = require('../core/api-generator');
+const { registerApiRoutes, createBackendSdk } = require('../core/api-generator');
 const { registerAuthRoutes, verifyToken, omitPassword } = require('../core/auth');
 const { initRealtime, emit } = require('../core/realtime');
 const { generateOpenApiSpec } = require('../core/openapi');
@@ -148,9 +148,7 @@ async function createServer(yamlPath) {
 }
 
 async function registerCustomEndpoints(app, core) {
-  const jwt = require('jsonwebtoken');
   const { requireAuth, optionalAuth } = require('../core/auth');
-  const db = require('../core/db');
 
   // Create a simple backend "SDK" object for handlers (mimics the JS SDK interface)
   const manifestSdk = createBackendSdk(core);
@@ -208,58 +206,6 @@ function buildEndpointPolicyMiddleware(ep) {
     default:
       return [(_req, _res, next) => next()];
   }
-}
-
-/**
- * Create a simple backend SDK for custom endpoint handlers.
- * Provides a `from(slug)` interface that maps to CRUD operations.
- */
-function createBackendSdk(core) {
-  const db = require('../core/db');
-
-  return {
-    from(slug) {
-      // Find entity by slug
-      const entity = Object.values(core.entities).find(
-        (e) => e.slug === slug || e.slug + 's' === slug || slug === e.tableName
-      );
-      if (!entity) throw new Error(`Entity not found for slug: ${slug}`);
-      const table = entity.tableName;
-
-      return {
-        find(opts) { return db.findAll(table, {}, opts || {}); },
-        findOneById(id) { return db.findById(table, id); },
-        create(data) { return db.create(table, data); },
-        update(id, data) { return db.update(table, id, data); },
-        patch(id, data) { return db.update(table, id, data); },
-        delete(id) { return db.remove(table, id); },
-      };
-    },
-    single(slug) {
-      const entity = Object.values(core.entities).find(
-        (e) => (e.slug === slug || e.tableName === slug) && e.single
-      );
-      if (!entity) throw new Error(`Single entity not found for slug: ${slug}`);
-      const table = entity.tableName;
-
-      return {
-        get() {
-          const rows = db.findAllSimple(table);
-          return rows[0] || null;
-        },
-        update(data) {
-          const rows = db.findAllSimple(table);
-          if (!rows[0]) return null;
-          return db.update(table, rows[0].id, data);
-        },
-        patch(data) {
-          const rows = db.findAllSimple(table);
-          if (!rows[0]) return null;
-          return db.update(table, rows[0].id, data);
-        },
-      };
-    },
-  };
 }
 
 async function startServer(yamlPath) {
