@@ -1,0 +1,271 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://chadstart.com/chadstart.schema.json",
+  "title": "ChadStart Configuration",
+  "description": "Schema for chadstart.yaml — define your entire backend in one YAML file.",
+  "type": "object",
+  "required": ["name"],
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "The name of your application."
+    },
+    "port": {
+      "type": "integer",
+      "default": 3000,
+      "description": "The port your server listens on."
+    },
+    "entities": {
+      "type": "object",
+      "description": "Map of entity names to their definitions.",
+      "additionalProperties": { "$ref": "#/$defs/entity" }
+    },
+    "endpoints": {
+      "type": "object",
+      "description": "Map of custom endpoint names to their definitions.",
+      "additionalProperties": { "$ref": "#/$defs/endpoint" }
+    },
+    "groups": {
+      "type": "object",
+      "description": "Reusable property groups that can be embedded in entities.",
+      "additionalProperties": { "$ref": "#/$defs/group" }
+    },
+    "files": {
+      "type": "object",
+      "description": "Map of file bucket names to their definitions.",
+      "additionalProperties": { "$ref": "#/$defs/fileBucket" }
+    },
+    "public": {
+      "type": "object",
+      "required": ["folder"],
+      "additionalProperties": false,
+      "properties": {
+        "folder": {
+          "type": "string",
+          "description": "Path to the public static files directory."
+        }
+      }
+    },
+    "plugins": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/plugin" }
+    }
+  },
+  "$defs": {
+    "property": {
+      "oneOf": [
+        { "type": "string", "description": "Short syntax: property name (type defaults to string)." },
+        {
+          "type": "object",
+          "required": ["name"],
+          "properties": {
+            "name": { "type": "string" },
+            "type": {
+              "type": "string",
+              "enum": [
+                "string", "text", "richText", "number", "link", "money",
+                "date", "timestamp", "email", "boolean", "file", "image",
+                "password", "choice", "location", "group", "json",
+                "integer", "float", "real"
+              ],
+              "default": "string"
+            },
+            "hidden": { "type": "boolean", "default": false },
+            "options": { "type": "object" },
+            "validation": { "$ref": "#/$defs/validationRules" },
+            "helpText": { "type": "string" },
+            "default": {}
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "relationItem": {
+      "oneOf": [
+        { "type": "string", "description": "Short syntax: entity name." },
+        {
+          "type": "object",
+          "required": ["name", "entity"],
+          "properties": {
+            "name": { "type": "string" },
+            "entity": { "type": "string" },
+            "helpText": { "type": "string" },
+            "eager": { "type": "boolean", "default": false }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "accessType": {
+      "type": "string",
+      "enum": ["public", "restricted", "admin", "forbidden", "🌐", "🔒", "👨🏻‍💻", "🚫"]
+    },
+    "policy": {
+      "type": "object",
+      "required": ["access"],
+      "properties": {
+        "access": { "$ref": "#/$defs/accessType" },
+        "allow": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" } }
+          ]
+        },
+        "condition": { "type": "string", "enum": ["self"] }
+      },
+      "additionalProperties": false
+    },
+    "policies": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "create":  { "type": "array", "items": { "$ref": "#/$defs/policy" } },
+        "read":    { "type": "array", "items": { "$ref": "#/$defs/policy" } },
+        "update":  { "type": "array", "items": { "$ref": "#/$defs/policy" } },
+        "delete":  { "type": "array", "items": { "$ref": "#/$defs/policy" } },
+        "signup":  { "type": "array", "items": { "$ref": "#/$defs/policy" } }
+      }
+    },
+    "validationRules": {
+      "type": "object",
+      "properties": {
+        "required":       { "type": "boolean" },
+        "isDefined":      { "type": "boolean" },
+        "isOptional":     { "type": "boolean" },
+        "equals":         {},
+        "notEquals":      {},
+        "isEmpty":        { "type": "boolean" },
+        "isNotEmpty":     { "type": "boolean" },
+        "isIn":           { "type": "array" },
+        "isNotIn":        { "type": "array" },
+        "min":            { "type": "number" },
+        "max":            { "type": "number" },
+        "contains":       { "type": "string" },
+        "notContains":    { "type": "string" },
+        "isAlpha":        { "type": "boolean" },
+        "isAlphanumeric": { "type": "boolean" },
+        "isAscii":        { "type": "boolean" },
+        "isEmail":        { "type": "boolean" },
+        "isJSON":         { "type": "boolean" },
+        "minLength":      { "type": "integer" },
+        "maxLength":      { "type": "integer" },
+        "matches":        { "type": "string" },
+        "isMimeType":     { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "lifecycleEvents": {
+      "type": "string",
+      "enum": ["beforeCreate", "afterCreate", "beforeUpdate", "afterUpdate", "beforeDelete", "afterDelete"]
+    },
+    "webhook": {
+      "type": "object",
+      "required": ["url"],
+      "properties": {
+        "url":     { "type": "string", "format": "uri" },
+        "method":  { "type": "string", "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"], "default": "POST" },
+        "headers": { "type": "object", "additionalProperties": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "middleware": {
+      "type": "object",
+      "required": ["handler"],
+      "properties": {
+        "handler": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "entity": {
+      "type": "object",
+      "properties": {
+        "authenticable": { "type": "boolean", "default": false, "description": "Makes this entity authenticable (adds email + password fields, enables login/signup)." },
+        "single":        { "type": "boolean", "default": false, "description": "Single entity — only one record exists (no create/delete)." },
+        "mainProp":      { "type": "string", "description": "Identifier property used in the admin panel." },
+        "nameSingular":  { "type": "string" },
+        "namePlural":    { "type": "string" },
+        "seedCount":     { "type": "integer", "default": 50 },
+        "slug":          { "type": "string", "description": "Custom kebab-case slug for API endpoints." },
+        "properties":    { "type": "array", "items": { "$ref": "#/$defs/property" } },
+        "belongsTo":     { "type": "array", "items": { "$ref": "#/$defs/relationItem" } },
+        "belongsToMany": { "type": "array", "items": { "$ref": "#/$defs/relationItem" } },
+        "policies":      { "$ref": "#/$defs/policies" },
+        "validation": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/validationRules" }
+        },
+        "hooks": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "beforeCreate": { "type": "array", "items": { "$ref": "#/$defs/webhook" } },
+            "afterCreate":  { "type": "array", "items": { "$ref": "#/$defs/webhook" } },
+            "beforeUpdate": { "type": "array", "items": { "$ref": "#/$defs/webhook" } },
+            "afterUpdate":  { "type": "array", "items": { "$ref": "#/$defs/webhook" } },
+            "beforeDelete": { "type": "array", "items": { "$ref": "#/$defs/webhook" } },
+            "afterDelete":  { "type": "array", "items": { "$ref": "#/$defs/webhook" } }
+          }
+        },
+        "middlewares": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "beforeCreate": { "type": "array", "items": { "$ref": "#/$defs/middleware" } },
+            "afterCreate":  { "type": "array", "items": { "$ref": "#/$defs/middleware" } },
+            "beforeUpdate": { "type": "array", "items": { "$ref": "#/$defs/middleware" } },
+            "afterUpdate":  { "type": "array", "items": { "$ref": "#/$defs/middleware" } },
+            "beforeDelete": { "type": "array", "items": { "$ref": "#/$defs/middleware" } },
+            "afterDelete":  { "type": "array", "items": { "$ref": "#/$defs/middleware" } }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "endpoint": {
+      "type": "object",
+      "required": ["path", "method", "handler"],
+      "properties": {
+        "path":        { "type": "string", "description": "URL path (supports :param syntax)." },
+        "method":      { "type": "string", "enum": ["GET", "POST", "PATCH", "PUT", "DELETE"] },
+        "handler":     { "type": "string", "description": "Name of the handler function in /handlers." },
+        "description": { "type": "string" },
+        "policies":    { "type": "array", "items": { "$ref": "#/$defs/policy" } }
+      },
+      "additionalProperties": false
+    },
+    "group": {
+      "type": "object",
+      "properties": {
+        "properties": { "type": "array", "items": { "$ref": "#/$defs/property" } },
+        "validation": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/validationRules" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "fileBucket": {
+      "type": "object",
+      "required": ["path"],
+      "properties": {
+        "path":   { "type": "string" },
+        "public": { "type": "boolean", "default": false }
+      },
+      "additionalProperties": false
+    },
+    "plugin": {
+      "type": "object",
+      "anyOf": [
+        { "required": ["repo"] },
+        { "required": ["path"] }
+      ],
+      "properties": {
+        "repo": { "type": "string" },
+        "path": { "type": "string" },
+        "name": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

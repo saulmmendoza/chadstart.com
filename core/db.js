@@ -2,192 +2,98 @@
 
 const Database = require('better-sqlite3');
 const path = require('path');
-const fs = require('fs');
 const logger = require('../utils/logger');
 
 let db = null;
 
-/**
- * Initialize SQLite database and create tables for all entities.
- */
+const SQL_TYPE = {
+  text: 'TEXT', string: 'TEXT', richText: 'TEXT',
+  integer: 'INTEGER', int: 'INTEGER',
+  number: 'REAL', float: 'REAL', real: 'REAL', money: 'REAL',
+  boolean: 'INTEGER', bool: 'INTEGER',
+  date: 'TEXT', timestamp: 'TEXT', email: 'TEXT', link: 'TEXT',
+  password: 'TEXT', choice: 'TEXT', location: 'TEXT',
+  file: 'TEXT', image: 'TEXT', group: 'TEXT', json: 'TEXT',
+};
+
 function initDb(core, dbPath) {
   const resolved = dbPath ? path.resolve(dbPath) : path.resolve('chadstart.db');
   db = new Database(resolved);
-
-  // Enable WAL mode for better concurrent read performance
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
-
   logger.info(`Database initialized at ${resolved}`);
   syncSchema(core);
   return db;
 }
 
-/**
- * Create or migrate tables to match the current entity definitions.
- * Uses a simple additive migration: adds missing columns, never drops.
- *
- * Handles both regular entities and authenticable entities (which get
- * automatic email + password columns).
- */
 function syncSchema(core) {
-  // Sync all entities (including authenticable ones)
   for (const entity of Object.values(core.entities)) {
     const cols = buildColumnDefs(entity, core.entities);
     const existing = getExistingColumns(entity.tableName);
 
-    if (existing === null) {
-      // Table does not exist - create it
-      const colDefs = ['id INTEGER PRIMARY KEY AUTOINCREMENT', ...cols.map((c) => c.def)];
-      const sql = `CREATE TABLE "${entity.tableName}" (${colDefs.join(', ')})`;
-      db.exec(sql);
-      logger.debug(`Created table: ${entity.tableName}`);
+    if (!existing) {
+      const defs = ['id INTEGER PRIMARY KEY AUTOINCREMENT', ...cols.map((c) => c.def)];
+      db.exec(`CREATE TABLE "${entity.tableName}" (${defs.join(', ')})`);
     } else {
-      // Table exists - add any missing columns
       for (const col of cols) {
         if (!existing.has(col.name)) {
-          const simpleDef = stripColumnConstraints(col.def);
-          db.exec(`ALTER TABLE "${entity.tableName}" ADD COLUMN ${simpleDef}`);
-          logger.debug(`Added column ${col.name} to ${entity.tableName}`);
+          db.exec(`ALTER TABLE "${entity.tableName}" ADD COLUMN ${stripConstraints(col.def)}`);
         }
       }
     }
   }
 
-  // Sync belongsToMany junction tables
+  // belongsToMany junction tables
   for (const entity of Object.values(core.entities)) {
     for (const rel of entity.belongsToMany || []) {
-      const relEntityName = typeof rel === 'string' ? rel : (rel.entity || rel.name);
-      const relEntity = core.entities[relEntityName];
+      const relName = typeof rel === 'string' ? rel : (rel.entity || rel.name);
+      const relEntity = core.entities[relName];
       if (!relEntity) continue;
-
-      // Deterministic junction table name (alphabetical order)
-      const names = [entity.tableName, relEntity.tableName].sort();
-      const junctionTable = `${names[0]}_${names[1]}`;
-
-      const existing = getExistingColumns(junctionTable);
-      if (existing === null) {
+      const [a, b] = [entity.tableName, relEntity.tableName].sort();
+      const jt = `${a}_${b}`;
+      if (!getExistingColumns(jt)) {
         db.exec(
-          `CREATE TABLE "${junctionTable}" (` +
-            `"${names[0]}_id" INTEGER REFERENCES "${names[0]}"(id), ` +
-            `"${names[1]}_id" INTEGER REFERENCES "${names[1]}"(id), ` +
-            `PRIMARY KEY ("${names[0]}_id", "${names[1]}_id")` +
-            `)`
+          `CREATE TABLE "${jt}" ("${a}_id" INTEGER REFERENCES "${a}"(id), "${b}_id" INTEGER REFERENCES "${b}"(id), PRIMARY KEY ("${a}_id", "${b}_id"))`
         );
-        logger.debug(`Created junction table: ${junctionTable}`);
-      }
-    }
-  }
-
-  // Legacy: Sync user-collection tables (if userCollections still used)
-  for (const uc of Object.values(core.userCollections || {})) {
-    // Skip if already handled as an entity
-    if (core.entities[uc.name]) continue;
-
-    const existing = getExistingColumns(uc.tableName);
-    const extraCols = uc.properties.map((p) => ({
-      name: p.name,
-      def: `"${p.name}" ${propTypeToSql(p.type)}`,
-    }));
-    const allCols = [
-      { name: 'email', def: '"email" TEXT NOT NULL UNIQUE' },
-      { name: 'password', def: '"password" TEXT NOT NULL' },
-      ...extraCols,
-    ];
-
-    if (existing === null) {
-      const colDefs = ['id INTEGER PRIMARY KEY AUTOINCREMENT', ...allCols.map((c) => c.def)];
-      db.exec(`CREATE TABLE "${uc.tableName}" (${colDefs.join(', ')})`);
-      logger.debug(`Created user-collection table: ${uc.tableName}`);
-    } else {
-      for (const col of allCols) {
-        if (!existing.has(col.name)) {
-          const simpleDef = stripColumnConstraints(col.def);
-          db.exec(`ALTER TABLE "${uc.tableName}" ADD COLUMN ${simpleDef}`);
-          logger.debug(`Added column ${col.name} to ${uc.tableName}`);
-        }
       }
     }
   }
 }
 
-function getExistingColumns(tableName) {
+function getExistingColumns(table) {
   try {
-    const rows = db.pragma(`table_info("${tableName}")`);
-    if (!rows || rows.length === 0) return null;
-    return new Set(rows.map((r) => r.name));
-  } catch {
-    return null;
-  }
+    const rows = db.pragma(`table_info("${table}")`);
+    return rows && rows.length ? new Set(rows.map((r) => r.name)) : null;
+  } catch { return null; }
 }
 
-/**
- * Strip column-level constraints that SQLite does not support in ALTER TABLE ADD COLUMN.
- */
-function stripColumnConstraints(def) {
-  return def
-    .replace(/\bNOT\s+NULL\b/gi, '')
-    .replace(/\bUNIQUE\b/gi, '')
-    .replace(/\bREFERENCES\s+"[^"]+"\([^)]+\)/gi, '')
-    .replace(/\s{2,}/g, ' ')
-    .trim();
+function stripConstraints(def) {
+  return def.replace(/\bNOT\s+NULL\b/gi, '').replace(/\bUNIQUE\b/gi, '')
+    .replace(/\bREFERENCES\s+"[^"]+"\([^)]+\)/gi, '').replace(/\s{2,}/g, ' ').trim();
 }
 
 function buildColumnDefs(entity, allEntities) {
   const cols = [];
 
-  // Authenticable entities get email + password columns first
   if (entity.authenticable) {
     cols.push({ name: 'email', def: '"email" TEXT NOT NULL UNIQUE' });
     cols.push({ name: 'password', def: '"password" TEXT NOT NULL' });
   }
 
-  for (const prop of entity.properties) {
-    const sqlType = propTypeToSql(prop.type);
-    cols.push({ name: prop.name, def: `"${prop.name}" ${sqlType}` });
+  for (const p of entity.properties) {
+    cols.push({ name: p.name, def: `"${p.name}" ${SQL_TYPE[p.type] || 'TEXT'}` });
   }
 
   for (const rel of entity.belongsTo || []) {
-    const relEntityName = typeof rel === 'string' ? rel : (rel.entity || rel.name);
-    const refEntity = allEntities[relEntityName];
-    if (refEntity) {
-      const fkCol = `${refEntity.tableName}_id`;
-      cols.push({
-        name: fkCol,
-        def: `"${fkCol}" INTEGER REFERENCES "${refEntity.tableName}"(id)`,
-      });
+    const relName = typeof rel === 'string' ? rel : (rel.entity || rel.name);
+    const ref = allEntities[relName];
+    if (ref) {
+      const fk = `${ref.tableName}_id`;
+      cols.push({ name: fk, def: `"${fk}" INTEGER REFERENCES "${ref.tableName}"(id)` });
     }
   }
 
   return cols;
-}
-
-function propTypeToSql(type) {
-  const map = {
-    text: 'TEXT',
-    string: 'TEXT',
-    richText: 'TEXT',
-    integer: 'INTEGER',
-    int: 'INTEGER',
-    number: 'REAL',
-    float: 'REAL',
-    real: 'REAL',
-    money: 'REAL',
-    boolean: 'INTEGER',
-    bool: 'INTEGER',
-    date: 'TEXT',
-    timestamp: 'TEXT',
-    email: 'TEXT',
-    link: 'TEXT',
-    password: 'TEXT',
-    choice: 'TEXT',
-    location: 'TEXT',
-    file: 'TEXT',
-    image: 'TEXT',
-    group: 'TEXT',
-    json: 'TEXT',
-  };
-  return map[type] || 'TEXT';
 }
 
 function getDb() {
@@ -195,65 +101,48 @@ function getDb() {
   return db;
 }
 
-// ─── CRUD helpers ────────────────────────────────────────────────────────────
+// ─── CRUD ────────────────────────────────────────────────────────────────────
 
-function findAll(tableName, filters = {}) {
-  const db = getDb();
+function findAll(table, filters = {}) {
+  const d = getDb();
   const keys = Object.keys(filters);
-  if (keys.length === 0) {
-    return db.prepare(`SELECT * FROM "${tableName}"`).all();
-  }
-  // Validate column names against the actual table schema to prevent SQL injection
-  const validCols = new Set(
-    db.pragma(`table_info("${tableName}")`).map((r) => r.name)
-  );
-  const safeFilters = {};
-  for (const k of keys) {
-    if (validCols.has(k)) safeFilters[k] = filters[k];
-  }
-  if (Object.keys(safeFilters).length === 0) {
-    return db.prepare(`SELECT * FROM "${tableName}"`).all();
-  }
-  const where = Object.keys(safeFilters).map((k) => `"${k}" = ?`).join(' AND ');
-  return db
-    .prepare(`SELECT * FROM "${tableName}" WHERE ${where}`)
-    .all(...Object.values(safeFilters));
+  if (!keys.length) return d.prepare(`SELECT * FROM "${table}"`).all();
+  const valid = new Set(d.pragma(`table_info("${table}")`).map((r) => r.name));
+  const safe = Object.fromEntries(keys.filter((k) => valid.has(k)).map((k) => [k, filters[k]]));
+  if (!Object.keys(safe).length) return d.prepare(`SELECT * FROM "${table}"`).all();
+  const where = Object.keys(safe).map((k) => `"${k}" = ?`).join(' AND ');
+  return d.prepare(`SELECT * FROM "${table}" WHERE ${where}`).all(...Object.values(safe));
 }
 
-function findById(tableName, id) {
-  const db = getDb();
-  return db.prepare(`SELECT * FROM "${tableName}" WHERE id = ?`).get(id) || null;
+function findById(table, id) {
+  return getDb().prepare(`SELECT * FROM "${table}" WHERE id = ?`).get(id) || null;
 }
 
-function create(tableName, data) {
-  const db = getDb();
+function create(table, data) {
+  const d = getDb();
   const keys = Object.keys(data);
-  if (keys.length === 0) {
-    const result = db.prepare(`INSERT INTO "${tableName}" DEFAULT VALUES`).run();
-    return findById(tableName, result.lastInsertRowid);
+  if (!keys.length) {
+    const r = d.prepare(`INSERT INTO "${table}" DEFAULT VALUES`).run();
+    return findById(table, r.lastInsertRowid);
   }
   const cols = keys.map((k) => `"${k}"`).join(', ');
-  const placeholders = keys.map(() => '?').join(', ');
-  const result = db
-    .prepare(`INSERT INTO "${tableName}" (${cols}) VALUES (${placeholders})`)
-    .run(...Object.values(data));
-  return findById(tableName, result.lastInsertRowid);
+  const ph = keys.map(() => '?').join(', ');
+  const r = d.prepare(`INSERT INTO "${table}" (${cols}) VALUES (${ph})`).run(...Object.values(data));
+  return findById(table, r.lastInsertRowid);
 }
 
-function update(tableName, id, data) {
-  const db = getDb();
+function update(table, id, data) {
   const keys = Object.keys(data);
-  if (keys.length === 0) return findById(tableName, id);
+  if (!keys.length) return findById(table, id);
   const set = keys.map((k) => `"${k}" = ?`).join(', ');
-  db.prepare(`UPDATE "${tableName}" SET ${set} WHERE id = ?`).run(...Object.values(data), id);
-  return findById(tableName, id);
+  getDb().prepare(`UPDATE "${table}" SET ${set} WHERE id = ?`).run(...Object.values(data), id);
+  return findById(table, id);
 }
 
-function remove(tableName, id) {
-  const db = getDb();
-  const existing = findById(tableName, id);
+function remove(table, id) {
+  const existing = findById(table, id);
   if (!existing) return null;
-  db.prepare(`DELETE FROM "${tableName}" WHERE id = ?`).run(id);
+  getDb().prepare(`DELETE FROM "${table}" WHERE id = ?`).run(id);
   return existing;
 }
 
