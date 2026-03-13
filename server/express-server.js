@@ -10,9 +10,9 @@ const rateLimit = require('express-rate-limit');
 const { loadYaml } = require('../core/yaml-loader');
 const { validateSchema } = require('../core/schema-validator');
 const { buildCore } = require('../core/entity-engine');
-const { initDb } = require('../core/db');
+const { initDb, findAll } = require('../core/db');
 const { registerApiRoutes } = require('../core/api-generator');
-const { registerAuthRoutes } = require('../core/auth');
+const { registerAuthRoutes, verifyToken, omitPassword } = require('../core/auth');
 const { initRealtime, emit } = require('../core/realtime');
 const { generateOpenApiSpec } = require('../core/openapi');
 const { registerFileRoutes } = require('../core/file-storage');
@@ -62,11 +62,25 @@ async function createServer(yamlPath) {
   app.get('/openapi.json', (_req, res) => res.json(openApiSpec));
   app.use('/docs', swaggerUi.serve, swaggerUi.setup(openApiSpec));
 
-  // Admin UI
+  // 11. Admin UI — serve the SPA, vendor assets, and API endpoints
   const adminHtml = path.join(__dirname, '..', 'admin', 'index.html');
-  app.get('/admin', adminLimiter, (_req, res) => {
-    if (fs.existsSync(adminHtml)) res.sendFile(adminHtml);
-    else res.status(404).send('Admin UI not found');
+  const nodeModulesDir = path.join(__dirname, '..', 'node_modules');
+  // Vendor assets served from node_modules (HTMX, Animate.css, Tailwind browser)
+  app.get('/admin/vendor/htmx.min.js', adminRateLimiter, (_req, res) => {
+    res.sendFile(path.join(nodeModulesDir, 'htmx.org', 'dist', 'htmx.min.js'));
+  });
+  app.get('/admin/vendor/animate.min.css', adminRateLimiter, (_req, res) => {
+    res.sendFile(path.join(nodeModulesDir, 'animate.css', 'animate.min.css'));
+  });
+  app.get('/admin/vendor/tailwind.js', adminRateLimiter, (_req, res) => {
+    res.sendFile(path.join(nodeModulesDir, '@tailwindcss', 'browser', 'dist', 'index.global.js'));
+  });
+  app.get('/admin', adminRateLimiter, (_req, res) => {
+    if (fs.existsSync(adminHtml)) {
+      res.sendFile(adminHtml);
+    } else {
+      res.status(404).send('Admin UI not found');
+    }
   });
   app.get('/admin/schema', (_req, res) => {
     res.json({
@@ -78,6 +92,31 @@ async function createServer(yamlPath) {
       })),
     });
   });
+
+  // HTMX table partial – returns an HTML fragment used by the Admin UI
+  app.get('/admin/partials/table', adminRateLimiter, (req, res) => {
+    const header = req.headers.authorization;
+    if (!header || !header.startsWith('Bearer ')) {
+      return res.status(401).send('<p class="text-red-400 p-4">Unauthorized</p>');
+    }
+    try { verifyToken(header.slice(7)); } catch {
+      return res.status(401).send('<p class="text-red-400 p-4">Invalid token</p>');
+    }
+    const { type, name } = req.query;
+    if (!type || !name) return res.status(400).send('<p class="text-red-400 p-4">Missing type or name</p>');
+    const item = type === 'entity'
+      ? Object.values(core.entities).find((e) => e.name === name)
+      : Object.values(core.userCollections).find((uc) => uc.name === name);
+    if (!item) return res.status(404).send('<p class="text-red-400 p-4">Not found</p>');
+    try {
+      let rows = findAll(item.tableName);
+      if (type === 'collection') rows = rows.map(omitPassword);
+      res.send(renderAdminTable(rows, name));
+    } catch (err) {
+      res.status(500).send(`<p class="text-red-400 p-4">Error: ${escAdminHtml(err.message)}</p>`);
+    }
+  });
+  logger.info('  Admin UI available at /admin');
 
   await loadPlugins(app, core);
   app.get('/health', (_req, res) => res.json({ status: 'ok', name: core.name }));
@@ -214,3 +253,49 @@ async function startServer(yamlPath) {
 }
 
 module.exports = { createServer, startServer };
+
+// ─── Admin UI helpers ─────────────────────────────────────────────────────────
+
+function escAdminHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+/**
+ * Render an HTML table fragment for the Admin UI HTMX partial.
+ * Uses Tailwind utility classes that the Play CDN will process client-side.
+ */
+function renderAdminTable(rows, name) {
+  const esc = escAdminHtml;
+  if (!rows.length) {
+    return `<div class="flex flex-col items-center justify-center py-20 text-center">
+      <div class="text-5xl mb-4">&#128237;</div>
+      <p class="text-sm text-ink-muted">No records yet. Click <span class="text-slate-300">+ New record</span> to create one.</p>
+    </div>`;
+  }
+  const cols = Object.keys(rows[0]);
+  const ths = cols.map((c) =>
+    `<th class="px-4 py-3 text-left text-xs font-semibold text-ink-muted uppercase tracking-wider whitespace-nowrap">${esc(c)}</th>`
+  ).join('') + '<th class="px-4 py-3 text-left text-xs font-semibold text-ink-muted uppercase tracking-wider">Actions</th>';
+
+  const trs = rows.map((row) => {
+    const tds = cols.map((c) =>
+      `<td class="px-4 py-3 max-w-xs truncate" title="${esc(String(row[c] ?? ''))}">${esc(String(row[c] ?? ''))}</td>`
+    ).join('');
+    const safeJson = JSON.stringify(row)
+      .replace(/&/g, '\\u0026').replace(/'/g, '\\u0027').replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
+    const actions = `<td class="px-4 py-3"><div class="flex gap-2">
+      <button class="text-xs border border-ink-border rounded px-2.5 py-1 text-slate-400 hover:bg-ink-700 hover:text-slate-200 transition-colors"
+        onclick='openEditModal(${safeJson})'>Edit</button>
+      <button class="text-xs border border-red-900/60 rounded px-2.5 py-1 text-red-400 hover:bg-red-900/20 transition-colors"
+        onclick="deleteRecord(${row.id})">Delete</button>
+    </div></td>`;
+    return `<tr class="border-b border-ink-border/40 hover:bg-ink-800/50 transition-colors">${tds}${actions}</tr>`;
+  }).join('');
+
+  return `<div class="overflow-x-auto border border-ink-border rounded-xl">
+    <table class="w-full text-sm text-slate-300">
+      <thead class="bg-ink-800"><tr class="border-b border-ink-border">${ths}</tr></thead>
+      <tbody>${trs}</tbody>
+    </table>
+  </div>`;
+}
