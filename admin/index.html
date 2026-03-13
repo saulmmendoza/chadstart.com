@@ -4,139 +4,119 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ChadStart Admin</title>
-  <!-- Animate.css – entry/exit animations (served locally from node_modules) -->
-  <link rel="stylesheet" href="/admin/vendor/animate.min.css"/>
   <!-- Tailwind CSS v4 browser runtime (served locally from node_modules) -->
   <script src="/admin/vendor/tailwind.js"></script>
   <!-- HTMX – server-driven table loading (served locally from node_modules) -->
   <script src="/admin/vendor/htmx.min.js"></script>
-  <!-- Custom cyberpunk blue theme for Tailwind v4 -->
+  <!-- Carbon Elegance dark palette -->
   <style type="text/tailwindcss">
     @theme {
-      --color-cyber: #00c8ff;
-      --color-cyber-dim: #0099c0;
-      --color-cyber-glow: rgba(0,200,255,0.12);
-      --color-ink-950: #060810;
-      --color-ink-900: #090c14;
-      --color-ink-800: #0d1220;
-      --color-ink-700: #111827;
-      --color-ink-600: #162034;
-      --color-ink-border: #1e3a5f;
-      --color-ink-muted: #4a6785;
+      --color-cs-bg: #121212;
+      --color-cs-surface: #1e1e1e;
+      --color-cs-border: #2a2a2a;
+      --color-cs-primary: #bb86fc;
+      --color-cs-accent: #03dac6;
+      --color-cs-text: #e1e1e1;
+      --color-cs-muted: #888888;
     }
   </style>
   <style>
-    /* ── Running glowing edge on primary buttons ──────────────────── */
-    @property --glow-a { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
-    @keyframes btn-glow { to { --glow-a: 360deg; } }
-    .btn-primary {
-      background: linear-gradient(#090c14,#090c14) padding-box,
-        conic-gradient(from var(--glow-a),#090c14 0%,#00c8ff 25%,#0066ff 50%,#090c14 75%) border-box;
-      border: 1.5px solid transparent;
-      animation: btn-glow 2.5s linear infinite;
-      color: #00c8ff; font-weight: 600;
-      text-shadow: 0 0 10px rgba(0,200,255,.4);
-    }
-    .btn-primary:hover:not(:disabled) { animation-duration: 1.2s; text-shadow: 0 0 16px rgba(0,200,255,.7); }
-    .btn-primary:disabled { opacity: .5; cursor: not-allowed; animation-play-state: paused; }
     /* ── Sidebar nav items ────────────────────────────────────────── */
     .nav-item {
-      display: block; padding: 8px 16px; font-size: .875rem; cursor: pointer;
-      color: rgb(148 163 184); border-left: 2px solid transparent;
-      transition: background .12s, color .12s, border-color .12s;
+      display: block; padding: 7px 16px; font-size: .875rem; cursor: pointer;
+      color: #888; border-left: 2px solid transparent;
+      transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    .nav-item:hover { background: rgba(255,255,255,.03); }
-    .nav-item.active { background: rgba(0,200,255,.08); border-left-color: #00c8ff; color: #00c8ff; }
+    .nav-item:hover { background: rgba(255,255,255,.04); color: #e1e1e1; }
+    .nav-item.active { background: rgba(187,134,252,.07); border-left-color: #bb86fc; color: #bb86fc; }
     /* ── Thin sidebar scrollbar ───────────────────────────────────── */
-    .sidebar-nav { scrollbar-width: thin; scrollbar-color: #1e3a5f transparent; }
+    .sidebar-nav { scrollbar-width: thin; scrollbar-color: #2a2a2a transparent; }
   </style>
 </head>
-<body class="bg-ink-950 text-slate-300 min-h-screen flex font-sans">
+<body class="bg-cs-bg text-cs-text min-h-screen flex" style="font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;">
 
 <!-- ── Login overlay ──────────────────────────────────────────────────── -->
-<div id="login-overlay" class="fixed inset-0 bg-ink-950 flex items-center justify-center z-50 p-4">
-  <div class="bg-ink-900 border border-ink-border rounded-2xl p-10 w-full max-w-sm
-              shadow-[0_0_60px_rgba(0,200,255,0.07)] animate__animated animate__fadeInDown animate__faster">
-    <h1 class="text-xl font-bold mb-1">⚡ ChadStart</h1>
-    <p class="text-ink-muted text-sm mb-7">Sign in to the Admin UI</p>
+<div id="login-overlay" class="fixed inset-0 bg-cs-bg flex items-center justify-center z-50 p-4">
+  <div class="bg-cs-surface border border-cs-border rounded p-8 w-full max-w-sm" style="box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
+    <div class="font-semibold text-cs-text text-base mb-6">ChadStart Admin</div>
     <div id="login-error" class="text-red-400 text-sm mb-4 hidden"></div>
 
-    <label class="block text-xs font-semibold text-ink-muted uppercase tracking-widest mb-1.5">Collection</label>
+    <label class="block text-sm text-cs-muted mb-1">Collection</label>
     <select id="login-collection"
-      class="w-full bg-ink-950 border border-ink-border rounded-lg text-slate-300 px-3 py-2.5 text-sm mb-4 outline-none focus:border-cyber transition-colors">
+      class="w-full bg-cs-bg border border-cs-border rounded text-cs-text px-3 py-2 text-sm mb-4 outline-none focus:border-cs-primary" style="transition: border-color 150ms ease;">
       <option value="">Loading…</option>
     </select>
 
-    <label class="block text-xs font-semibold text-ink-muted uppercase tracking-widest mb-1.5">Email</label>
+    <label class="block text-sm text-cs-muted mb-1">Email</label>
     <input type="email" id="login-email" placeholder="admin@example.com" autocomplete="email"
-      class="w-full bg-ink-950 border border-ink-border rounded-lg text-slate-300 px-3 py-2.5 text-sm mb-4 outline-none focus:border-cyber transition-colors" />
+      class="w-full bg-cs-bg border border-cs-border rounded text-cs-text px-3 py-2 text-sm mb-4 outline-none focus:border-cs-primary" style="transition: border-color 150ms ease;" />
 
-    <label class="block text-xs font-semibold text-ink-muted uppercase tracking-widest mb-1.5">Password</label>
+    <label class="block text-sm text-cs-muted mb-1">Password</label>
     <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password"
-      class="w-full bg-ink-950 border border-ink-border rounded-lg text-slate-300 px-3 py-2.5 text-sm mb-6 outline-none focus:border-cyber transition-colors" />
+      class="w-full bg-cs-bg border border-cs-border rounded text-cs-text px-3 py-2 text-sm mb-5 outline-none focus:border-cs-primary" style="transition: border-color 150ms ease;" />
 
     <button id="login-btn" onclick="doLogin()"
-      class="btn-primary w-full py-2.5 px-4 rounded-lg text-sm cursor-pointer inline-flex items-center justify-center">
+      class="w-full py-2 px-4 rounded text-sm cursor-pointer bg-cs-primary text-cs-bg font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed" style="transition: opacity 150ms ease;">
       <span>Sign in</span>
     </button>
   </div>
 </div>
 
 <!-- ── Mobile sidebar backdrop ────────────────────────────────────────── -->
-<div id="sidebar-overlay" class="fixed inset-0 bg-black/60 z-30 hidden lg:hidden" onclick="closeSidebar()"></div>
+<div id="sidebar-overlay" class="fixed inset-0 bg-black/50 z-30 hidden lg:hidden" onclick="closeSidebar()"></div>
 
 <!-- ── Sidebar ────────────────────────────────────────────────────────── -->
 <aside id="sidebar"
-  class="fixed inset-y-0 left-0 z-40 w-60 bg-ink-900 border-r border-ink-border flex flex-col
-         -translate-x-full lg:translate-x-0 transition-transform duration-300">
-  <div class="px-4 py-5 border-b border-ink-border">
-    <div class="font-bold text-cyber text-lg">⚡ ChadStart</div>
-    <div id="project-name" class="text-ink-muted text-xs mt-0.5">Admin</div>
+  class="fixed inset-y-0 left-0 z-40 w-60 bg-cs-surface border-r border-cs-border flex flex-col
+         -translate-x-full lg:translate-x-0" style="transition: transform 150ms ease;">
+  <div class="px-4 py-4 border-b border-cs-border">
+    <div class="font-semibold text-cs-text">ChadStart</div>
+    <div id="project-name" class="text-cs-muted text-xs mt-0.5">Admin</div>
   </div>
 
   <nav class="sidebar-nav flex-1 overflow-y-auto py-2">
-    <div class="px-4 pt-2 pb-1 text-xs font-bold text-ink-muted uppercase tracking-widest">Collections</div>
+    <div class="px-4 pt-3 pb-1 text-xs text-cs-muted">Collections</div>
     <div id="nav-user-collections"></div>
-    <div class="px-4 pt-4 pb-1 text-xs font-bold text-ink-muted uppercase tracking-widest border-t border-ink-border/50 mt-2">Entities</div>
+    <div class="px-4 pt-4 pb-1 text-xs text-cs-muted border-t border-cs-border mt-2">Entities</div>
     <div id="nav-entities"></div>
   </nav>
 
-  <div class="border-t border-ink-border px-4 py-4">
-    <div class="flex items-center gap-2.5 mb-3">
+  <div class="border-t border-cs-border px-4 py-3">
+    <div class="flex items-center gap-2 mb-3">
       <div id="user-avatar"
-        class="w-8 h-8 rounded-full bg-cyber/10 border border-cyber/30 flex items-center justify-center font-bold text-sm text-cyber shrink-0">?</div>
+        class="w-7 h-7 rounded bg-cs-border flex items-center justify-center font-medium text-xs text-cs-text shrink-0">?</div>
       <div class="min-w-0 flex-1">
-        <div id="user-name" class="text-sm text-slate-300 truncate">–</div>
-        <div id="user-collection-label" class="text-xs text-ink-muted truncate">–</div>
+        <div id="user-name" class="text-sm text-cs-text truncate">–</div>
+        <div id="user-collection-label" class="text-xs text-cs-muted truncate">–</div>
       </div>
     </div>
     <button onclick="logout()"
-      class="w-full text-sm text-ink-muted border border-ink-border rounded-lg py-1.5 px-3
-             hover:border-red-500/50 hover:text-red-400 transition-colors">Log out</button>
+      class="w-full text-sm text-cs-muted border border-cs-border rounded py-1.5 px-3
+             hover:border-red-500/50 hover:text-red-400" style="transition: color 150ms ease, border-color 150ms ease;">Log out</button>
   </div>
 </aside>
 
 <!-- ── Main ───────────────────────────────────────────────────────────── -->
 <div id="main" class="flex-1 flex flex-col min-w-0 lg:ml-60">
-  <header class="flex items-center justify-between px-5 py-3.5 border-b border-ink-border bg-ink-900 sticky top-0 z-20">
+  <header class="flex items-center justify-between px-5 py-3 border-b border-cs-border bg-cs-surface sticky top-0 z-20">
     <div class="flex items-center gap-3">
-      <button class="lg:hidden text-ink-muted hover:text-cyber transition-colors" onclick="openSidebar()" aria-label="Menu">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <button class="lg:hidden text-cs-muted hover:text-cs-text" onclick="openSidebar()" aria-label="Menu" style="transition: color 150ms ease;">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
         </svg>
       </button>
-      <h2 id="page-title" class="font-semibold text-base">Select a collection</h2>
+      <span id="page-title" class="font-medium text-sm text-cs-text">Select a collection</span>
     </div>
     <button id="btn-add" onclick="openAddModal()"
-      class="btn-primary hidden py-2 px-4 rounded-lg text-sm cursor-pointer inline-flex items-center gap-1.5">
-      <span>+ New record</span>
+      class="hidden py-1.5 px-3 rounded text-sm cursor-pointer border border-cs-border text-cs-text hover:bg-cs-border" style="transition: background 150ms ease;">
+      + New record
     </button>
   </header>
 
   <main class="p-5 flex-1 overflow-auto">
     <div id="loading" class="hidden flex justify-center py-16">
-      <div class="w-8 h-8 border-2 border-ink-border border-t-cyber rounded-full animate-spin"></div>
+      <div class="w-6 h-6 border-2 border-cs-border border-t-cs-primary rounded-full animate-spin"></div>
     </div>
     <div id="table-area"></div>
   </main>
@@ -144,17 +124,17 @@
 
 <!-- ── Record modal ───────────────────────────────────────────────────── -->
 <div id="modal-backdrop" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden">
-  <div id="modal" class="bg-ink-800 border border-ink-border rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
-    <div class="flex items-center justify-between px-5 py-4 border-b border-ink-border">
-      <h3 id="modal-title" class="font-semibold">New record</h3>
-      <button onclick="closeModal()" class="text-ink-muted hover:text-slate-200 text-2xl leading-none transition-colors">×</button>
+  <div id="modal" class="bg-cs-surface border border-cs-border rounded w-full max-w-lg max-h-[90vh] flex flex-col" style="box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
+    <div class="flex items-center justify-between px-5 py-3 border-b border-cs-border">
+      <span id="modal-title" class="font-medium text-sm">New record</span>
+      <button onclick="closeModal()" class="text-cs-muted hover:text-cs-text text-xl leading-none" style="transition: color 150ms ease;">×</button>
     </div>
     <div id="modal-body" class="p-5 overflow-y-auto flex-1"></div>
-    <div class="flex justify-end gap-2 px-5 py-4 border-t border-ink-border">
+    <div class="flex justify-end gap-2 px-5 py-3 border-t border-cs-border">
       <button onclick="closeModal()"
-        class="text-sm border border-ink-border rounded-lg py-2 px-4 text-slate-400 hover:text-slate-200 hover:bg-ink-700 transition-colors">Cancel</button>
+        class="text-sm border border-cs-border rounded py-1.5 px-4 text-cs-muted hover:text-cs-text hover:bg-cs-border" style="transition: color 150ms ease, background 150ms ease;">Cancel</button>
       <button id="modal-save-btn" onclick="saveRecord()"
-        class="btn-primary py-2 px-4 rounded-lg text-sm cursor-pointer inline-flex items-center gap-1.5">
+        class="py-1.5 px-4 rounded text-sm cursor-pointer bg-cs-primary text-cs-bg font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed" style="transition: opacity 150ms ease;">
         <span>Save</span>
       </button>
     </div>
@@ -179,10 +159,6 @@
   document.body.addEventListener('htmx:afterSwap', e => {
     if (e.detail.target.id !== 'table-area') return;
     document.getElementById('loading').classList.add('hidden');
-    e.detail.target.querySelectorAll('tbody tr').forEach((tr, i) => {
-      tr.style.animationDelay = `${i * 40}ms`;
-      tr.classList.add('animate__animated', 'animate__fadeIn', 'animate__faster');
-    });
   });
   document.body.addEventListener('htmx:responseError', e => {
     if (e.detail.target?.id === 'table-area') {
@@ -308,11 +284,11 @@
   function buildSidebar() {
     document.getElementById('nav-user-collections').innerHTML =
       (schema.userCollections || []).map(uc =>
-        `<div class="nav-item" onclick="selectItem('collection','${uc.name}',this)">👤 ${uc.name}</div>`
+        `<div class="nav-item" onclick="selectItem('collection','${uc.name}',this)">${uc.name}</div>`
       ).join('');
     document.getElementById('nav-entities').innerHTML =
       (schema.entities || []).map(e =>
-        `<div class="nav-item" onclick="selectItem('entity','${e.name}',this)">📦 ${e.name}</div>`
+        `<div class="nav-item" onclick="selectItem('entity','${e.name}',this)">${e.name}</div>`
       ).join('');
   }
 
@@ -360,9 +336,9 @@
 
   function fieldHtml(f, value = '', pwd = false) {
     return `<div class="mb-4">
-      <label class="block text-xs font-semibold text-ink-muted uppercase tracking-widest mb-1.5">${escHtml(f.name)}</label>
+      <label class="block text-sm text-cs-muted mb-1">${escHtml(f.name)}</label>
       <input type="${pwd ? 'password' : 'text'}" id="field-${f.name}" value="${escAttr(value)}" placeholder="${escAttr(f.name)}"
-        class="w-full bg-ink-950 border border-ink-border rounded-lg text-slate-300 px-3 py-2.5 text-sm outline-none focus:border-cyber transition-colors"/>
+        class="w-full bg-cs-bg border border-cs-border rounded text-cs-text px-3 py-2 text-sm outline-none focus:border-cs-primary" style="transition: border-color 150ms ease;"/>
     </div>`;
   }
 
@@ -386,23 +362,14 @@
   }
 
   function showModal() {
-    const modal = document.getElementById('modal');
     document.getElementById('modal-backdrop').classList.remove('hidden');
-    modal.classList.add('animate__animated', 'animate__zoomIn', 'animate__faster');
-    modal.addEventListener('animationend', () =>
-      modal.classList.remove('animate__animated', 'animate__zoomIn', 'animate__faster'), { once: true });
     const btn = document.getElementById('modal-save-btn');
     btn.disabled = false; btn.querySelector('span').textContent = 'Save';
   }
 
   function closeModal() {
-    const modal = document.getElementById('modal');
-    modal.classList.add('animate__animated', 'animate__zoomOut', 'animate__faster');
-    modal.addEventListener('animationend', () => {
-      document.getElementById('modal-backdrop').classList.add('hidden');
-      modal.classList.remove('animate__animated', 'animate__zoomOut', 'animate__faster');
-      editingRecord = null;
-    }, { once: true });
+    document.getElementById('modal-backdrop').classList.add('hidden');
+    editingRecord = null;
   }
 
   async function saveRecord() {
@@ -431,7 +398,7 @@
       if (!r.ok) throw new Error(data.error || 'Save failed');
       toast(editingRecord ? 'Record updated' : 'Record created', 'success');
       closeModal();
-      setTimeout(reloadTable, 350); // allow modal exit animation (~300 ms) to complete before reload
+      reloadTable();
     } catch (e) {
       toast(e.message, 'error');
       btn.disabled = false; btn.querySelector('span').textContent = 'Save';
@@ -455,14 +422,12 @@
 
   function toast(msg, type = 'info') {
     const el = document.getElementById('toast');
-    const cls = { error: 'border-red-500 text-red-400', success: 'border-cyber text-cyber', info: 'border-ink-border text-slate-300' };
-    el.className = `fixed bottom-6 right-6 z-50 bg-ink-900 border rounded-xl px-4 py-3 text-sm max-w-xs animate__animated animate__slideInRight animate__faster ${cls[type] || cls.info}`;
+    const cls = { error: 'border-red-500/60 text-red-400', success: 'border-cs-primary/60 text-cs-primary', info: 'border-cs-border text-cs-text' };
+    el.className = `fixed bottom-5 right-5 z-50 bg-cs-surface border rounded px-4 py-2.5 text-sm max-w-xs ${cls[type] || cls.info}`;
+    el.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)';
     el.textContent = msg;
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => {
-      el.classList.replace('animate__slideInRight', 'animate__slideOutRight');
-      el.addEventListener('animationend', () => { el.className = 'hidden'; }, { once: true });
-    }, 3000);
+    toastTimer = setTimeout(() => { el.className = 'hidden'; }, 3000);
   }
 
   function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
