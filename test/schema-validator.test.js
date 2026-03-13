@@ -31,6 +31,11 @@ describe('schema-validator', () => {
   it('rejects invalid plugin', () => assert.throws(() => validateSchema({ name: 'App', plugins: [{ name: 'bad' }] })));
   it('accepts emoji access', () => assert.strictEqual(validateSchema({ name: 'App', entities: { Post: { policies: { read: [{ access: '🌐' }] } } } }), true));
   it('rejects unknown top-level key', () => assert.throws(() => validateSchema({ name: 'App', userCollections: { Admin: {} } })));
+  it('accepts sentry config with environment and tracesSampleRate', () => assert.strictEqual(validateSchema({ name: 'App', sentry: { environment: 'production', tracesSampleRate: 0.5 } }), true));
+  it('accepts sentry config with debug flag', () => assert.strictEqual(validateSchema({ name: 'App', sentry: { debug: true } }), true));
+  it('rejects sentry tracesSampleRate greater than 1', () => assert.throws(() => validateSchema({ name: 'App', sentry: { tracesSampleRate: 2 } })));
+  it('rejects sentry tracesSampleRate less than 0', () => assert.throws(() => validateSchema({ name: 'App', sentry: { tracesSampleRate: -0.1 } })));
+  it('rejects sentry config with unknown key (dsn not allowed in yaml)', () => assert.throws(() => validateSchema({ name: 'App', sentry: { dsn: 'https://x@sentry.io/1' } })));
 });
 
 describe('json-schema', () => {
