@@ -143,6 +143,7 @@ function sortByDependency(entities) {
  */
 async function seedAll(core) {
   _counter = 0;
+  const runToken = `${Date.now().toString(36)}${randomInt(1000, 9999)}`;
   const sortedNames = sortByDependency(core.entities);
   const summary = {};
 
@@ -164,7 +165,7 @@ async function seedAll(core) {
       // Authenticable entities need email + (hashed) password
       if (entity.authenticable) {
         const n = nextId();
-        record.email = `${entityName.toLowerCase()}${n}@example.com`;
+        record.email = `${entityName.toLowerCase()}-${runToken}-${n}@example.com`;
         record.password = bcrypt.hashSync(`password${n}`, 10);
       }
 
