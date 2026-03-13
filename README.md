@@ -10,6 +10,31 @@ Inspired by [Manifest](https://backend.manifest.build/), ChadStart auto-generate
 npm install
 ```
 
+## Docker
+
+**Run with `docker run`:**
+
+```bash
+# Create your chadstart.yaml first (see Configuration section below), then:
+docker run -p 3000:3000 \
+  -e JWT_SECRET=your-secret \
+  -v ./chadstart.yaml:/app/chadstart.yaml:ro \
+  -v ./chadstart.db:/app/chadstart.db \
+  ghcr.io/saulmmendoza/chadstart.com:latest
+```
+
+**Run with `docker compose`:**
+
+```bash
+# 1. Create a .env file with your secrets:
+echo "JWT_SECRET=$(openssl rand -hex 32)" > .env
+
+# 2. Have a chadstart.yaml ready (see Configuration section below), then:
+docker compose up
+```
+
+See [`docker-compose.yml`](docker-compose.yml) for the full example.
+
 Create a `chadstart.yaml`:
 
 ```yaml

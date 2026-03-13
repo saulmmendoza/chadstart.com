@@ -1,0 +1,14 @@
+services:
+  app:
+    image: ghcr.io/saulmmendoza/chadstart.com:latest
+    # build: .  # uncomment to build locally instead
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+    volumes:
+      - ./chadstart.yaml:/app/chadstart.yaml:ro
+      - ./chadstart.db:/app/chadstart.db
+    restart: unless-stopped
