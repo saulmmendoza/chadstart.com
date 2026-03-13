@@ -125,9 +125,9 @@ function runBuild() {
     console.log(`Project: ${core.name}`);
     console.log(`Port:     ${core.port}`);
 
-    if (Object.keys(core.userCollections).length > 0) {
+    if (Object.keys(core.authenticableEntities).length > 0) {
       console.log(`\nUser Collections:`);
-      for (const uc of Object.values(core.userCollections)) {
+      for (const uc of Object.values(core.authenticableEntities)) {
         const props = uc.properties.map((p) => `${p.name}:${p.type}`).join(', ') || '(none)';
         const adminFlag = uc.admin ? ' [admin]' : '';
         console.log(`  ${uc.name}${adminFlag}  [email, password, ${props}]`);

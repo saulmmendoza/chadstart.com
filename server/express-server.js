@@ -10,7 +10,7 @@ const rateLimit = require('express-rate-limit');
 const { loadYaml } = require('../core/yaml-loader');
 const { validateSchema } = require('../core/schema-validator');
 const { buildCore } = require('../core/entity-engine');
-const { initDb, findAll } = require('../core/db');
+const { initDb, findAll, findAllSimple } = require('../core/db');
 const { registerApiRoutes } = require('../core/api-generator');
 const { registerAuthRoutes, verifyToken, omitPassword } = require('../core/auth');
 const { initRealtime, emit } = require('../core/realtime');
@@ -32,7 +32,10 @@ async function createServer(yamlPath) {
   const core = buildCore(config);
   logger.info(`Starting "${core.name}"...`);
 
-  initDb(core);
+  const dbPath = core.database
+    ? path.resolve(path.dirname(yamlPath), core.database)
+    : undefined;
+  initDb(core, dbPath);
 
   const app = express();
   app.use(express.json());
@@ -106,10 +109,10 @@ async function createServer(yamlPath) {
     if (!type || !name) return res.status(400).send('<p class="text-red-400 p-4">Missing type or name</p>');
     const item = type === 'entity'
       ? Object.values(core.entities).find((e) => e.name === name)
-      : Object.values(core.userCollections).find((uc) => uc.name === name);
+      : Object.values(core.authenticableEntities).find((uc) => uc.name === name);
     if (!item) return res.status(404).send('<p class="text-red-400 p-4">Not found</p>');
     try {
-      let rows = findAll(item.tableName);
+      let rows = findAllSimple(item.tableName);
       if (type === 'collection') rows = rows.map(omitPassword);
       res.send(renderAdminTable(rows, name));
     } catch (err) {

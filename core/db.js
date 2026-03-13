@@ -31,7 +31,14 @@ function initDb(core, dbPath) {
   } catch (err) {
     throw new Error(`Failed to create database directory "${path.dirname(resolved)}": ${err.message}`);
   }
-  db = new Database(resolved);
+  try {
+    db = new Database(resolved);
+  } catch (err) {
+    throw new Error(
+      `Failed to open database at "${resolved}": ${err.message}\n` +
+      `  Make sure the directory exists and is writable, and that no other process has an exclusive lock on the file.`
+    );
+  }
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
   _core = core;

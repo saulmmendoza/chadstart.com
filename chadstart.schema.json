@@ -16,6 +16,10 @@
       "default": 3000,
       "description": "The port your server listens on."
     },
+    "database": {
+      "type": "string",
+      "description": "Path to the SQLite database file, relative to this config file (default: chadstart.db in the working directory, overridden by DB_PATH env var)."
+    },
     "entities": {
       "type": "object",
       "description": "Map of entity names to their definitions.",
