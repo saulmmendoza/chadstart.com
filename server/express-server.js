@@ -114,7 +114,7 @@ async function registerCustomEndpoints(app, core) {
 }
 
 function buildEndpointPolicyMiddleware(ep) {
-  const { requireAuth, optionalAuth } = require('../core/auth');
+  const { requireAuth, optionalAuth, JWT_SECRET } = require('../core/auth');
   const jwt = require('jsonwebtoken');
 
   const policies = ep.policies;
@@ -135,10 +135,7 @@ function buildEndpointPolicyMiddleware(ep) {
         const header = req.headers.authorization;
         if (!header || !header.startsWith('Bearer ')) return res.status(401).json({ error: 'Authorization required' });
         try {
-          req.user = jwt.verify(
-            header.slice(7),
-            process.env.JWT_SECRET || process.env.TOKEN_SECRET_KEY || 'chadstart-dev-secret-change-in-production'
-          );
+          req.user = jwt.verify(header.slice(7), JWT_SECRET);
           if (!allowed.includes(req.user.entity)) return res.status(403).json({ error: 'Access denied' });
           next();
         } catch { return res.status(401).json({ error: 'Invalid or expired token' }); }

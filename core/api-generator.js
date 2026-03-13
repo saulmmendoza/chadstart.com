@@ -6,7 +6,7 @@ const fs = require('fs');
 const jwt = require('jsonwebtoken');
 const db = require('./db');
 const { toSnakeCase } = require('./entity-engine');
-const { requireAuth, optionalAuth, omitPassword } = require('./auth');
+const { requireAuth, optionalAuth, omitPassword, JWT_SECRET } = require('./auth');
 const logger = require('../utils/logger');
 
 /**
@@ -211,7 +211,7 @@ function policyMiddleware(rule, entity, core) {
         try {
           req.user = jwt.verify(
             header.slice(7),
-            process.env.JWT_SECRET || process.env.TOKEN_SECRET_KEY || 'chadstart-dev-secret-change-in-production'
+            JWT_SECRET
           );
           if (!allowed.includes(req.user.entity)) return res.status(403).json({ error: 'Access denied' });
 
@@ -303,12 +303,8 @@ async function runMiddlewares(event, entity, req, res) {
     }
     try {
       const handler = require(handlerFile);
-      let finished = false;
-      const origEnd = res.end;
-      res.end = function(...args) { finished = true; return origEnd.apply(this, args); };
       await handler(req, res);
-      res.end = origEnd;
-      if (finished) return false;
+      if (res.headersSent) return false;
     } catch (e) {
       logger.error(`Middleware ${event}/${mw.handler} error: ${e.message}`);
     }

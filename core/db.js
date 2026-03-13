@@ -183,10 +183,11 @@ function findAll(table, query = {}, opts = {}) {
   let sql = `SELECT * FROM "${table}"`;
   if (clauses.length) sql += ` WHERE ${clauses.join(' AND ')}`;
 
-  // Ordering
+  // Ordering — only allow column names that exist and match safe pattern
+  const SAFE_COL = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
   const orderBy = opts.orderBy || 'createdAt';
   const orderDir = (opts.order || 'DESC').toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-  if (validCols.has(orderBy)) {
+  if (validCols.has(orderBy) && SAFE_COL.test(orderBy)) {
     sql += ` ORDER BY "${orderBy}" ${orderDir}`;
   }
 

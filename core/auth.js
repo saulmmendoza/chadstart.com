@@ -95,4 +95,4 @@ function omitPassword(user) {
   return rest;
 }
 
-module.exports = { registerAuthRoutes, requireAuth, optionalAuth, signToken, verifyToken, omitPassword };
+module.exports = { registerAuthRoutes, requireAuth, optionalAuth, signToken, verifyToken, omitPassword, JWT_SECRET };
