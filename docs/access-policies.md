@@ -71,7 +71,7 @@ By default, all rules have the [admin access type](#access-types)
 
 Above rules are based on predefined roles, but you many want to grant user access only to their own records. For example, a platform like _Craigslist_ allows its users to create and manage classified ads only for them, not letting users edit others' content.
 
-In Manifest, this is done simply by adding the `{condition: 'self'}` to a restricted policy:
+In ChadStart, this is done simply by adding the `{condition: 'self'}` to a restricted policy:
 
 ```yaml
 User:

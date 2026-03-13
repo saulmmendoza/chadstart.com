@@ -1,7 +1,7 @@
 ---
 id: angular
-title: Create a Full-Stack app with Angular and Manifest
-description: Quick start guide to create a full-stack app using Angular as a frontend and Manifest as a backend.
+title: Create a Full-Stack app with Angular and ChadStart
+description: Quick start guide to create a full-stack app using Angular as a frontend and ChadStart as a backend.
 ---
 
 # Quick start with Angular
@@ -10,7 +10,7 @@ Give a proper backend to your Angular app.
 
 :::warning
 
-This quick start guide focuses exclusively on the **frontend**. To ensure the functionality of this code, your Manifest backend must be [up and running](./introduction.md#install-manifest) at `http://localhost:1111`.
+This quick start guide focuses exclusively on the **frontend**. To ensure the functionality of this code, your ChadStart backend must be [up and running](./index.md#install-chadstart) at `http://localhost:3000`.
 
 :::
 
@@ -26,12 +26,12 @@ cd my-client
 ng serve
 ```
 
-## 2. Install Manifest SDK
+## 2. Install ChadStart SDK
 
 Install the JS SDK from the root of your Angular app.
 
 ```
-npm i @mnfst/sdk
+npm i @chadstart/sdk
 ```
 
 ## 3. Use it in your app
@@ -40,7 +40,7 @@ In that example we are using a Cat entity [created previously](entities.md). Rep
 
 ```js title="app.component.ts"
 import { Component } from '@angular/core'
-import Manifest from '@mnfst/sdk'
+import ChadStart from '@chadstart/sdk'
 
 @Component({
   selector: 'app-root',
@@ -52,10 +52,10 @@ export class AppComponent {
 
   async ngOnInit() {
     // Init SDK.
-    const manifest = new Manifest()
+    const chadstart = new ChadStart()
 
     // Fetch the list of Cats.
-    const result = await manifest.from('cats').find()
+    const result = await chadstart.from('cats').find()
     this.cats = result.data
   }
 }

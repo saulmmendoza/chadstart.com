@@ -1,7 +1,7 @@
 ---
 id: upload
 title: File and Image Uploads
-description: Upload files and images with Manifest built-in storage system to upload assets in the file storage or any S3-compatible storage.
+description: Upload files and images with ChadStart built-in storage system to upload assets in the file storage or any S3-compatible storage.
 ---
 
 import Tabs from '@theme/Tabs';
@@ -11,7 +11,7 @@ import TabItem from '@theme/TabItem';
 
 ## Introduction
 
-Manifest comes with a **built-in storage system** to upload assets locally (default) or in a [S3 bucket](./s3-storage). You can use [file upload](#upload-a-file) to let your users update any kind of file, or [image upload](#upload-an-image) for image resizing.
+ChadStart comes with a **built-in storage system** to upload assets locally (default) or in a [S3 bucket](./s3-storage.md). You can use [file upload](#upload-a-file) to let your users update any kind of file, or [image upload](#upload-an-image) for image resizing.
 
 A `public/storage` folder is automatically created when needed. Uploaded files and images will be renamed with a unique name and stored in a specific folder based on entity and property name, ending by a folder with the current month name to prevent having too many files in a single folder.
 
@@ -25,7 +25,7 @@ If you want to set this file as an item's property, you need to upload the file 
 
 ## Add a BASE_URL variable
 
-Manifest stores absolute paths for convenience.
+ChadStart stores absolute paths for convenience.
 
 By default the base url is set to `http://localhost:${port}` but you can change it using the `BASE_URL` environment variable in your `.env` file to adapt to your own base URL.
 
@@ -51,14 +51,14 @@ A file should be related to a property with the [file property type](./entities.
     })
 
     // Upload a file that will be used as a contract for an invoice.
-    const file = await manifest.from('invoices').upload('contract', file)
+    const file = await chadstart.from('invoices').upload('contract', file)
 
     console.log(file)
-    // Output: {"path":"http://localhost:1111/invoices/contract/Oct2024/8dabo9qm1q3swvu-my-contract.pdf"}
+    // Output: {"path":"http://localhost:3000/invoices/contract/Oct2024/8dabo9qm1q3swvu-my-contract.pdf"}
 
 
     // Then you can store the path in the database.
-    const invoice = await manifest.from('invoices').create({
+    const invoice = await chadstart.from('invoices').create({
       name: 'Invoice ACME',
       contract: file.path
     })
@@ -78,7 +78,7 @@ A file should be related to a property with the [file property type](./entities.
 
     // Response.
     {
-        "path":"http://localhost:1111/invoices/contract/Oct2024/8dabo9qm1q3swvu-my-contract.pdf"
+        "path":"http://localhost:3000/invoices/contract/Oct2024/8dabo9qm1q3swvu-my-contract.pdf"
     }
     ```
 
@@ -87,7 +87,7 @@ A file should be related to a property with the [file property type](./entities.
 
 ## Upload an image
 
-An image should be related to a property with the [image property type](./entities.md#image). Manifest accepts **.PNG** and **.JPG** images only.
+An image should be related to a property with the [image property type](./entities.md#image). ChadStart accepts **.PNG** and **.JPG** images only.
 
 Each image uploaded will be optimized and resized into several sizes based on [the property parameters](./entities.md#property-params). By default it generates a _thumbnail_ of 80x80 and a _medium_ of 160x160
 
@@ -100,16 +100,16 @@ Each image uploaded will be optimized and resized into several sizes based on [t
     const imageBlob: Blob = base64ToBlob(base64Image, 'image/png')
 
     // Upload the image.
-    const image = await manifest.from('cats').uploadImage('avatar', imageBlob)
+    const image = await chadstart.from('cats').uploadImage('avatar', imageBlob)
 
     console.log(image)
     // Output: {
-    // "medium": "http://localhost:1111/cats/avatar/Oct2024/8dabo9qm1q4n1nk-medium.jpg",
-    // "thumbnail": "http://localhost:1111/cats/avatar/Oct2024/8dabo9qm1q4n1nk-thumbnail.jpg"
+    // "medium": "http://localhost:3000/cats/avatar/Oct2024/8dabo9qm1q4n1nk-medium.jpg",
+    // "thumbnail": "http://localhost:3000/cats/avatar/Oct2024/8dabo9qm1q4n1nk-thumbnail.jpg"
     // }
 
     // Then you can store the path in the database.
-    const cat = await manifest.from('cats').create({
+    const cat = await chadstart.from('cats').create({
       name: 'Felix',
       image: image
     })
@@ -129,8 +129,8 @@ Each image uploaded will be optimized and resized into several sizes based on [t
 
     // Response.
     {
-     "medium": "http://localhost:1111/cats/avatar/Oct2024/8dabo9qm1q4n1nk-medium.jpg",
-     "thumbnail": "http://localhost:1111/cats/avatar/Oct2024/8dabo9qm1q4n1nk-thumbnail.jpg"
+     "medium": "http://localhost:3000/cats/avatar/Oct2024/8dabo9qm1q4n1nk-medium.jpg",
+     "thumbnail": "http://localhost:3000/cats/avatar/Oct2024/8dabo9qm1q4n1nk-thumbnail.jpg"
     }
     ```
 

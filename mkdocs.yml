@@ -1,0 +1,77 @@
+site_name: ChadStart
+site_description: YAML-first Backend as a Service — define your entire backend in a single YAML file.
+site_url: https://saulmmendoza.github.io/chadstart.com/
+repo_url: https://github.com/saulmmendoza/chadstart.com
+repo_name: saulmmendoza/chadstart.com
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: deep purple
+      accent: purple
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: deep purple
+      accent: purple
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.tabs.link
+    - content.code.copy
+  icon:
+    repo: fontawesome/brands/github
+
+nav:
+  - Get Started: index.md
+  - Core:
+    - Entities: entities.md
+    - CRUD: crud.md
+    - Authentication: auth.md
+    - Access Policies: access-policies.md
+    - Validation: validation.md
+    - Configuration: config.md
+  - Features:
+    - File & Image Uploads: upload.md
+    - S3 Storage: s3-storage.md
+    - Realtime: realtime.md
+    - Webhooks: webhooks.md
+    - Custom Endpoints: endpoints.md
+    - Middlewares: middlewares.md
+    - Groups: groups.md
+    - Security: security.md
+    - Telemetry: telemetry.md
+    - LLM Rules: llm-rules.md
+  - Admin UI: admin-ui.md
+  - CLI: cli.md
+  - Deploy:
+    - Deploy to Production: deploy.md
+    - Docker: docker.md
+  - Integrations:
+    - React: react.md
+    - Vue: vue.md
+    - Angular: angular.md
+    - Svelte: svelte.md
+    - Astro: astro.md
+  - Plugins: plugins.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - toc:
+      permalink: true

@@ -40,32 +40,41 @@ Create a `chadstart.yaml`:
 ```yaml
 name: Blog
 
-userCollections:
+entities:
   Admin:
+    authenticable: true
     properties:
       - name
   Customer:
+    authenticable: true
     properties:
       - name
       - phone
 
-entities:
   Post:
     properties:
       - title
       - content
       - published
-    permissions:
-      read: public
-      write: user:Admin
+    policies:
+      create:
+        - { access: restricted, allow: Admin }
+      read:
+        - access: public
+      update:
+        - { access: restricted, allow: Admin }
+      delete:
+        - { access: restricted, allow: Admin }
   Comment:
     properties:
       - text
     belongsTo:
       - Post
-    permissions:
-      read: public
-      write: restricted
+    policies:
+      create:
+        - access: restricted
+      read:
+        - access: public
 
 files:
   uploads:
@@ -98,14 +107,16 @@ From the YAML above, ChadStart automatically provides:
 
 ## Authentication & User Collections
 
-User collections are special entity types with built-in `email` + `password` fields. Each one generates its own auth endpoints.
+User collections are entities with `authenticable: true`, gaining built-in `email` + `password` fields. Each one generates its own auth endpoints.
 
 ```yaml
-userCollections:
+entities:
   Admin:
+    authenticable: true
     properties:
       - name          # extra fields beyond email + password
   Customer:
+    authenticable: true
     properties:
       - name
       - phone
@@ -114,13 +125,13 @@ userCollections:
 ### Auth Endpoints
 
 ```
-POST /auth/admin/signup     { email, password, name } → { token, user }
-POST /auth/admin/login      { email, password }       → { token, user }
-GET  /auth/admin/me         Authorization: Bearer <token> → user
+POST /api/auth/admin/signup     { email, password, name } → { token, user }
+POST /api/auth/admin/login      { email, password }       → { token, user }
+GET  /api/auth/admin/me         Authorization: Bearer <token> → user
 
-POST /auth/customer/signup  { email, password, ... }  → { token, user }
-POST /auth/customer/login   ...
-GET  /auth/customer/me      ...
+POST /api/auth/customer/signup  { email, password, ... }  → { token, user }
+POST /api/auth/customer/login   ...
+GET  /api/auth/customer/me      ...
 ```
 
 Passwords are hashed with **bcrypt**. Tokens are signed **JWT** (7-day expiry by default).
@@ -133,28 +144,35 @@ JWT_EXPIRES=7d                    # Optional — default 7d
 
 > ⚠️ `JWT_SECRET` defaults to a well-known dev value. Always set it in production.
 
-## Entity Permissions
+## Entity Policies
 
-Restrict who can read or write each entity:
+Restrict who can read or write each entity using `policies`:
 
 ```yaml
 entities:
   Post:
-    permissions:
-      read: public           # anyone
-      write: user:Admin      # only authenticated Admins
+    policies:
+      read:
+        - access: public           # anyone
+      create:
+        - { access: restricted, allow: Admin }  # only authenticated Admins
   Comment:
-    permissions:
-      read: public
-      write: restricted      # any authenticated user (any collection)
+    policies:
+      read:
+        - access: public
+      create:
+        - access: restricted      # any authenticated user
 ```
 
-Permission values:
+Access values:
 | Value | Meaning |
 |-------|---------|
 | `public` | No auth required |
 | `restricted` | Any authenticated user |
-| `user:CollectionName` | Authenticated member of that specific collection |
+| `admin` | Admin entities only |
+| `forbidden` | No access |
+
+Emoji shortcuts: 🌐 = public, 🔒 = restricted, 👨🏻‍💻 = admin, 🚫 = forbidden
 
 ## Admin UI
 
@@ -240,25 +258,26 @@ module.exports = {
 name: string          # Required — project name
 port: 3000            # Optional — default 3000
 
-userCollections:
-  CollectionName:
-    properties:
-      - fieldName     # string shorthand (type: text)
-      - name: fieldName
-        type: text|integer|number|boolean|date|json
-    admin: true       # allow access to Admin UI (default: true)
-
 entities:
   EntityName:
+    authenticable: true  # optional — makes entity a user collection with email+password
+    single: true         # optional — makes entity a singleton (one record)
     properties:
-      - fieldName
+      - fieldName        # string shorthand (type: string)
       - name: fieldName
-        type: text|integer|number|boolean|date|json
+        type: string|integer|number|boolean|date|json
     belongsTo:
       - OtherEntity
-    permissions:
-      read: public|restricted|user:CollectionName
-      write: public|restricted|user:CollectionName
+    policies:
+      create:
+        - access: public|restricted|admin|forbidden
+        - { access: restricted, allow: CollectionName }
+      read:
+        - access: public
+      update:
+        - access: restricted
+      delete:
+        - access: restricted
 
 files:
   bucketName:

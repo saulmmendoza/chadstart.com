@@ -1,7 +1,7 @@
 ---
 id: endpoints
 title: Custom Endpoints
-description: Add your own endpoints for your custom logic with Manifest. Each endpoint triggers a handler file that has access to Manifest logic and data.
+description: Add your own endpoints for your custom logic with ChadStart. Each endpoint triggers a handler file that has access to ChadStart logic and data.
 ---
 
 # Endpoints
@@ -12,7 +12,7 @@ A custom endpoint is a user-defined API route that executes specific logic on th
 
 For example, you can define an endpoint like `/competitors/:id/increase` that directly increments the score of a given competitor.
 
-Custom endpoints in Manifest follow a simple structure where you define:
+Custom endpoints in ChadStart follow a simple structure where you define:
 
 - **A path (path):** The URL where the endpoint can be accessed.
 - **A method (method):** The type of HTTP request (GET, POST, etc.).
@@ -22,7 +22,7 @@ Custom endpoints in Manifest follow a simple structure where you define:
 
 This is an example of a simple endpoint that returns a "Hello world from my new endpoint !" message when requesting `GET /endpoints/hello-world`.
 
-```yaml title="manifest.yml"
+```yaml title="chadstart.yaml"
 endpoints:
   helloWorld:
     path: /hello-world
@@ -36,13 +36,13 @@ module.exports = async (req, res) => {
 }
 ```
 
-Manifest handlers are basically [ExpressJS middlewares](https://expressjs.com/en/guide/using-middleware.html) exposed with the [Manifest SDK](./crud.md#using-the-javascript-sdk) to help you work with your data.
+ChadStart handlers are basically [ExpressJS middlewares](https://expressjs.com/en/guide/using-middleware.html) exposed with the [ChadStart SDK](./crud.md#using-the-javascript-sdk) to help you work with your data.
 
 Place the handler file in the `/handlers` folder. For example, if the handler is `helloWorld`, the file should be `helloWorld.js`.
 
 :::tip
 
-You can choose to set a different folder for handlers adding the `MANIFEST_HANDLERS_FOLDER` variable in your `.env` file.
+You can choose to set a different folder for handlers adding the `CHADSTART_HANDLERS_FOLDER` variable in your `.env` file.
 
 :::
 
@@ -60,11 +60,11 @@ Each endpoint can be defined in the YAML file with the following values:
 
 ## Manipulate data with the backend SDK
 
-The next thing you may want to do is to **read and write data from your app**. This can be done using the Manifest backend SDK that shares the same CRUD and upload functions as the [JS SDK](./crud.md#using-the-javascript-sdk) for the front-end.
+The next thing you may want to do is to **read and write data from your app**. This can be done using the ChadStart backend SDK that shares the same CRUD and upload functions as the [JS SDK](./crud.md#using-the-javascript-sdk) for the front-end.
 
-Take the following example of a `manifest.yml` file of a **leaderboard**:
+Take the following example of a `chadstart.yaml` file of a **leaderboard**:
 
-```yaml title="manifest.yml"
+```yaml title="chadstart.yaml"
 name: Leaderboard app 🏅
 
 entities:
@@ -84,9 +84,9 @@ endpoints:
 We can now add the handler in the `/handlers` folder:
 
 ```js title="/handlers/increaseScore.js"
-module.exports = async (req, res, manifest) => {
-  // Get the requested competitor with the Manifest backend SDK.
-  const competitor = await manifest
+module.exports = async (req, res, chadstart) => {
+  // Get the requested competitor with the ChadStart backend SDK.
+  const competitor = await chadstart
     .from('competitors')
     .findOneById(req.params['id'])
 
@@ -94,7 +94,7 @@ module.exports = async (req, res, manifest) => {
   const newScore = competitor.score + 1
 
   // Patch the record (changing only specified prop "score").
-  await manifest.from('competitors').patch(competitor.id, {
+  await chadstart.from('competitors').patch(competitor.id, {
     score: newScore
   })
 
@@ -105,4 +105,4 @@ module.exports = async (req, res, manifest) => {
 
 The custom endpoint increases the score of a competitor. The path integrates an `id` route param that we can use as `req.params['id']` from our handler.
 
-Note the third argument in our function. This is the Manifest backend SDK that allow you to do CRUD operations in your app using the same syntax as the [JS SDK](./crud.md#using-the-javascript-sdk).
+Note the third argument in our function. This is the ChadStart backend SDK that allow you to do CRUD operations in your app using the same syntax as the [JS SDK](./crud.md#using-the-javascript-sdk).

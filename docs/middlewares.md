@@ -1,14 +1,14 @@
 ---
 id: middlewares
 title: Middlewares
-description: Add middlewares to trigger custom logic at defined lifecycle events of your Manifest backend. 6 available events related to entities.
+description: Add middlewares to trigger custom logic at defined lifecycle events of your ChadStart backend. 6 available events related to entities.
 ---
 
 ## Introduction
 
 **Middleware functions** or **middlewares** are intermediary functions that sit between the client's request and the server's response. They have access to the request object (req) and the response object (res).
 
-As Manifest works with **ExpressJS**, Manifest middlewares are [ExpressJS middlewares](https://expressjs.com/en/guide/using-middleware.html) enhanced with the [Manifest SDK](./crud.md#using-the-javascript-sdk) that allows you to interact with your data with ease.
+As ChadStart works with **ExpressJS**, ChadStart middlewares are [ExpressJS middlewares](https://expressjs.com/en/guide/using-middleware.html) enhanced with the [ChadStart SDK](./crud.md#using-the-javascript-sdk) that allows you to interact with your data with ease.
 
 ## Middleware use cases
 
@@ -21,7 +21,7 @@ Here are some examples of middleware use cases:
 
 ## Syntax
 
-```yaml title="manifest.yml"
+```yaml title="chadstart.yaml"
 entities:
   Project 🗂️:
     properties:
@@ -49,16 +49,16 @@ module.exports = async (req, res) => {
 You can add **several middlewares** for an event. They will be processed sequentially in the order you define.
 :::
 
-## Use your data with the Manifest backend SDK
+## Use your data with the ChadStart backend SDK
 
-Manifest passes the [JS SDK](./crud.md#using-the-javascript-sdk) to handler functions as third argument. You can use it to fetch or write data.
+ChadStart passes the [JS SDK](./crud.md#using-the-javascript-sdk) to handler functions as third argument. You can use it to fetch or write data.
 
 ```js title="/handlers/patchDocumentNameIfEmpty.js"
-module.exports = async (req, res, manifest) => {
+module.exports = async (req, res, chadstart) => {
   // If the 'name' property of the item is empty.
   if (!req.body['name']) {
     // Get the user from the request body.
-    const user = await manifest.from('users').findOneById(req.body['userId'])
+    const user = await chadstart.from('users').findOneById(req.body['userId'])
 
     // Set a custom name based on the user.
     req.body['name'] = `${user.name}'s untitled document`

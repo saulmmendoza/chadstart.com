@@ -1,20 +1,20 @@
 ---
 id: webhooks
 title: Webhooks
-description: Send requests to third-party applications using Manifest webhooks. Choose URL, method and send custom headers.
+description: Send requests to third-party applications using ChadStart webhooks. Choose URL, method and send custom headers.
 ---
 
 # Webhooks
 
 ## Introduction
 
-**Webhooks** are a way for an app to send automated real-time notifications to another app when a specific [event](./webhooks.md#hook-events) occurs. In Manifest, there are 6 predefined events where you can hook HTTP requests.
+**Webhooks** are a way for an app to send automated real-time notifications to another app when a specific [event](./webhooks.md#hook-events) occurs. In ChadStart, there are 6 predefined events where you can hook HTTP requests.
 
 Webhooks are useful to connect other applications or to trigger a micro-service like notifying someone or updating a file.
 
 ## Syntax
 
-```yaml title="manifest.yml"
+```yaml title="chadstart.yaml"
 entities:
   # You can attach one or several webhooks to each entity event.
   Cat 😺:
@@ -52,13 +52,13 @@ Available HTTP Methods are `GET`, `POST`, `PUT`, `PATCH`, and `DELETE`.
 
 :::note
 
-Manifest does not enforce HTTP request success or failure; the lifecycle process continues regardless.
+ChadStart does not enforce HTTP request success or failure; the lifecycle process continues regardless.
 
 :::
 
 ## Webhook body
 
-Manifest attaches a **JSON body** with key information about the record concerned to the webhook HTTP request.
+ChadStart attaches a **JSON body** with key information about the record concerned to the webhook HTTP request.
 
 The main structure of the body of the triggered HTTP requests will remain the same and only the `record` value will change: on _before_ events the `record` will contain your payload, whereas in _after_ requests, the `record` value will reflect the item after the operation.
 

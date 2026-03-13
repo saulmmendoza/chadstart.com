@@ -1,7 +1,7 @@
 ---
 id: svelte
-title: Create a Full-Stack app with Svelte and Manifest
-description: Quick start guide to create a full-stack app using Svelte as a frontend and Manifest as a backend.
+title: Create a Full-Stack app with Svelte and ChadStart
+description: Quick start guide to create a full-stack app using Svelte as a frontend and ChadStart as a backend.
 ---
 
 # Quick start with Svelte
@@ -10,7 +10,7 @@ Give a proper backend to your Svelte app.
 
 :::warning
 
-This quick start guide focuses exclusively on the **frontend**. To ensure the functionality of this code, your Manifest backend must be [up and running](./introduction.md#install-manifest) at `http://localhost:1111`.
+This quick start guide focuses exclusively on the **frontend**. To ensure the functionality of this code, your ChadStart backend must be [up and running](./index.md#install-chadstart) at `http://localhost:3000`.
 
 :::
 
@@ -27,12 +27,12 @@ npm install
 npm run dev -- --open
 ```
 
-## 2. Install Manifest SDK
+## 2. Install ChadStart SDK
 
 Install the JS SDK from the root of your Svelte app.
 
 ```
-npm i @mnfst/sdk
+npm i @chadstart/sdk
 ```
 
 ## 3. Use it in your app
@@ -43,7 +43,7 @@ In that example we are using a Cat entity [created previously](entities.md). Rep
 
 
 <script lang="ts">
-  import Manifest from "@mnfst/sdk";
+  import ChadStart from "@chadstart/sdk";
   import { onMount } from "svelte";
 
   interface Cat {
@@ -56,8 +56,8 @@ In that example we are using a Cat entity [created previously](entities.md). Rep
   let cats: Cat[] = [];
 
   onMount(async () => {
-    const manifest = new Manifest();
-    const result = await manifest.from("cats").find<Cat>();
+    const chadstart = new ChadStart();
+    const result = await chadstart.from("cats").find<Cat>();
     cats = result.data;
   });
 </script>

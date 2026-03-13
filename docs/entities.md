@@ -1,7 +1,7 @@
 ---
 id: entities
 title: Entities
-descriptions: Entities are the foundation of Manifest. Define your data structure in few lines and use 15+ real-world types for your properties.
+descriptions: Entities are the foundation of ChadStart. Define your data structure in few lines and use 15+ real-world types for your properties.
 ---
 
 import Tabs from '@theme/Tabs';
@@ -11,17 +11,17 @@ import TabItem from '@theme/TabItem';
 
 ## Introduction
 
-An entity is a model of objects linked to real-world concepts. Creating an entity in manifest generates **CRUD endpoints** that can be used by the [REST API](./crud.md#using-the-rest-api) or the [SDK](./crud.md#using-the-javascript-sdk).
+An entity is a model of objects linked to real-world concepts. Creating an entity in chadstart generates **CRUD endpoints** that can be used by the [REST API](./crud.md#using-the-rest-api) or the [SDK](./crud.md#using-the-javascript-sdk).
 
-All entities are located in the `manifest.yml` file under the **entities** property.
+All entities are located in the `chadstart.yaml` file under the **entities** property.
 
-There are 2 types of entities in Manifest: [Collections](#collections) and [Singles](#singles). **Collections** are multiple instances of similar data, stored as a list. E.g., users, customers, videos, etc. Singles are unique, standalone data that are singular in nature. E.g., home content, about content, settings, logo...
+There are 2 types of entities in ChadStart: [Collections](#collections) and [Singles](#singles). **Collections** are multiple instances of similar data, stored as a list. E.g., users, customers, videos, etc. Singles are unique, standalone data that are singular in nature. E.g., home content, about content, settings, logo...
 
 ## Collections
 
 Let's see a simple example:
 
-```yaml title="manifest.yml"
+```yaml title="chadstart.yaml"
 name: A pet app
 
 entities:
@@ -33,7 +33,7 @@ entities:
       - name
 ```
 
-This file will generate the **Cat** and **Dog** entity both with a `name` property. In Manifest by default all entities have an **id** (UUID format) so you do not need to add it. They also have automatic **createdAt** and **updatedAt** columns that are not selected by default in the API requests.
+This file will generate the **Cat** and **Dog** entity both with a `name` property. In ChadStart by default all entities have an **id** (UUID format) so you do not need to add it. They also have automatic **createdAt** and **updatedAt** columns that are not selected by default in the API requests.
 
 You can now add your own pets through the admin panel!
 
@@ -134,9 +134,9 @@ Properties are the characteristics of your [entities](./entities.md). For exampl
 
 ### Syntax
 
-You can add the properties to your entities in the **manifest.yml file**
+You can add the properties to your entities in the **chadstart.yaml file**
 
-```yaml title="manifest.yml"
+```yaml title="chadstart.yaml"
 name: Blog about cats
 entities:
   Post 📝:
@@ -168,7 +168,7 @@ You can pass arguments using the long syntax:
 
 ### Property types
 
-Manifest vision of **property types** goes beyond software development typing and is already built-in for real world usages. For example, the [Money](#money) PropType is handier than [Number](#number) for managing amounts as it comes with a `currency` option that only allows 2 digits after the comma.
+ChadStart vision of **property types** goes beyond software development typing and is already built-in for real world usages. For example, the [Money](#money) PropType is handier than [Number](#number) for managing amounts as it comes with a `currency` option that only allows 2 digits after the comma.
 
 Each PropType comes with built-in type [validation](./validation.md).
 
@@ -273,7 +273,7 @@ A file upload. Read more in the [file upload doc](./upload.md#upload-a-file).
 
 :::note
 
-Manifest stores the **absolute paths** of uploaded files. Use the [`BASE_URL`](./upload.md#add-a-base_url-variable) environment variable to adapt it to your domain.
+ChadStart stores the **absolute paths** of uploaded files. Use the [`BASE_URL`](./upload.md#add-a-base_url-variable) environment variable to adapt it to your domain.
 :::
 
 #### Image
@@ -291,7 +291,7 @@ An image upload. The different sizes should be provided to generate several size
 
 :::note
 
-Manifest stores the **absolute paths** of uploaded images. Use the [`BASE_URL`](./upload.md#add-a-base_url-variable) environment variable to adapt it to your domain.
+ChadStart stores the **absolute paths** of uploaded images. Use the [`BASE_URL`](./upload.md#add-a-base_url-variable) environment variable to adapt it to your domain.
 
 :::
 
@@ -310,7 +310,7 @@ Password field. Most of the time you do not need to implement passwords manually
 ```
 
 :::warning
-When setting the type as `password`, Manifest hashes automatically the value before storing it. Passwords should never be stored as clear text.
+When setting the type as `password`, ChadStart hashes automatically the value before storing it. Passwords should never be stored as clear text.
 :::
 
 #### Choice
@@ -349,9 +349,9 @@ You can create **one-to-many** relationships or **many-to-many** relationships. 
 
 ### Syntax
 
-The following example showcases the possibilities of **Manifest relations**:
+The following example showcases the possibilities of **ChadStart relations**:
 
-```yaml title="manifest.yml"
+```yaml title="chadstart.yaml"
 name: Basketball League 🏀
 
 entities:

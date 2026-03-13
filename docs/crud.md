@@ -1,7 +1,7 @@
 ---
 id: crud
 title: CRUD Operations
-description: Documentation for out-of-the-box CRUD endpoints with Manifest. Paginated lists, detail views, creating and updating single or collection entities.
+description: Documentation for out-of-the-box CRUD endpoints with ChadStart. Paginated lists, detail views, creating and updating single or collection entities.
 ---
 
 import Tabs from '@theme/Tabs';
@@ -11,9 +11,9 @@ import TabItem from '@theme/TabItem';
 
 ## Introduction
 
-Once you created your [entities](./entities.md), you probably want to interact with them. It is easy to connect your client to your Manifest backend.
+Once you created your [entities](./entities.md), you probably want to interact with them. It is easy to connect your client to your ChadStart backend.
 
-Manifest provides out-of-the-box CRUD endpoints through the **REST API** or the **JS SDK**.
+ChadStart provides out-of-the-box CRUD endpoints through the **REST API** or the **JS SDK**.
 
 :::info
 
@@ -23,16 +23,16 @@ By default CRUD endpoints are private, only accessible for logged-in **admin** u
 
 ## Using the REST API
 
-Manifest exposes a REST API for CRUD operations. The **OpenAPI** documentation is automatically generated and the UI is available at http://localhost:1111/api. Have a look!
+ChadStart exposes a REST API for CRUD operations. The **OpenAPI** documentation is automatically generated and the UI is available at http://localhost:3000/api. Have a look!
 
-An`openapi.yml` file is also generated along a `types.ts` file in the `./manifest` folder. Those 2 files are an amazing source of context for your **LLM**. If you want to connect a frontend to your Manifest backend, make sure that your **AI coding tool** sees those files to simplify your development.
+An`openapi.yml` file is also generated along a `types.ts` file in the `./chadstart` folder. Those 2 files are an amazing source of context for your **LLM**. If you want to connect a frontend to your ChadStart backend, make sure that your **AI coding tool** sees those files to simplify your development.
 
 For CRUD endpoints, this prefix is followed by `collections` for [collections entities](#collections) and `singles` for [single entities](#singles) and by the slug of your entity (you can change it in the [entity params](entities.md#entity-params))
 
 Examples:
 
-- `http://localhost:1111/api/collections/cats` gets the list of the cats
-- `http://localhost:1111/api/singles/home-content` gets the home content
+- `http://localhost:3000/api/collections/cats` gets the list of the cats
+- `http://localhost:3000/api/singles/home-content` gets the home content
 
 :::tip
 
@@ -42,29 +42,29 @@ In addition to **CRUD endpoints** that are generated automatically, you also can
 
 ## Using the JavaScript SDK
 
-The **Manifest JS SDK** is used to fetch and manipulate your data from your JS client using an elegant and human-friendly interface.
+The **ChadStart JS SDK** is used to fetch and manipulate your data from your JS client using an elegant and human-friendly interface.
 
 The SDK can be integrated in any frontend stack app like [React](./react.md), [Vue](./vue.md), [Svelte](./svelte.md), [Astro](./astro.md), [Angular](./angular.md).... Or even by another server using NodeJS!
 
 Install it via the terminal:
 
 ```bash
-npm i @mnfst/sdk
+npm i @chadstart/sdk
 ```
 
 Use the SDK directly in your favorite frontend:
 
 ```js title="Example SDK usage"
-import Manifest from '@mnfst/sdk'
+import ChadStart from '@chadstart/sdk'
 
-// Initialize client with default backend URL: http://localhost:1111.
-const manifest = new Manifest()
+// Initialize client with default backend URL: http://localhost:3000.
+const chadstart = new ChadStart()
 
 // Initialize client with custom base URL.
-const manifest = new Manifest('https://example.com')
+const chadstart = new ChadStart('https://example.com')
 
 // Perform CRUD operations...
-const cats = await manifest.from('cats').find()
+const cats = await chadstart.from('cats').find()
 ```
 
 ## Collections
@@ -140,7 +140,7 @@ Order your list by a defined property. By default the results are ordered by `id
   <TabItem value="sdk" label="JS SDK" default>
     ```js title="Example SDK usage"
     // Get all users.
-    const users = await manifest.from('users').find()
+    const users = await chadstart.from('users').find()
 
     console.log(users);
     // Output: {
@@ -168,7 +168,7 @@ Order your list by a defined property. By default the results are ordered by `id
 You can filter by [property](./entities.md#properties) to refine the list of items. Use the `where()` function with the correct operator to do it.
 
 ```js title="Example SDK list filtering"
-const cats = await manifest
+const cats = await chadstart
   .from('cats')
   .where('breed = siamese')
   .andWhere('active = true')
@@ -194,7 +194,7 @@ const cats = await manifest
 All list requests are paginated by default. Just use the `page` parameter to chose your page and the `perPage` param if you want to change the number of items per page.
 
 ```js title="Example SDK list pagination"
-const cats = await manifest.from('cats').find({ page: 1, perPage: 10 })
+const cats = await chadstart.from('cats').find({ page: 1, perPage: 10 })
 ```
 
 **Order**
@@ -203,7 +203,7 @@ Order your list by a defined property. By default the results are ordered by `id
 
 ```js title="Example SDK order"
 // Order cats.
-const cats = await manifest.from('cats').orderBy('age', { desc: true }).find()
+const cats = await chadstart.from('cats').orderBy('age', { desc: true }).find()
 ```
 
   </TabItem>
@@ -232,7 +232,7 @@ This operation will fetch a single item based on its ID.
   <TabItem value="sdk" label="JS SDK" default>
     ```js title="Example SDK usage"
     // Get cat with ID 2c4e6a8b-0d1f-4357-9ace-bdf024681357
-    const cat = await manifest.from('cats').findOneById('2c4e6a8b-0d1f-4357-9ace-bdf024681357')
+    const cat = await chadstart.from('cats').findOneById('2c4e6a8b-0d1f-4357-9ace-bdf024681357')
 
     console.log(cat);
     // Output: {
@@ -276,7 +276,7 @@ This operation will create a new item and store it in the database. The newly cr
   <TabItem value="sdk" label="JS SDK" default>
     ```js title="Example SDK usage"
     // Create a new item in the "pokemons" entity.
-    const newPokemon = await manifest.from('pokemons').create({
+    const newPokemon = await chadstart.from('pokemons').create({
       name: "Pikachu",
       type: "electric",
       level: 3,
@@ -329,7 +329,7 @@ Unlike [partial updates](#patch-an-item), this operation will replace the whole 
   <TabItem value="sdk" label="JS SDK" default>
     ```js title="Example SDK usage"
     // Updates the Pokemon item with ID a1b2c3d4-e5f6-4789-abcd-ef0123456789.
-    const newPokemon = await manifest.from('pokemons').update('a1b2c3d4-e5f6-4789-abcd-ef0123456789', {
+    const newPokemon = await chadstart.from('pokemons').update('a1b2c3d4-e5f6-4789-abcd-ef0123456789', {
       name: "Raichu",
       type: "electric",
       level: 8,
@@ -378,7 +378,7 @@ Unlike [fully replacement](#update-an-item), this operation will only modify the
  <TabItem value="sdk" label="JS SDK" default>
     ```js title="Example SDK usage"
     // Patches the Pokemon item with ID a1b2c3d4-e5f6-4789-abcd-ef0123456789.
-    const newPokemon = await manifest.from('pokemons').patch('a1b2c3d4-e5f6-4789-abcd-ef0123456789', {
+    const newPokemon = await chadstart.from('pokemons').patch('a1b2c3d4-e5f6-4789-abcd-ef0123456789', {
       level: 5
     })
 
@@ -419,7 +419,7 @@ DELETE api/collections/cats/550e8400-e29b-41d4-a716-446655440000
    ```js title="Example SDK usage"
     // Delete the cat with ID 550e8400-e29b-41d4-a716-446655440000
 .
-    const deletedCat = await manifest.from('cats').delete('550e8400-e29b-41d4-a716-446655440000')
+    const deletedCat = await chadstart.from('cats').delete('550e8400-e29b-41d4-a716-446655440000')
 
     console.log(deletedCat);
     // Output: {
@@ -456,7 +456,7 @@ GET /api/singles/homepage
  <TabItem value="sdk" label="JS SDK" default>
    ```js title="Example SDK usage"
     // Get the homepage entity.
-    const homepage = await manifest.single('homepage').get()
+    const homepage = await chadstart.single('homepage').get()
 
     console.log(homepage);
     // Output: {
@@ -497,7 +497,7 @@ Body:
  <TabItem value="sdk" label="JS SDK" default>
    ```js title="Example SDK usage"
    // Update single entity.
-   const newHomepage = await manifest.single('homepage').update({
+   const newHomepage = await chadstart.single('homepage').update({
        title: 'My new title',
        description: 'My new description'
    })
@@ -541,7 +541,7 @@ Body:
 
 ```js title="Example SDK usage"
 // Update single entity partially.
-const homepage = await manifest.single('homepage').patch({
+const homepage = await chadstart.single('homepage').patch({
   title: 'My new title'
 })
 console.log(homepage)
@@ -566,13 +566,13 @@ You can specify which relations you want to load with your entities in your quer
   <TabItem value="sdk" label="JS SDK" default>
     ```js
       // Fetch entities with 2 relations.
-      const cities = await manifest
+      const cities = await chadstart
         .from('cities')
         .with(['region', 'mayor'])
         .find()
 
       // Fetch nested relations.
-      const cities = await manifest
+      const cities = await chadstart
         .from('cities')
         .with(['region', 'region.country', 'region.country.planet'])
         .find()
@@ -583,10 +583,10 @@ You can specify which relations you want to load with your entities in your quer
     ```http
 
     // Fetch entities with 2 relations.
-    GET http://localhost:1111/api/dynamic/city?relations=region,mayor
+    GET http://localhost:3000/api/dynamic/city?relations=region,mayor
 
     // Fetch nested relations.
-    GET http://localhost:111/api/dynamic/city?relations=region,region.country,region.country.planet
+    GET http://localhost:3000/api/dynamic/city?relations=region,region.country,region.country.planet
     ```
 
   </TabItem>
@@ -600,14 +600,14 @@ Once the relation is loaded, you can also filter items by their relation id or p
   <TabItem value="sdk" label="JS SDK" default>
     ```js
       // Get all cats that belong to owner with id 3f2504e0-4f89-11d3-9a0c-0305e82c3301.
-      const cats = await manifest
+      const cats = await chadstart
         .from('cats')
         .with(['owner'])
         .where('owner.id = 3f2504e0-4f89-11d3-9a0c-0305e82c3301')
         .find()
 
       // Get all cats that have an owner with name "Jorge".
-      const cats = await manifest
+      const cats = await chadstart
         .from('cats')
         .with(['owner'])
         .where('owner.name = Jorge')
@@ -618,10 +618,10 @@ Once the relation is loaded, you can also filter items by their relation id or p
   <TabItem value="rest" label="REST API" default>
     ```http
     // Get all cats that belong to owner with id 3f2504e0-4f89-11d3-9a0c-0305e82c3301.
-    GET http://localhost:1111/api/dynamic/cats?relations=owner&owner.id_eq=3f2504e0-4f89-11d3-9a0c-0305e82c3301
+    GET http://localhost:3000/api/dynamic/cats?relations=owner&owner.id_eq=3f2504e0-4f89-11d3-9a0c-0305e82c3301
 
     // Get all cats that have an owner with name "Jorge".
-    GET http://localhost:1111/api/dynamic/cats?relations=owner&owner.name_eq=Jorge
+    GET http://localhost:3000/api/dynamic/cats?relations=owner&owner.name_eq=Jorge
     ```
 
   </TabItem>
@@ -636,7 +636,7 @@ To store or update an item with its relations, you have to pass the relation id(
   <TabItem value="rest" label="REST API" default>
     ```http
     // Store a new player with relations Team and Skill.
-    POST http://localhost:1111/api/dynamic/players
+    POST http://localhost:3000/api/dynamic/players
     Content-Type: application/json
     {
         "name": "Mike",
@@ -649,7 +649,7 @@ To store or update an item with its relations, you have to pass the relation id(
     <TabItem value="sdk" label="JS SDK" default>
     ```js
       // Store a new player with relations Team and Skill.
-      const newPlayer = await manifest.from('players').create({
+      const newPlayer = await chadstart.from('players').create({
         name: 'Mike',
         teamId: 'e4d5c6b7-a890-4123-9876-543210fedcba',
         skillIds: ['12345678-1234-5678-9abc-123456789012', '3f2504e0-4f89-11d3-9a0c-0305e82c3301']
@@ -673,7 +673,7 @@ As for updating properties, you can either do a **full replacement** using the u
   <TabItem value="rest" label="REST API" default>
     ```http
     // Replaces the whole skill relations by the new skillIds array.
-    PUT http://localhost:1111/api/dynamic/players/e4d5c6b7-a890-4123-9876-543210fedcba
+    PUT http://localhost:3000/api/dynamic/players/e4d5c6b7-a890-4123-9876-543210fedcba
     Content-Type: application/json
     {
       name: 'Mike',
@@ -682,7 +682,7 @@ As for updating properties, you can either do a **full replacement** using the u
     }
 
     // Updates the team without changing the skills or the name.
-    PATCH http://localhost:1111/api/dynamic/players/e4d5c6b7-a890-4123-9876-543210fedcba
+    PATCH http://localhost:3000/api/dynamic/players/e4d5c6b7-a890-4123-9876-543210fedcba
     Content-Type: application/json
     {
       teamId: '9b2fff23-ec93-4b48-9322-bbd4b6b5b123',
@@ -693,14 +693,14 @@ As for updating properties, you can either do a **full replacement** using the u
   <TabItem value="sdk" label="JS SDK" default>
     ```js
       // Replaces the whole skill relations by the new skillIds array.
-      await manifest.from('players').update('e4d5c6b7-a890-4123-9876-543210fedcba', {
+      await chadstart.from('players').update('e4d5c6b7-a890-4123-9876-543210fedcba', {
         name: 'Mike',
         teamId: 'e4d5c6b7-a890-4123-9876-543210fedcba',
         skillIds: ['12345678-1234-5678-9abc-123456789012', '3f2504e0-4f89-11d3-9a0c-0305e82c3301']
       })
 
       // Updates the team without changing the skills or the name.
-      await manifest.from('players').patch('e4d5c6b7-a890-4123-9876-543210fedcba', {teamId: '9b2fff23-ec93-4b48-9322-bbd4b6b5b123'})
+      await chadstart.from('players').patch('e4d5c6b7-a890-4123-9876-543210fedcba', {teamId: '9b2fff23-ec93-4b48-9322-bbd4b6b5b123'})
     ```
 
   </TabItem>

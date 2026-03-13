@@ -8,13 +8,13 @@ description: Server-side validation for your user-generated content. Use many va
 
 ## Introduction
 
-Implementing **server-side validation** is very easy with Manifest.
+Implementing **server-side validation** is very easy with ChadStart.
 
 You can use the built-in **custom validators** to ensure that the data you are receiving is correctly formatted.
 
 ## Syntax
 
-In your **manifest.yml**, you can add a _validation_ object that lists the properties and their validators:
+In your **chadstart.yaml**, you can add a _validation_ object that lists the properties and their validators:
 
 ```yaml
 entities:
@@ -74,7 +74,7 @@ POST /api/dynamic/employees
 Content-Type: application/json
 {
     "name": "John Doe",
-    "email": "john@manifest.build"
+    "email": "john@chadstart.com"
 }
 
 // Response.

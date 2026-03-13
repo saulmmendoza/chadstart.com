@@ -17,9 +17,9 @@ Groups are automatically loaded when you fetch a list or a detail version of the
 
 ## Syntax
 
-Define your groups in the `manifest.yml` file to use it in entities as a property.
+Define your groups in the `chadstart.yaml` file to use it in entities as a property.
 
-```yaml title="manifest.yml"
+```yaml title="chadstart.yaml"
 entities:
   Service:
     properties:
@@ -50,7 +50,7 @@ In the example above, each service can have several testimonials, but you can al
 
 This example shows a backend for a website where each page has a single "call to action" element that can be used as widget UI.
 
-```yaml title="manifest.yml"
+```yaml title="chadstart.yaml"
   Homepage:
     single: true
     properties:
