@@ -1112,6 +1112,11 @@ console.log('\ngroups – seeder generates group values');
     assert.ok(typeof rows.data[0].stuff === 'string');
     assert.deepStrictEqual(JSON.parse(rows.data[0].stuff), []);
     fs.unlinkSync(tmpNoGroup);
+  });
+
+  fs.unlinkSync(tmp);
+}
+
 // ─── createBackendSdk ─────────────────────────────────────────────────────────
 
 console.log('\ncreateBackendSdk');
@@ -1297,6 +1302,8 @@ console.log('\naccess-policies – read condition: self');
 
     fs.unlinkSync(tmp);
   });
+}
+
 // ─── runMiddlewares – SDK injection ──────────────────────────────────────────
 
 console.log('\nrunMiddlewares – SDK injection');
