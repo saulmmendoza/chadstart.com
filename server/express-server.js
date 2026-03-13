@@ -237,33 +237,33 @@ function renderAdminTable(rows, name) {
   const esc = escAdminHtml;
   if (!rows.length) {
     return `<div class="flex flex-col items-center justify-center py-20 text-center">
-      <div class="text-5xl mb-4">&#128237;</div>
-      <p class="text-sm text-ink-muted">No records yet. Click <span class="text-slate-300">+ New record</span> to create one.</p>
+      <div class="text-4xl mb-3" aria-hidden="true">&#128237;</div>
+      <p class="text-sm" style="color:#888;">No records yet. Click <span style="color:#e1e1e1;">+ New record</span> to create one.</p>
     </div>`;
   }
   const cols = Object.keys(rows[0]);
   const ths = cols.map((c) =>
-    `<th class="px-4 py-3 text-left text-xs font-semibold text-ink-muted uppercase tracking-wider whitespace-nowrap">${esc(c)}</th>`
-  ).join('') + '<th class="px-4 py-3 text-left text-xs font-semibold text-ink-muted uppercase tracking-wider">Actions</th>';
+    `<th class="px-4 py-2.5 text-left text-xs font-medium whitespace-nowrap" style="color:#888;">${esc(c)}</th>`
+  ).join('') + '<th class="px-4 py-2.5 text-left text-xs font-medium" style="color:#888;">Actions</th>';
 
   const trs = rows.map((row) => {
     const tds = cols.map((c) =>
-      `<td class="px-4 py-3 max-w-xs truncate" title="${esc(String(row[c] ?? ''))}">${esc(String(row[c] ?? ''))}</td>`
+      `<td class="px-4 py-2.5 max-w-xs truncate text-sm" style="color:#e1e1e1;" title="${esc(String(row[c] ?? ''))}">${esc(String(row[c] ?? ''))}</td>`
     ).join('');
     const safeJson = JSON.stringify(row)
       .replace(/&/g, '\\u0026').replace(/'/g, '\\u0027').replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
-    const actions = `<td class="px-4 py-3"><div class="flex gap-2">
-      <button class="text-xs border border-ink-border rounded px-2.5 py-1 text-slate-400 hover:bg-ink-700 hover:text-slate-200 transition-colors"
+    const actions = `<td class="px-4 py-2.5"><div class="flex gap-2">
+      <button class="text-xs border rounded px-2 py-1 hover:opacity-80" style="border-color:#2a2a2a;color:#e1e1e1;background:transparent;transition:opacity 150ms ease;"
         onclick='openEditModal(${safeJson})'>Edit</button>
-      <button class="text-xs border border-red-900/60 rounded px-2.5 py-1 text-red-400 hover:bg-red-900/20 transition-colors"
+      <button class="text-xs border rounded px-2 py-1 hover:opacity-80" style="border-color:rgba(239,68,68,0.4);color:#f87171;background:transparent;transition:opacity 150ms ease;"
         onclick="deleteRecord(${row.id})">Delete</button>
     </div></td>`;
-    return `<tr class="border-b border-ink-border/40 hover:bg-ink-800/50 transition-colors">${tds}${actions}</tr>`;
+    return `<tr class="border-b" style="border-color:#2a2a2a;">${tds}${actions}</tr>`;
   }).join('');
 
-  return `<div class="overflow-x-auto border border-ink-border rounded-xl">
-    <table class="w-full text-sm text-slate-300">
-      <thead class="bg-ink-800"><tr class="border-b border-ink-border">${ths}</tr></thead>
+  return `<div class="overflow-x-auto border rounded" style="border-color:#2a2a2a;">
+    <table class="w-full text-sm" style="color:#e1e1e1;">
+      <thead style="background:#1e1e1e;"><tr class="border-b" style="border-color:#2a2a2a;">${ths}</tr></thead>
       <tbody>${trs}</tbody>
     </table>
   </div>`;
