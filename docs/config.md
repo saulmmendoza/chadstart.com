@@ -4,9 +4,6 @@ title: ChadStart Configuration
 description: Configure ChadStart Database (PostgreSQL, MySQL or SQLite), Port, OpenAPI and environments with a simple config.
 ---
 
-import Tabs from '@theme/Tabs';
-import TabItem from '@theme/TabItem';
-
 # Configuration
 
 ## Introduction
@@ -58,32 +55,29 @@ We recommend switching to [PostgreSQL](https://www.postgresql.org/) or [MySQL](h
 
 Here are examples of `.env` files for different database connections:
 
-<Tabs>
-  <TabItem value="sqlite" label="SQLite" default>
-   ```env
+=== "SQLite"
+    ```env
 
-    DB_CONNECTION=sqlite
+     DB_CONNECTION=sqlite
 
-    DB_PATH=/.chadstart/db.sqlite
+     DB_PATH=/.chadstart/db.sqlite
 
-    ```
+     ```
 
-  </TabItem>
-  <TabItem value="postgresql" label="PostgreSQL" default>
-   ```env
+=== "PostgreSQL"
+    ```env
 
-    DB_CONNECTION=postgres
+     DB_CONNECTION=postgres
 
-    DB_HOST=my-host.com
-    DB_USERNAME=owner
-    DB_PASSWORD=xxxxx
-    DB_DATABASE=my_app
-    DB_SSL=true # Required for remote managed DBs, remove if local
+     DB_HOST=my-host.com
+     DB_USERNAME=owner
+     DB_PASSWORD=xxxxx
+     DB_DATABASE=my_app
+     DB_SSL=true # Required for remote managed DBs, remove if local
 
-    ```
+     ```
 
-  </TabItem>
-   <TabItem value="mysql" label="MySQL / MariaDB" default>
+=== "MySQL / MariaDB"
     ```env
 
     DB_CONNECTION=mysql
@@ -96,9 +90,6 @@ Here are examples of `.env` files for different database connections:
     DB_SSL=true # Required for remote managed DBs, remove if local
 
     ```
-
-  </TabItem>
-</Tabs>
 
 ## Error Reporting
 
