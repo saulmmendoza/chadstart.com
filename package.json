@@ -11,7 +11,8 @@
     "start": "node cli/cli.js start",
     "build": "node cli/cli.js build",
     "seed": "node cli/cli.js seed",
-    "test": "node test/test.js"
+    "test": "node test/test.js",
+    "test:coverage": "c8 --reporter=text --reporter=json-summary node test/test.js"
   },
   "repository": {
     "type": "git",
@@ -27,9 +28,9 @@
   "homepage": "https://github.com/saulmmendoza/chadstart.com#readme",
   "dependencies": {
     "@tailwindcss/browser": "4.2.1",
-    "animate.css": "4.1.1",
     "ajv": "^8.18.0",
     "ajv-formats": "^3.0.1",
+    "animate.css": "4.1.1",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.6.2",
     "busboy": "^1.6.0",
@@ -41,5 +42,8 @@
     "swagger-ui-express": "^5.0.1",
     "ws": "^8.19.0",
     "yaml": "^2.8.2"
+  },
+  "devDependencies": {
+    "c8": "^11.0.0"
   }
 }
