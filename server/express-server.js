@@ -10,7 +10,7 @@ const rateLimit = require('express-rate-limit');
 const { loadYaml } = require('../core/yaml-loader');
 const { validateSchema } = require('../core/schema-validator');
 const { buildCore } = require('../core/entity-engine');
-const { initDb, findAll } = require('../core/db');
+const { initDb, findAll, findAllSimple } = require('../core/db');
 const { registerApiRoutes } = require('../core/api-generator');
 const { registerAuthRoutes, verifyToken, omitPassword } = require('../core/auth');
 const { initRealtime, emit } = require('../core/realtime');
@@ -24,7 +24,7 @@ function limiter(windowMs, max) {
 }
 const authLimiter  = limiter(15 * 60 * 1000, 30);
 const apiLimiter   = limiter(60 * 1000, 200);
-const adminLimiter = limiter(60 * 1000, 100);
+const adminRateLimiter = limiter(60 * 1000, 100);
 
 async function createServer(yamlPath) {
   const config = loadYaml(yamlPath);
@@ -32,7 +32,10 @@ async function createServer(yamlPath) {
   const core = buildCore(config);
   logger.info(`Starting "${core.name}"...`);
 
-  initDb(core);
+  const dbPath = core.database
+    ? path.resolve(path.dirname(yamlPath), core.database)
+    : undefined;
+  initDb(core, dbPath);
 
   const app = express();
   app.use(express.json());
@@ -44,6 +47,7 @@ async function createServer(yamlPath) {
     if (!publicDir.startsWith(cwd + path.sep) && publicDir !== cwd) {
       throw new Error(`public.folder "${core.public.folder}" resolves outside the working directory.`);
     }
+    logger.info(`Serving public files from: ${publicDir}`);
     fs.mkdirSync(publicDir, { recursive: true });
     app.use(express.static(publicDir));
   }
@@ -106,10 +110,10 @@ async function createServer(yamlPath) {
     if (!type || !name) return res.status(400).send('<p class="text-red-400 p-4">Missing type or name</p>');
     const item = type === 'entity'
       ? Object.values(core.entities).find((e) => e.name === name)
-      : Object.values(core.userCollections).find((uc) => uc.name === name);
+      : Object.values(core.authenticableEntities).find((uc) => uc.name === name);
     if (!item) return res.status(404).send('<p class="text-red-400 p-4">Not found</p>');
     try {
-      let rows = findAll(item.tableName);
+      let rows = findAllSimple(item.tableName);
       if (type === 'collection') rows = rows.map(omitPassword);
       res.send(renderAdminTable(rows, name));
     } catch (err) {

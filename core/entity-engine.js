@@ -96,6 +96,7 @@ function buildCore(config) {
   const entities = buildEntities(config);
   return {
     name: config.name,
+    database: config.database || null,
     entities,
     authenticableEntities: getAuthenticableEntities(entities),
     endpoints: config.endpoints || {},

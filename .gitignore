@@ -4,7 +4,6 @@ node_modules/
 *.db-shm
 uploads/
 .chadstart-plugins/
-public/
 .env
 site/
 sdk/dist/
