@@ -368,6 +368,78 @@ await test('schema file can validate the example config', () => {
   assert.strictEqual(validateSchema(config), true);
 });
 
+// ─── seeder ──────────────────────────────────────────────────────────────────
+
+console.log('\nseeder');
+const { seedAll } = require('../core/seeder');
+
+{
+  const seedDbPath = path.join(os.tmpdir(), `chadstart-seed-${Date.now()}.db`);
+  const seedCore = buildCore({
+    name: 'SeedTest',
+    entities: {
+      Author: {
+        authenticable: true,
+        properties: ['name'],
+        seedCount: 3,
+      },
+      Article: {
+        properties: [
+          { name: 'title', type: 'string' },
+          { name: 'body', type: 'text' },
+          { name: 'views', type: 'integer' },
+          { name: 'published', type: 'boolean' },
+        ],
+        belongsTo: ['Author'],
+        seedCount: 5,
+      },
+    },
+  });
+  const { initDb: initSeedDb, findAll: findAllSeed } = require('../core/db');
+  // A fresh db module reference won't work (db is module-level singleton),
+  // so we test via the module state set by the last initDb call.
+  initSeedDb(seedCore, seedDbPath);
+
+  await test('seedAll returns correct counts', async () => {
+    const summary = await seedAll(seedCore);
+    assert.strictEqual(summary.Author, 3);
+    assert.strictEqual(summary.Article, 5);
+  });
+
+  await test('seedAll inserts rows into the database', async () => {
+    const authors = findAllSeed('author', {}, { perPage: 100 });
+    assert.ok(authors.total >= 3);
+    const articles = findAllSeed('article', {}, { perPage: 100 });
+    assert.ok(articles.total >= 5);
+  });
+
+  await test('seedAll creates authenticable records with email field', async () => {
+    const authors = findAllSeed('author', {}, { perPage: 100 });
+    for (const a of authors.data) {
+      assert.ok(typeof a.email === 'string' && a.email.includes('@'));
+      assert.ok(typeof a.password === 'string' && a.password.length > 0);
+    }
+  });
+
+  await test('seedAll links belongsTo FK to a seeded parent', async () => {
+    const articles = findAllSeed('article', {}, { perPage: 100 });
+    for (const art of articles.data) {
+      assert.ok(art.author_id !== null && art.author_id !== undefined);
+    }
+  });
+
+  await test('seedAll respects default seedCount of 50', async () => {
+    const defaultCore = buildCore({
+      name: 'DefaultSeed',
+      entities: { Tag: { properties: ['label'] } },
+    });
+    const defaultDbPath = path.join(os.tmpdir(), `chadstart-seed-default-${Date.now()}.db`);
+    initSeedDb(defaultCore, defaultDbPath);
+    const summary = await seedAll(defaultCore);
+    assert.strictEqual(summary.Tag, 50);
+  });
+}
+
 // ─── Summary ─────────────────────────────────────────────────────────────────
 
 console.log(`\n${passed + failed} tests: ${passed} passed, ${failed} failed\n`);

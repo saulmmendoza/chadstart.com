@@ -10,6 +10,7 @@
     "dev": "node cli/cli.js dev",
     "start": "node cli/cli.js start",
     "build": "node cli/cli.js build",
+    "seed": "node cli/cli.js seed",
     "test": "node test/test.js"
   },
   "repository": {
