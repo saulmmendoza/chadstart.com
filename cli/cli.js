@@ -34,7 +34,7 @@ function getOption(flag) {
   return idx !== -1 ? args[idx + 1] : null;
 }
 
-const yamlPath = path.resolve(getOption('--config') || DEFAULT_YAML);
+const yamlPath = path.resolve(getOption('--config') || process.env.CHADSTART_FILE_PATH || DEFAULT_YAML);
 const portOverride = getOption('--port');
 
 if (!command || command === 'help' || command === '--help' || command === '-h') {
