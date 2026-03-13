@@ -1,0 +1,158 @@
+'use strict';
+
+const assert = require('assert');
+const path = require('path');
+const fs = require('fs');
+const os = require('os');
+const { buildCore } = require('../core/entity-engine');
+const dbModule = require('../core/db');
+const { seedAll } = require('../core/seeder');
+
+describe('seeder', () => {
+  let seedDbPath;
+  const seedCore = buildCore({
+    name: 'SeedTest',
+    entities: {
+      Author: {
+        authenticable: true,
+        properties: ['name'],
+        seedCount: 3,
+      },
+      Article: {
+        properties: [
+          { name: 'title', type: 'string' },
+          { name: 'body', type: 'text' },
+          { name: 'views', type: 'integer' },
+          { name: 'published', type: 'boolean' },
+        ],
+        belongsTo: ['Author'],
+        seedCount: 5,
+      },
+    },
+  });
+
+  before(() => {
+    seedDbPath = path.join(os.tmpdir(), `chadstart-seed-${Date.now()}.db`);
+    dbModule.initDb(seedCore, seedDbPath);
+  });
+
+  after(() => { fs.unlinkSync(seedDbPath); });
+
+  it('seedAll returns correct counts', async () => {
+    const summary = await seedAll(seedCore);
+    assert.strictEqual(summary.Author, 3);
+    assert.strictEqual(summary.Article, 5);
+  });
+
+  it('seedAll inserts rows into the database', async () => {
+    const authors = dbModule.findAll('author', {}, { perPage: 100 });
+    assert.ok(authors.total >= 3);
+    const articles = dbModule.findAll('article', {}, { perPage: 100 });
+    assert.ok(articles.total >= 5);
+  });
+
+  it('seedAll creates authenticable records with email field', async () => {
+    const authors = dbModule.findAll('author', {}, { perPage: 100 });
+    for (const a of authors.data) {
+      assert.ok(typeof a.email === 'string' && a.email.includes('@'));
+      assert.ok(typeof a.password === 'string' && a.password.length > 0);
+    }
+  });
+
+  it('seedAll links belongsTo FK to a seeded parent', async () => {
+    const articles = dbModule.findAll('article', {}, { perPage: 100 });
+    for (const art of articles.data) {
+      assert.ok(art.author_id !== null && art.author_id !== undefined);
+    }
+  });
+
+  it('seedAll respects default seedCount of 50', async () => {
+    const defaultCore = buildCore({
+      name: 'DefaultSeed',
+      entities: { Tag: { properties: ['label'] } },
+    });
+    const defaultDbPath = path.join(os.tmpdir(), `chadstart-seed-default-${Date.now()}.db`);
+    dbModule.initDb(defaultCore, defaultDbPath);
+    const summary = await seedAll(defaultCore);
+    assert.strictEqual(summary.Tag, 50);
+  });
+});
+
+describe('seeder – property types', () => {
+  let tmp;
+  const core = buildCore({
+    name: 'TypeTest',
+    entities: {
+      Sample: {
+        properties: [
+          { name: 'myText',      type: 'text' },
+          { name: 'myRichText',  type: 'richText' },
+          { name: 'myInt',       type: 'integer' },
+          { name: 'myFloat',     type: 'float' },
+          { name: 'myReal',      type: 'real' },
+          { name: 'myMoney',     type: 'money' },
+          { name: 'myBool',      type: 'boolean' },
+          { name: 'myDate',      type: 'date' },
+          { name: 'myTimestamp', type: 'timestamp' },
+          { name: 'myEmail',     type: 'email' },
+          { name: 'myLink',      type: 'link' },
+          { name: 'myPass',      type: 'password' },
+          { name: 'myChoice',    type: 'choice' },
+          { name: 'myLocation',  type: 'location' },
+          { name: 'myFile',      type: 'file' },
+          { name: 'myImage',     type: 'image' },
+          { name: 'myJson',      type: 'json' },
+          { name: 'myUnknown',   type: 'custom_unknown' },
+          { name: 'myOption',    type: 'string', options: ['a', 'b', 'c'] },
+        ],
+        seedCount: 3,
+      },
+    },
+  });
+
+  before(() => {
+    tmp = path.join(os.tmpdir(), `chadstart-seedtypes-${Date.now()}.db`);
+    dbModule.initDb(core, tmp);
+  });
+
+  after(() => { fs.unlinkSync(tmp); });
+
+  it('seedAll generates values for every property type', async () => {
+    const summary = await seedAll(core);
+    assert.strictEqual(summary.Sample, 3);
+    const rows = dbModule.findAll('sample', {}, { perPage: 100 });
+    assert.strictEqual(rows.total, 3);
+    const r = rows.data[0];
+    assert.ok(typeof r.myText === 'string' && r.myText.length > 0);
+    assert.ok(typeof r.myRichText === 'string');
+    assert.ok(typeof r.myInt === 'number');
+    assert.ok(typeof r.myFloat === 'number');
+    assert.ok(typeof r.myReal === 'number');
+    assert.ok(typeof r.myMoney === 'number');
+    assert.ok(r.myBool === 0 || r.myBool === 1);
+    assert.ok(typeof r.myDate === 'string' && r.myDate.length === 10);
+    assert.ok(typeof r.myTimestamp === 'string');
+    assert.ok(r.myEmail.includes('@'));
+    assert.ok(r.myLink.startsWith('https://'));
+    assert.ok(typeof r.myPass === 'string' && r.myPass.length > 0);
+    assert.ok(typeof r.myChoice === 'string');
+    assert.ok(r.myLocation.includes(','));
+    assert.ok(r.myFile.startsWith('/uploads/'));
+    assert.ok(r.myImage.startsWith('/uploads/'));
+    assert.doesNotThrow(() => JSON.parse(r.myJson));
+    assert.ok(typeof r.myUnknown === 'string');
+    assert.ok(['a', 'b', 'c'].includes(r.myOption));
+  });
+
+  it('seedAll seeds a single entity exactly once', async () => {
+    const singleCore = buildCore({
+      name: 'SingleTest',
+      entities: { Config: { single: true, properties: ['key', 'value'] } },
+    });
+    const singleTmp = path.join(os.tmpdir(), `chadstart-seedsingle-${Date.now()}.db`);
+    dbModule.initDb(singleCore, singleTmp);
+    const summary = await seedAll(singleCore);
+    assert.strictEqual(summary.Config, 1);
+    fs.unlinkSync(singleTmp);
+  });
+});
