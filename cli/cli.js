@@ -16,6 +16,7 @@ Usage:
   npx chadstart dev     Start server with hot-reload on YAML changes
   npx chadstart start   Start server (production mode)
   npx chadstart build   Validate YAML config and print schema summary
+  npx chadstart seed    Seed the database with dummy data
 
 Options:
   --config <file>   Path to YAML config (default: chadstart.yaml)
@@ -47,6 +48,8 @@ if (command === 'dev') {
   runStart();
 } else if (command === 'build') {
   runBuild();
+} else if (command === 'seed') {
+  runSeed();
 } else {
   console.error(`Unknown command: ${command}`);
   printUsage();
@@ -54,6 +57,37 @@ if (command === 'dev') {
 }
 
 // ─── Commands ────────────────────────────────────────────────────────────────
+
+async function runSeed() {
+  if (!fs.existsSync(yamlPath)) {
+    console.error(`Config not found: ${yamlPath}`);
+    process.exit(1);
+  }
+
+  try {
+    const { loadYaml } = require('../core/yaml-loader');
+    const { validateSchema } = require('../core/schema-validator');
+    const { buildCore } = require('../core/entity-engine');
+    const { initDb } = require('../core/db');
+    const { seedAll } = require('../core/seeder');
+
+    const config = loadYaml(yamlPath);
+    validateSchema(config);
+    const core = buildCore(config);
+    initDb(core);
+
+    console.log('\n🌱 Seeding database...\n');
+    const summary = await seedAll(core);
+
+    for (const [name, count] of Object.entries(summary)) {
+      console.log(`  ✅ ${name}: ${count} record${count !== 1 ? 's' : ''} created`);
+    }
+    console.log('\nDone!\n');
+  } catch (err) {
+    console.error(`\n❌ ${err.message}\n`);
+    process.exit(1);
+  }
+}
 
 async function runStart() {
   if (!fs.existsSync(yamlPath)) {
