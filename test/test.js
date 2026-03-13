@@ -113,14 +113,18 @@ const tmpDb = path.join(os.tmpdir(), `chadstart-test-${Date.now()}.db`);
 const testCore = buildCore({ name: 'T', entities: { Widget: { properties: ['name', 'color'] } } });
 
 await test('initDb creates database file', () => { dbModule.initDb(testCore, tmpDb); assert.ok(fs.existsSync(tmpDb)); });
-await test('create inserts a row', () => { const r = dbModule.create('widget', { name: 'Foo', color: 'red' }); assert.strictEqual(r.name, 'Foo'); assert.ok(r.id > 0); });
-await test('findAll returns rows', () => assert.ok(dbModule.findAll('widget').length >= 1));
+await test('create inserts a row', () => { const r = dbModule.create('widget', { name: 'Foo', color: 'red' }); assert.strictEqual(r.name, 'Foo'); assert.ok(typeof r.id === 'string' && r.id.length > 0); assert.ok(r.createdAt); assert.ok(r.updatedAt); });
+await test('findAll returns paginated result', () => { const result = dbModule.findAll('widget'); assert.ok(result.data.length >= 1); assert.ok(typeof result.total === 'number'); assert.ok(typeof result.currentPage === 'number'); });
 await test('findById works', () => { const c = dbModule.create('widget', { name: 'Bar', color: 'blue' }); assert.strictEqual(dbModule.findById('widget', c.id).name, 'Bar'); });
-await test('findById returns null for missing', () => assert.strictEqual(dbModule.findById('widget', 99999), null));
+await test('findById returns null for missing', () => assert.strictEqual(dbModule.findById('widget', 'nonexistent-id'), null));
 await test('update modifies row', () => { const c = dbModule.create('widget', { name: 'Baz', color: 'green' }); assert.strictEqual(dbModule.update('widget', c.id, { color: 'yellow' }).color, 'yellow'); });
 await test('remove deletes row', () => { const c = dbModule.create('widget', { name: 'Del', color: 'gray' }); dbModule.remove('widget', c.id); assert.strictEqual(dbModule.findById('widget', c.id), null); });
-await test('remove returns null for missing', () => assert.strictEqual(dbModule.remove('widget', 99999), null));
-await test('findAll with filters', () => { dbModule.create('widget', { name: 'R1', color: 'red' }); assert.ok(dbModule.findAll('widget', { color: 'red' }).every((r) => r.color === 'red')); });
+await test('remove returns null for missing', () => assert.strictEqual(dbModule.remove('widget', 'nonexistent-id'), null));
+await test('findAll with filters', () => { dbModule.create('widget', { name: 'R1', color: 'red' }); const result = dbModule.findAll('widget', { color: 'red' }); assert.ok(result.data.every((r) => r.color === 'red')); });
+await test('findAll with filter suffixes', () => { dbModule.create('widget', { name: 'FilterTest', color: 'green' }); const result = dbModule.findAll('widget', { color_neq: 'red' }); assert.ok(result.data.some((r) => r.color !== 'red')); });
+await test('findAll with ordering', () => { const result = dbModule.findAll('widget', {}, { orderBy: 'name', order: 'ASC' }); assert.ok(result.data.length >= 1); });
+await test('findAll with pagination', () => { const result = dbModule.findAll('widget', {}, { page: 1, perPage: 2 }); assert.ok(result.perPage === 2); assert.ok(result.currentPage === 1); });
+await test('findAllSimple returns raw array', () => { const rows = dbModule.findAllSimple('widget'); assert.ok(Array.isArray(rows)); });
 fs.unlinkSync(tmpDb);
 
 console.log('\ndb – authenticable entities');
@@ -155,8 +159,8 @@ const { generateOpenApiSpec } = require('../core/openapi');
 await test('generates valid spec', () => {
   const spec = generateOpenApiSpec(buildCore({ name: 'Blog', entities: { Post: { properties: ['title'] } } }));
   assert.strictEqual(spec.openapi, '3.0.0');
-  assert.ok(spec.paths['/api/posts']);
-  assert.ok(spec.paths['/api/posts/{id}']);
+  assert.ok(spec.paths['/api/collections/post']);
+  assert.ok(spec.paths['/api/collections/post/{id}']);
 });
 
 await test('includes file bucket paths', () => {
@@ -173,8 +177,43 @@ await test('includes auth paths for authenticable entities', () => {
 
 await test('security on restricted entity', () => {
   const spec = generateOpenApiSpec(buildCore({ name: 'App', entities: { Post: { properties: ['t'], policies: { read: [{ access: 'public' }], create: [{ access: 'restricted' }] } } } }));
-  assert.ok(!spec.paths['/api/posts'].get.security);
-  assert.ok(spec.paths['/api/posts'].post.security);
+  assert.ok(!spec.paths['/api/collections/post'].get.security);
+  assert.ok(spec.paths['/api/collections/post'].post.security);
+});
+
+await test('single entity uses /api/singles/ path', () => {
+  const spec = generateOpenApiSpec(buildCore({ name: 'App', entities: { Home: { single: true, properties: ['title'] } } }));
+  assert.ok(spec.paths['/api/singles/home']);
+  assert.ok(spec.paths['/api/singles/home'].put, 'PUT should exist for singles');
+});
+
+await test('collection spec includes PUT endpoint', () => {
+  const spec = generateOpenApiSpec(buildCore({ name: 'App', entities: { Post: { properties: ['t'] } } }));
+  assert.ok(spec.paths['/api/collections/post/{id}'].put, 'PUT should exist for collections');
+});
+
+await test('openapi includes pagination params', () => {
+  const spec = generateOpenApiSpec(buildCore({ name: 'App', entities: { Post: { properties: ['t'] } } }));
+  const params = spec.paths['/api/collections/post'].get.parameters;
+  assert.ok(params.some((p) => p.name === 'page'));
+  assert.ok(params.some((p) => p.name === 'perPage'));
+  assert.ok(params.some((p) => p.name === 'orderBy'));
+  assert.ok(params.some((p) => p.name === 'relations'));
+});
+
+await test('openapi hides hidden properties', () => {
+  const spec = generateOpenApiSpec(buildCore({ name: 'App', entities: { Post: { properties: ['title', { name: 'secret', type: 'string', hidden: true }] } } }));
+  const schema = spec.components.schemas.Post;
+  assert.ok(schema.properties.title);
+  assert.ok(!schema.properties.secret, 'hidden prop should not be in schema');
+});
+
+await test('openapi entity schema has UUID id and timestamps', () => {
+  const spec = generateOpenApiSpec(buildCore({ name: 'App', entities: { Post: { properties: ['t'] } } }));
+  const schema = spec.components.schemas.Post;
+  assert.strictEqual(schema.properties.id.format, 'uuid');
+  assert.ok(schema.properties.createdAt);
+  assert.ok(schema.properties.updatedAt);
 });
 
 // ─── yaml-loader ─────────────────────────────────────────────────────────────
@@ -228,6 +267,131 @@ await test('isOptional skips undefined', () => {
 });
 await test('validates contains', () => {
   assert.ok(validateBody({ e: 'john@gmail.com' }, { properties: [{ name: 'e', type: 'email' }], validation: { e: { contains: '@co.com' } } }).errors);
+});
+
+// ─── New validators ──────────────────────────────────────────────────────────
+
+console.log('\nnew validators');
+
+await test('validates isAlpha', () => {
+  assert.ok(validateBody({ n: 'abc123' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { isAlpha: true } } }).errors);
+  assert.strictEqual(validateBody({ n: 'abc' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { isAlpha: true } } }).errors, null);
+});
+await test('validates isAlphanumeric', () => {
+  assert.ok(validateBody({ n: 'abc!@#' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { isAlphanumeric: true } } }).errors);
+  assert.strictEqual(validateBody({ n: 'abc123' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { isAlphanumeric: true } } }).errors, null);
+});
+await test('validates isAscii', () => {
+  assert.ok(validateBody({ n: 'héllo' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { isAscii: true } } }).errors);
+  assert.strictEqual(validateBody({ n: 'hello' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { isAscii: true } } }).errors, null);
+});
+await test('validates isJSON', () => {
+  assert.ok(validateBody({ n: 'not json' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { isJSON: true } } }).errors);
+  assert.strictEqual(validateBody({ n: '{"a":1}' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { isJSON: true } } }).errors, null);
+});
+await test('validates isDefined', () => {
+  assert.ok(validateBody({}, { properties: [{ name: 'n', type: 'string' }], validation: { n: { isDefined: true } } }).errors);
+  assert.strictEqual(validateBody({ n: '' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { isDefined: true } } }).errors, null);
+});
+await test('validates isEmpty', () => {
+  assert.ok(validateBody({ n: 'x' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { isEmpty: true } } }).errors);
+  assert.strictEqual(validateBody({ n: '' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { isEmpty: true } } }).errors, null);
+});
+await test('validates isIn', () => {
+  assert.ok(validateBody({ n: 'c' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { isIn: ['a', 'b'] } } }).errors);
+  assert.strictEqual(validateBody({ n: 'a' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { isIn: ['a', 'b'] } } }).errors, null);
+});
+await test('validates isNotIn', () => {
+  assert.ok(validateBody({ n: 'a' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { isNotIn: ['a', 'b'] } } }).errors);
+  assert.strictEqual(validateBody({ n: 'c' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { isNotIn: ['a', 'b'] } } }).errors, null);
+});
+await test('validates notContains', () => {
+  assert.ok(validateBody({ n: 'hello world' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { notContains: 'world' } } }).errors);
+  assert.strictEqual(validateBody({ n: 'hello' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { notContains: 'world' } } }).errors, null);
+});
+await test('validates equals/notEquals', () => {
+  assert.ok(validateBody({ n: 'a' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { equals: 'b' } } }).errors);
+  assert.strictEqual(validateBody({ n: 'b' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { equals: 'b' } } }).errors, null);
+  assert.ok(validateBody({ n: 'b' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { notEquals: 'b' } } }).errors);
+});
+await test('validates matches', () => {
+  assert.ok(validateBody({ n: 'hello' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { matches: '^[0-9]+$' } } }).errors);
+  assert.strictEqual(validateBody({ n: '123' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { matches: '^[0-9]+$' } } }).errors, null);
+});
+
+// ─── Hidden properties & defaults ────────────────────────────────────────────
+
+console.log('\nhidden properties & defaults');
+const { applyDefaults, hideHiddenProps } = require('../core/api-generator');
+
+await test('hideHiddenProps removes hidden fields', () => {
+  const entity = { properties: [{ name: 'title', type: 'string', hidden: false }, { name: 'secret', type: 'string', hidden: true }] };
+  const result = hideHiddenProps({ id: '1', title: 'Hi', secret: 'shhh' }, entity);
+  assert.strictEqual(result.title, 'Hi');
+  assert.ok(!('secret' in result));
+});
+
+await test('applyDefaults fills missing with defaults', () => {
+  const entity = { properties: [{ name: 'status', type: 'string', default: 'draft' }, { name: 'title', type: 'string' }] };
+  const result = applyDefaults({ title: 'Hello' }, entity);
+  assert.strictEqual(result.status, 'draft');
+  assert.strictEqual(result.title, 'Hello');
+});
+
+await test('applyDefaults does not override existing values', () => {
+  const entity = { properties: [{ name: 'status', type: 'string', default: 'draft' }] };
+  const result = applyDefaults({ status: 'published' }, entity);
+  assert.strictEqual(result.status, 'published');
+});
+
+// ─── Inline validation merge ─────────────────────────────────────────────────
+
+console.log('\ninline validation merge');
+
+await test('inline property validation merges into entity validation', () => {
+  const core = buildCore({
+    name: 'App',
+    entities: {
+      Dog: {
+        properties: [
+          { name: 'name', type: 'string', validation: { minLength: 3 } },
+          { name: 'age', type: 'number' },
+        ],
+        validation: { age: { min: 1 } },
+      },
+    },
+  });
+  assert.strictEqual(core.entities.Dog.validation.name.minLength, 3);
+  assert.strictEqual(core.entities.Dog.validation.age.min, 1);
+});
+
+await test('inline validation prevails over block on conflict', () => {
+  const core = buildCore({
+    name: 'App',
+    entities: {
+      Dog: {
+        properties: [
+          { name: 'name', type: 'string', validation: { minLength: 5 } },
+        ],
+        validation: { name: { minLength: 3, maxLength: 100 } },
+      },
+    },
+  });
+  assert.strictEqual(core.entities.Dog.validation.name.minLength, 5, 'inline should prevail');
+  assert.strictEqual(core.entities.Dog.validation.name.maxLength, 100, 'block-only keys preserved');
+});
+
+// ─── entity-engine nameSingular/namePlural ───────────────────────────────────
+
+console.log('\nentity-engine extra params');
+
+await test('buildCore passes nameSingular and namePlural', () => {
+  const core = buildCore({
+    name: 'App',
+    entities: { Person: { nameSingular: 'person', namePlural: 'people', properties: ['name'] } },
+  });
+  assert.strictEqual(core.entities.Person.nameSingular, 'person');
+  assert.strictEqual(core.entities.Person.namePlural, 'people');
 });
 
 // ─── JSON Schema file ────────────────────────────────────────────────────────

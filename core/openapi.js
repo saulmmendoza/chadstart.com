@@ -1,7 +1,5 @@
 'use strict';
 
-const { toKebabCase } = require('./entity-engine');
-
 const OPENAPI_TYPE = {
   text: 'string', string: 'string', richText: 'string',
   integer: 'integer', int: 'integer',
@@ -38,7 +36,6 @@ function generateOpenApiSpec(core) {
 
   // Entity CRUD endpoints
   for (const e of Object.values(core.entities)) {
-    const base = `/api/${e.slug}s`;
     const tag = e.name;
     const sec = (rule) => hasSecurity(e, rule) ? { security: [{ bearerAuth: [] }] } : {};
 
@@ -48,17 +45,54 @@ function generateOpenApiSpec(core) {
     }
 
     if (e.single) {
+      const base = `/api/singles/${e.slug}`;
       spec.paths[base] = {
         get:   { tags: [tag], summary: `Get ${e.name}`, ...sec('read'), responses: { 200: jsonResp(e.name), 404: desc('Not Found') } },
+        put:   { tags: [tag], summary: `Replace ${e.name}`, ...sec('update'), requestBody: jsonBody(`${e.name}Input`), responses: { 200: jsonResp(e.name), 404: desc('Not Found') } },
         patch: { tags: [tag], summary: `Update ${e.name}`, ...sec('update'), requestBody: jsonBody(`${e.name}Input`), responses: { 200: jsonResp(e.name), 404: desc('Not Found') } },
       };
     } else {
+      const base = `/api/collections/${e.slug}`;
+      const paginatedResp = {
+        description: 'OK',
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              properties: {
+                data: { type: 'array', items: { $ref: `#/components/schemas/${e.name}` } },
+                currentPage: { type: 'integer' },
+                lastPage: { type: 'integer' },
+                from: { type: 'integer' },
+                to: { type: 'integer' },
+                total: { type: 'integer' },
+                perPage: { type: 'integer' },
+              },
+            },
+          },
+        },
+      };
+
       spec.paths[base] = {
-        get:  { tags: [tag], summary: `List all ${e.name}s`, ...sec('read'), parameters: e.properties.map((p) => ({ name: p.name, in: 'query', required: false, schema: { type: 'string' } })), responses: { 200: { description: 'OK', content: { 'application/json': { schema: { type: 'array', items: { $ref: `#/components/schemas/${e.name}` } } } } } } },
+        get: {
+          tags: [tag],
+          summary: `List all ${e.name}s`,
+          ...sec('read'),
+          parameters: [
+            ...e.properties.filter((p) => !p.hidden).map((p) => ({ name: p.name, in: 'query', required: false, schema: { type: 'string' } })),
+            { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
+            { name: 'perPage', in: 'query', schema: { type: 'integer', default: 10 } },
+            { name: 'orderBy', in: 'query', schema: { type: 'string' } },
+            { name: 'order', in: 'query', schema: { type: 'string', enum: ['ASC', 'DESC'] } },
+            { name: 'relations', in: 'query', schema: { type: 'string' }, description: 'Comma-separated relation names to load' },
+          ],
+          responses: { 200: paginatedResp },
+        },
         post: { tags: [tag], summary: `Create a ${e.name}`, ...sec('create'), requestBody: jsonBody(`${e.name}Input`), responses: { 201: jsonResp(e.name), 400: desc('Bad Request') } },
       };
       spec.paths[`${base}/{id}`] = {
         get:    { tags: [tag], summary: `Get ${e.name} by id`, ...sec('read'), parameters: [idParam()], responses: { 200: jsonResp(e.name), 404: desc('Not Found') } },
+        put:    { tags: [tag], summary: `Replace ${e.name}`, ...sec('update'), parameters: [idParam()], requestBody: jsonBody(`${e.name}Input`), responses: { 200: jsonResp(e.name), 404: desc('Not Found') } },
         patch:  { tags: [tag], summary: `Update ${e.name}`, ...sec('update'), parameters: [idParam()], requestBody: jsonBody(`${e.name}Input`), responses: { 200: jsonResp(e.name), 404: desc('Not Found') } },
         delete: { tags: [tag], summary: `Delete ${e.name}`, ...sec('delete'), parameters: [idParam()], responses: { 200: desc('Deleted'), 404: desc('Not Found') } },
       };
@@ -84,30 +118,36 @@ function generateOpenApiSpec(core) {
 // ─── Schema helpers ─────────────────────────────────────────────────────────
 
 function entitySchema(e, all) {
-  const props = { id: { type: 'integer', readOnly: true } };
-  for (const p of e.properties) props[p.name] = { type: OPENAPI_TYPE[p.type] || 'string' };
+  const props = { id: { type: 'string', format: 'uuid', readOnly: true }, createdAt: { type: 'string', format: 'date-time', readOnly: true }, updatedAt: { type: 'string', format: 'date-time', readOnly: true } };
+  for (const p of e.properties) {
+    if (!p.hidden) props[p.name] = { type: OPENAPI_TYPE[p.type] || 'string' };
+  }
   for (const r of e.belongsTo || []) {
     const ref = all[typeof r === 'string' ? r : (r.entity || r.name)];
-    if (ref) props[`${ref.tableName}_id`] = { type: 'integer' };
+    if (ref) props[`${ref.tableName}_id`] = { type: 'string', format: 'uuid' };
   }
   return { type: 'object', properties: props };
 }
 
 function entityInputSchema(e, all) {
   const s = entitySchema(e, all);
-  const { id, ...rest } = s.properties;
+  const { id, createdAt, updatedAt, ...rest } = s.properties;
   return { type: 'object', properties: rest };
 }
 
 function authSchema(e) {
-  const props = { id: { type: 'integer', readOnly: true }, email: { type: 'string', format: 'email' } };
-  for (const p of e.properties) props[p.name] = { type: OPENAPI_TYPE[p.type] || 'string' };
+  const props = { id: { type: 'string', format: 'uuid', readOnly: true }, email: { type: 'string', format: 'email' }, createdAt: { type: 'string', format: 'date-time' }, updatedAt: { type: 'string', format: 'date-time' } };
+  for (const p of e.properties) {
+    if (!p.hidden) props[p.name] = { type: OPENAPI_TYPE[p.type] || 'string' };
+  }
   return { type: 'object', properties: props };
 }
 
 function authInputSchema(e) {
   const props = { email: { type: 'string', format: 'email' }, password: { type: 'string', format: 'password' } };
-  for (const p of e.properties) props[p.name] = { type: OPENAPI_TYPE[p.type] || 'string' };
+  for (const p of e.properties) {
+    if (!p.hidden) props[p.name] = { type: OPENAPI_TYPE[p.type] || 'string' };
+  }
   return { type: 'object', required: ['email', 'password'], properties: props };
 }
 
@@ -124,6 +164,6 @@ function hasSecurity(e, rule) {
 function jsonBody(schema) { return { required: true, content: { 'application/json': { schema: { $ref: `#/components/schemas/${schema}` } } } }; }
 function jsonResp(schema) { return { description: 'OK', content: { 'application/json': { schema: { $ref: `#/components/schemas/${schema}` } } } }; }
 function desc(d) { return { description: d }; }
-function idParam() { return { name: 'id', in: 'path', required: true, schema: { type: 'integer' } }; }
+function idParam() { return { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }; }
 
 module.exports = { generateOpenApiSpec };

@@ -33,11 +33,17 @@ function registerAuthRoutes(app, core) {
     const allowed = new Set(entity.properties.map((p) => p.name));
     const sanitize = (body) => Object.fromEntries(Object.entries(body).filter(([k]) => allowed.has(k)));
 
+    // Check signup policy: forbidden => block, other values => allow
+    const signupPolicies = (entity.policies || {}).signup;
+    const signupForbidden = signupPolicies && signupPolicies.length > 0 && signupPolicies[0].access === 'forbidden';
+
     app.post(`/api/auth/${slug}/signup`, async (req, res) => {
       try {
+        if (signupForbidden) return res.status(403).json({ error: 'Signup is forbidden for this entity' });
+
         const { email, password, ...rest } = req.body || {};
         if (!email || !password) return res.status(400).json({ error: 'email and password are required' });
-        if (db.findAll(table, { email }).length) return res.status(409).json({ error: 'Email already registered' });
+        if (db.findAllSimple(table, { email }).length) return res.status(409).json({ error: 'Email already registered' });
         const user = db.create(table, { email, password: await bcrypt.hash(password, BCRYPT_ROUNDS), ...sanitize(rest) });
         res.status(201).json({ token: signToken({ id: user.id, entity: entity.name }), user: omitPassword(user) });
       } catch (e) { logger.error('signup error', e.message); res.status(500).json({ error: e.message }); }
@@ -47,7 +53,7 @@ function registerAuthRoutes(app, core) {
       try {
         const { email, password } = req.body || {};
         if (!email || !password) return res.status(400).json({ error: 'email and password are required' });
-        const user = db.findAll(table, { email })[0];
+        const user = db.findAllSimple(table, { email })[0];
         if (!user || !(await bcrypt.compare(password, user.password))) return res.status(401).json({ error: 'Invalid credentials' });
         res.json({ token: signToken({ id: user.id, entity: entity.name }), user: omitPassword(user) });
       } catch (e) { logger.error('login error', e.message); res.status(500).json({ error: e.message }); }
@@ -69,7 +75,7 @@ function requireAuth(entityName) {
     if (!header || !header.startsWith('Bearer ')) return res.status(401).json({ error: 'Authorization header required (Bearer <token>)' });
     try {
       const payload = verifyToken(header.slice(7));
-      if (entityName && payload.entity !== entityName && payload.collection !== entityName) return res.status(403).json({ error: 'Token does not belong to this collection' });
+      if (entityName && payload.entity !== entityName) return res.status(403).json({ error: 'Token does not belong to this collection' });
       req.user = payload;
       next();
     } catch { return res.status(401).json({ error: 'Invalid or expired token' }); }

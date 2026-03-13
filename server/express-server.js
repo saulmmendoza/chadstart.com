@@ -88,19 +88,121 @@ async function createServer(yamlPath) {
 }
 
 async function registerCustomEndpoints(app, core) {
+  const jwt = require('jsonwebtoken');
+  const { requireAuth, optionalAuth } = require('../core/auth');
+  const db = require('../core/db');
+
+  // Create a simple backend "SDK" object for handlers (mimics the JS SDK interface)
+  const manifestSdk = createBackendSdk(core);
+
   for (const [name, ep] of Object.entries(core.endpoints || {})) {
     const epPath = `/endpoints${ep.path}`;
     const method = ep.method.toLowerCase();
     const handlerFile = path.resolve(process.env.MANIFEST_HANDLERS_FOLDER || 'handlers', `${ep.handler}.js`);
 
+    // Build middleware chain from endpoint policies (default: public)
+    const middlewares = buildEndpointPolicyMiddleware(ep);
+
     if (fs.existsSync(handlerFile)) {
       const handler = require(handlerFile);
-      app[method](epPath, handler);
+      app[method](epPath, ...middlewares, (req, res) => handler(req, res, manifestSdk));
       logger.info(`  Registered endpoint: ${ep.method} ${epPath}`);
     } else {
       logger.warn(`  Handler not found for "${name}": ${handlerFile}`);
     }
   }
+}
+
+function buildEndpointPolicyMiddleware(ep) {
+  const { requireAuth, optionalAuth } = require('../core/auth');
+  const jwt = require('jsonwebtoken');
+
+  const policies = ep.policies;
+  if (!policies || !policies.length) {
+    // Custom endpoints are public by default (per docs)
+    return [optionalAuth, (_req, _res, next) => next()];
+  }
+
+  const p = policies[0];
+  const access = p.access;
+  switch (access) {
+    case 'public':
+      return [optionalAuth, (_req, _res, next) => next()];
+    case 'restricted': {
+      if (!p.allow) return [requireAuth()];
+      const allowed = Array.isArray(p.allow) ? p.allow : [p.allow];
+      return [(req, res, next) => {
+        const header = req.headers.authorization;
+        if (!header || !header.startsWith('Bearer ')) return res.status(401).json({ error: 'Authorization required' });
+        try {
+          req.user = jwt.verify(
+            header.slice(7),
+            process.env.JWT_SECRET || process.env.TOKEN_SECRET_KEY || 'chadstart-dev-secret-change-in-production'
+          );
+          if (!allowed.includes(req.user.entity)) return res.status(403).json({ error: 'Access denied' });
+          next();
+        } catch { return res.status(401).json({ error: 'Invalid or expired token' }); }
+      }];
+    }
+    case 'admin':
+      return [requireAuth()];
+    case 'forbidden':
+      return [(_req, res) => res.status(403).json({ error: 'Access forbidden' })];
+    default:
+      return [(_req, _res, next) => next()];
+  }
+}
+
+/**
+ * Create a simple backend SDK for custom endpoint handlers.
+ * Provides a `from(slug)` interface that maps to CRUD operations.
+ */
+function createBackendSdk(core) {
+  const db = require('../core/db');
+
+  return {
+    from(slug) {
+      // Find entity by slug
+      const entity = Object.values(core.entities).find(
+        (e) => e.slug === slug || e.slug + 's' === slug || slug === e.tableName
+      );
+      if (!entity) throw new Error(`Entity not found for slug: ${slug}`);
+      const table = entity.tableName;
+
+      return {
+        find(opts) { return db.findAll(table, {}, opts || {}); },
+        findOneById(id) { return db.findById(table, id); },
+        create(data) { return db.create(table, data); },
+        update(id, data) { return db.update(table, id, data); },
+        patch(id, data) { return db.update(table, id, data); },
+        delete(id) { return db.remove(table, id); },
+      };
+    },
+    single(slug) {
+      const entity = Object.values(core.entities).find(
+        (e) => (e.slug === slug || e.tableName === slug) && e.single
+      );
+      if (!entity) throw new Error(`Single entity not found for slug: ${slug}`);
+      const table = entity.tableName;
+
+      return {
+        get() {
+          const rows = db.findAllSimple(table);
+          return rows[0] || null;
+        },
+        update(data) {
+          const rows = db.findAllSimple(table);
+          if (!rows[0]) return null;
+          return db.update(table, rows[0].id, data);
+        },
+        patch(data) {
+          const rows = db.findAllSimple(table);
+          if (!rows[0]) return null;
+          return db.update(table, rows[0].id, data);
+        },
+      };
+    },
+  };
 }
 
 async function startServer(yamlPath) {

@@ -29,13 +29,32 @@ function normalizeRelation(rel) {
 
 function normalizeProperty(prop) {
   if (typeof prop === 'string') return { name: prop, type: 'string' };
-  return { name: prop.name, type: prop.type || 'string', ...prop };
+  return {
+    name: prop.name,
+    type: prop.type || 'string',
+    hidden: prop.hidden === true,
+    default: prop.default !== undefined ? prop.default : undefined,
+    options: prop.options || undefined,
+    helpText: prop.helpText || undefined,
+    validation: prop.validation || undefined,
+  };
 }
 
 function buildEntities(config) {
   const entities = {};
 
   for (const [name, def] of Object.entries(config.entities || {})) {
+    const properties = (def.properties || []).map(normalizeProperty);
+
+    // Merge inline property validation into entity-level validation.
+    // Inline declarations prevail over block-level on conflict.
+    const validation = { ...(def.validation || {}) };
+    for (const p of properties) {
+      if (p.validation) {
+        validation[p.name] = { ...(validation[p.name] || {}), ...p.validation };
+      }
+    }
+
     entities[name] = {
       name,
       tableName: toSnakeCase(name),
@@ -43,12 +62,14 @@ function buildEntities(config) {
       authenticable: def.authenticable === true,
       single: def.single === true,
       mainProp: def.mainProp || null,
+      nameSingular: def.nameSingular || null,
+      namePlural: def.namePlural || null,
       seedCount: def.seedCount || 50,
-      properties: (def.properties || []).map(normalizeProperty),
+      properties,
       belongsTo: (def.belongsTo || []).map(normalizeRelation),
       belongsToMany: (def.belongsToMany || []).map(normalizeRelation),
       policies: normalizePolicies(def.policies),
-      validation: def.validation || {},
+      validation,
       hooks: def.hooks || {},
       middlewares: def.middlewares || {},
     };
