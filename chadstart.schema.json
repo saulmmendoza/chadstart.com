@@ -86,6 +86,29 @@
           }
         }
       }
+    },
+    "sentry": {
+      "type": "object",
+      "description": "Sentry (or Bugsink) error-reporting configuration. The DSN is a secret and must be provided via the SENTRY_DSN environment variable — do NOT put it here.",
+      "additionalProperties": false,
+      "properties": {
+        "environment": {
+          "type": "string",
+          "description": "The environment label sent to Sentry (e.g. production, staging). Defaults to NODE_ENV."
+        },
+        "tracesSampleRate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 1.0,
+          "description": "Fraction of transactions to sample for performance monitoring (0.0–1.0)."
+        },
+        "debug": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable Sentry SDK debug logging."
+        }
+      }
     }
   },
   "$defs": {
