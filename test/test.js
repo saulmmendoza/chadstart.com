@@ -980,13 +980,14 @@ console.log('\nrunMiddlewares – SDK injection');
   const dbMw = require('../core/db');
   dbMw.initDb(mwCore, tmp);
 
-  // Write a temporary handler that stores whatever sdk argument it receives
+  // Write a temporary handler that records whether the chadstart SDK argument was provided
   const handlersDir = path.join(os.tmpdir(), `chadstart-handlers-${Date.now()}`);
   fs.mkdirSync(handlersDir, { recursive: true });
   const handlerPath = path.join(handlersDir, 'testMwHandler.js');
   fs.writeFileSync(handlerPath, `
     module.exports = async (req, res, chadstart) => {
-      req._sdkReceived = chadstart;
+      // Record SDK presence on req so tests can inspect via a dedicated route
+      req.app._lastSdkArg = chadstart;
     };
   `);
 
@@ -996,9 +997,6 @@ console.log('\nrunMiddlewares – SDK injection');
   // Use an isolated require to avoid module cache issues with the handler
   delete require.cache[require.resolve(handlerPath)];
 
-  const { createBackendSdk: makeSdk } = require('../core/api-generator');
-  const sdk = makeSdk(mwCore);
-
   // Simulate runMiddlewares via the HTTP server integration
   // We test it by calling registerApiRoutes and making a fake HTTP request
   const http = require('http');
@@ -1007,8 +1005,10 @@ console.log('\nrunMiddlewares – SDK injection');
   testApp.use(express.json());
   const { registerApiRoutes } = require('../core/api-generator');
 
-  let emittedEvent = null;
-  registerApiRoutes(testApp, mwCore, (ev, data) => { emittedEvent = { ev, data }; });
+  registerApiRoutes(testApp, mwCore, () => {});
+
+  // Expose what the middleware captured so the test can assert on it
+  testApp.get('/_inspect', (req, res) => res.json({ hasSdk: req.app._lastSdkArg != null }));
 
   const testServer = http.createServer(testApp);
   await new Promise((resolve) => testServer.listen(0, resolve));
@@ -1021,9 +1021,12 @@ console.log('\nrunMiddlewares – SDK injection');
       body: JSON.stringify({ name: 'Widget' }),
     });
     assert.strictEqual(res.status, 201);
-    // If the handler ran without error the item was created — verifying SDK was passed
     const data = await res.json();
     assert.strictEqual(data.name, 'Widget');
+
+    // Verify the middleware received the SDK as third argument
+    const inspect = await fetch(`http://127.0.0.1:${port}/_inspect`).then((r) => r.json());
+    assert.strictEqual(inspect.hasSdk, true, 'chadstart SDK should be passed to middleware handlers');
   });
 
   await test('CHADSTART_HANDLERS_FOLDER env var is used by middleware runner', () => {
@@ -1031,15 +1034,11 @@ console.log('\nrunMiddlewares – SDK injection');
     assert.strictEqual(process.env.CHADSTART_HANDLERS_FOLDER, handlersDir);
   });
 
-  await test('CHADSTART_HANDLERS_FOLDER env var is used by custom endpoint runner', () => {
-    // The env var is used in registerCustomEndpoints in express-server.js.
-    // We verify it is read from the correct env key (not MANIFEST_HANDLERS_FOLDER).
-    const { createServer } = require('../server/express-server');
-    // Confirm CHADSTART_HANDLERS_FOLDER is preferred over MANIFEST_HANDLERS_FOLDER
+  await test('CHADSTART_HANDLERS_FOLDER takes precedence over MANIFEST_HANDLERS_FOLDER', () => {
+    // Confirm CHADSTART_HANDLERS_FOLDER is preferred over the legacy MANIFEST_HANDLERS_FOLDER
     const oldManifest = process.env.MANIFEST_HANDLERS_FOLDER;
     process.env.MANIFEST_HANDLERS_FOLDER = '/some/wrong/path';
     process.env.CHADSTART_HANDLERS_FOLDER = handlersDir;
-    // The env var resolution logic: CHADSTART first, MANIFEST fallback
     const resolved = process.env.CHADSTART_HANDLERS_FOLDER || process.env.MANIFEST_HANDLERS_FOLDER || 'handlers';
     assert.strictEqual(resolved, handlersDir);
     process.env.MANIFEST_HANDLERS_FOLDER = oldManifest;
