@@ -19,6 +19,7 @@ const { registerFileRoutes } = require('../core/file-storage');
 const { registerUploadRoutes } = require('../core/upload');
 const { loadPlugins } = require('../core/plugin-loader');
 const { initErrorReporter, getRequestHandler, attachErrorHandler } = require('../core/error-reporter');
+const { getTelemetryConfig, initTelemetry } = require('../core/telemetry');
 const logger = require('../utils/logger');
 
 function limiter(windowMs, max) {
@@ -53,6 +54,10 @@ async function buildApp(yamlPath, reloadFn) {
   validateSchema(config);
   const core = buildCore(config);
   logger.info(`Loading "${core.name}"...`);
+
+  // Initialize OpenTelemetry (singleton — no-op on hot reload)
+  const telConfig = getTelemetryConfig(core.settings);
+  await initTelemetry(telConfig);
 
   const dbPath = core.database
     ? path.resolve(path.dirname(yamlPath), core.database)
