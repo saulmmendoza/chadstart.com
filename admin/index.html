@@ -125,6 +125,16 @@
       class="hidden py-1.5 px-3 rounded text-sm cursor-pointer border border-cs-border text-cs-text hover:bg-cs-border" style="transition: background 150ms ease;">
       + New record
     </button>
+    <!-- AI chat button — hidden until /admin/ai/status says configured -->
+    <button id="btn-ai" onclick="toggleAiPanel()"
+      class="hidden items-center gap-1.5 py-1.5 px-3 rounded text-sm cursor-pointer border border-cs-border text-cs-muted hover:text-cs-text hover:bg-cs-border"
+      style="transition: background 150ms ease, color 150ms ease;" title="Ask AI assistant">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+          d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+      </svg>
+      Ask AI
+    </button>
   </header>
 
   <main class="p-5 flex-1 overflow-auto">
@@ -200,6 +210,44 @@
 
 <!-- ── Toast ──────────────────────────────────────────────────────────── -->
 <div id="toast" class="hidden fixed bottom-6 right-6 z-50"></div>
+
+<!-- ── AI Chat Panel ──────────────────────────────────────────────────── -->
+<div id="ai-panel"
+  class="fixed inset-y-0 right-0 z-50 w-full max-w-sm bg-cs-surface border-l border-cs-border flex flex-col translate-x-full"
+  style="transition: transform 200ms ease; box-shadow: -2px 0 12px rgba(0,0,0,0.3);">
+
+  <!-- Panel header -->
+  <div class="flex items-center justify-between px-4 py-3 border-b border-cs-border shrink-0">
+    <div class="flex items-center gap-2">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:#bb86fc;">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+          d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+      </svg>
+      <span class="font-medium text-sm text-cs-text">AI Assistant</span>
+    </div>
+    <div class="flex items-center gap-2">
+      <button onclick="clearAiChat()" class="text-xs text-cs-muted hover:text-cs-text" style="transition: color 150ms ease; background: none; border: none; cursor: pointer;" title="Clear chat">Clear</button>
+      <button onclick="closeAiPanel()" class="text-cs-muted hover:text-cs-text text-xl leading-none" style="transition: color 150ms ease; background: none; border: none; cursor: pointer;" aria-label="Close">×</button>
+    </div>
+  </div>
+
+  <!-- Messages area -->
+  <div id="ai-messages" class="flex-1 overflow-y-auto p-4 space-y-3" style="scrollbar-width: thin; scrollbar-color: #2a2a2a transparent;"></div>
+
+  <!-- Input area -->
+  <div class="shrink-0 border-t border-cs-border p-3">
+    <div class="flex gap-2">
+      <textarea id="ai-input" rows="2" placeholder="Ask anything about your data, API, or config…"
+        class="flex-1 bg-cs-bg border border-cs-border rounded text-cs-text px-3 py-2 text-sm outline-none focus:border-cs-primary resize-none"
+        style="transition: border-color 150ms ease; line-height: 1.4;"
+        onkeydown="aiInputKeydown(event)"></textarea>
+      <button id="ai-send-btn" onclick="sendAiMessage()"
+        class="py-2 px-3 rounded text-sm cursor-pointer bg-cs-primary text-cs-bg font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+        style="transition: opacity 150ms ease; align-self: flex-end;">Send</button>
+    </div>
+    <p class="text-xs mt-1.5" style="color:#555;">Shift+Enter for new line · Enter to send</p>
+  </div>
+</div>
 
 <script>
   // ── State ──────────────────────────────────────────────────────────────
@@ -320,6 +368,9 @@
     localStorage.removeItem('cs_token'); currentItem = null;
     document.getElementById('table-area').innerHTML = '';
     document.getElementById('btn-add').classList.add('hidden');
+    document.getElementById('btn-ai').classList.add('hidden');
+    document.getElementById('btn-ai').classList.remove('flex');
+    closeAiPanel();
     document.getElementById('page-title').textContent = 'Select a collection';
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     showLogin();
@@ -338,6 +389,7 @@
     document.getElementById('user-name').textContent = name;
     document.getElementById('user-collection-label').textContent = authCollection || '';
     document.getElementById('user-avatar').textContent = name[0].toUpperCase();
+    checkAiStatus();
     const first = document.querySelector('.nav-item');
     if (first) first.click();
   }
@@ -1052,6 +1104,128 @@
     showConfigTab(configActiveTab);
     toast('Reset to last saved state', 'info');
   }
+
+  // ── AI Chat ────────────────────────────────────────────────────────────
+  let aiMessages = []; // { role: 'user'|'assistant', content: string }
+  let aiPanelOpen = false;
+
+  async function checkAiStatus() {
+    try {
+      const r = await fetch('/admin/ai/status');
+      if (!r.ok) return;
+      const data = await r.json();
+      if (data.configured) {
+        const btn = document.getElementById('btn-ai');
+        btn.classList.remove('hidden');
+        btn.classList.add('flex');
+      }
+    } catch { /* AI status check failed silently */ }
+  }
+
+  function toggleAiPanel() {
+    if (aiPanelOpen) closeAiPanel(); else openAiPanel();
+  }
+
+  function openAiPanel() {
+    aiPanelOpen = true;
+    document.getElementById('ai-panel').style.transform = 'translateX(0)';
+    if (aiMessages.length === 0) renderAiWelcome();
+    setTimeout(() => document.getElementById('ai-input').focus(), 220);
+  }
+
+  function closeAiPanel() {
+    aiPanelOpen = false;
+    document.getElementById('ai-panel').style.transform = 'translateX(100%)';
+  }
+
+  function clearAiChat() {
+    aiMessages = [];
+    document.getElementById('ai-messages').innerHTML = '';
+    renderAiWelcome();
+  }
+
+  function renderAiWelcome() {
+    const el = document.getElementById('ai-messages');
+    el.innerHTML = '<div class="text-xs text-center py-6" style="color:#555;">Ask me anything about your data, API routes, entity config, or how ChadStart works.</div>';
+  }
+
+  function appendAiMessage(role, content) {
+    const container = document.getElementById('ai-messages');
+    // Remove welcome message if present
+    const welcome = container.querySelector('.text-center');
+    if (welcome) welcome.remove();
+
+    const isUser = role === 'user';
+    const bubble = document.createElement('div');
+    bubble.className = 'flex ' + (isUser ? 'justify-end' : 'justify-start');
+    const inner = document.createElement('div');
+    inner.className = 'max-w-[85%] rounded px-3 py-2 text-sm';
+    inner.style.cssText = isUser
+      ? 'background:rgba(187,134,252,0.15);color:#e1e1e1;border:1px solid rgba(187,134,252,0.25);'
+      : 'background:#1e1e1e;color:#e1e1e1;border:1px solid #2a2a2a;white-space:pre-wrap;';
+    inner.textContent = content;
+    bubble.appendChild(inner);
+    container.appendChild(bubble);
+    container.scrollTop = container.scrollHeight;
+  }
+
+  function appendAiThinking() {
+    const container = document.getElementById('ai-messages');
+    const bubble = document.createElement('div');
+    bubble.id = 'ai-thinking';
+    bubble.className = 'flex justify-start';
+    bubble.innerHTML = '<div class="rounded px-3 py-2 text-sm" style="background:#1e1e1e;color:#555;border:1px solid #2a2a2a;">Thinking…</div>';
+    container.appendChild(bubble);
+    container.scrollTop = container.scrollHeight;
+  }
+
+  function removeAiThinking() {
+    const el = document.getElementById('ai-thinking');
+    if (el) el.remove();
+  }
+
+  function aiInputKeydown(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAiMessage(); }
+  }
+
+  async function sendAiMessage() {
+    const inputEl = document.getElementById('ai-input');
+    const sendBtn = document.getElementById('ai-send-btn');
+    const text = inputEl.value.trim();
+    if (!text) return;
+
+    inputEl.value = '';
+    inputEl.disabled = true;
+    sendBtn.disabled = true;
+
+    aiMessages.push({ role: 'user', content: text });
+    appendAiMessage('user', text);
+    appendAiThinking();
+
+    try {
+      const r = await apiFetch('/admin/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: aiMessages }),
+      });
+      const data = await r.json();
+      removeAiThinking();
+      if (!r.ok) throw new Error(data.error || 'AI request failed');
+      const reply = data.message;
+      aiMessages.push({ role: 'assistant', content: reply });
+      appendAiMessage('assistant', reply);
+    } catch (err) {
+      removeAiThinking();
+      appendAiMessage('assistant', '⚠ ' + err.message);
+      // Don't push error into history — let the user retry
+      aiMessages.pop();
+    } finally {
+      inputEl.disabled = false;
+      sendBtn.disabled = false;
+      inputEl.focus();
+    }
+  }
+
   init();
 </script>
 </body>
