@@ -1,0 +1,57 @@
+site_name: ChadStart
+site_description: YAML-first Backend as a Service — define your entire backend in a single YAML file.
+site_url: https://saulmmendoza.github.io/chadstart.com/
+repo_url: https://github.com/saulmmendoza/chadstart.com
+repo_name: saulmmendoza/chadstart.com
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: deep purple
+      accent: purple
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: deep purple
+      accent: purple
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.tabs.link
+    - content.code.copy
+  icon:
+    repo: fontawesome/brands/github
+
+nav:
+  - Home: index.md
+  - Configuration: configuration.md
+  - Authentication: authentication.md
+  - REST API: rest-api.md
+  - Permissions: permissions.md
+  - Admin UI: admin-ui.md
+  - Realtime: realtime.md
+  - File Storage: file-storage.md
+  - Plugins: plugins.md
+  - CLI: cli.md
+  - Docker: docker.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - toc:
+      permalink: true
