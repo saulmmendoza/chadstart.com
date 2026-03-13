@@ -611,8 +611,26 @@
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || 'Save failed');
       configData = fullConfig;
-      document.getElementById('cfg-status').textContent = '✓ Saved — restart the server to apply changes.';
-      toast('Config saved successfully', 'success');
+
+      if (data.reloading) {
+        document.getElementById('cfg-status').textContent = 'Reloading…';
+        toast('Config saved — reloading server…', 'info');
+        // Re-fetch schema after the server has rebuilt its routes
+        setTimeout(async () => {
+          try {
+            schema = await fetch('/admin/schema').then(r => r.json());
+            document.getElementById('project-name').textContent = schema.name;
+            buildSidebar();
+            document.getElementById('cfg-status').textContent = '✓ Config applied.';
+            toast('Config applied', 'success');
+          } catch {
+            document.getElementById('cfg-status').textContent = '✓ Saved — reload the page to see changes.';
+          }
+        }, 800);
+      } else {
+        document.getElementById('cfg-status').textContent = '✓ Saved — restart the server to apply changes.';
+        toast('Config saved successfully', 'success');
+      }
     } catch (e) {
       toast('Save failed: ' + e.message, 'error');
     } finally {
