@@ -36,7 +36,7 @@ const _localeCache = {};
  * @returns {object|null}
  */
 function loadLocale(lang) {
-  if (!/^[a-z]{2,8}$/.test(lang)) lang = 'en';
+  if (!/^[a-z]{2,3}$/.test(lang)) lang = 'en';
   if (_localeCache[lang] !== undefined) return _localeCache[lang];
   const filePath = path.join(__dirname, '..', 'locales', lang, 'admin.json');
   if (fs.existsSync(filePath)) {
@@ -153,6 +153,7 @@ async function buildApp(yamlPath, reloadFn) {
   });
   // Serve locale translation files for the Admin UI i18n
   app.get('/admin/i18n/:lang', adminRateLimiter, (req, res) => {
+    // Normalize the route param (simple language code, e.g. "en") to a safe subtag
     const lang = parseLang(req.params.lang);
     const locale = loadLocale(lang);
     if (locale) return res.json(locale);

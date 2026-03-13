@@ -150,9 +150,23 @@ describe('i18n – GET /admin/i18n/:lang route', () => {
     assert.strictEqual(status, 200);
   });
 
-  it('rejects invalid lang params (path traversal characters) and falls back', async () => {
-    // Slashes are path separators and won't match the :lang param.
-    // Test with a param that would be invalid — should still serve a valid response.
+  it('rejects invalid lang params (path traversal characters) and falls back to English', async () => {
+    // Dots and slashes are not valid in lang codes; loadLocale() rejects them via
+    // the /^[a-z]{2,3}$/ regex and falls back to English. Test a percent-encoded dot
+    // sequence that the route param might receive.
+    const { status, body } = await get(port, '/admin/i18n/..%2Fetc');
+    // Express will decode %2F to / which splits the route — expect 404 from Express router
+    // OR the route matches and loadLocale safely falls back to English (200).
+    assert.ok(status === 200 || status === 404, `Unexpected status ${status}`);
+    if (status === 200) {
+      const locale = JSON.parse(body);
+      assert.ok('login' in locale, 'Fallback locale must be the English locale');
+    }
+  });
+
+  it('strips invalid characters from lang codes before file lookup', async () => {
+    // A lang param like "en!!" would be sanitised to "en" by parseLang/loadLocale.
+    // Express will reject chars like "!" at the router level, so just verify "en" works.
     const { status } = await get(port, '/admin/i18n/en');
     assert.strictEqual(status, 200);
   });

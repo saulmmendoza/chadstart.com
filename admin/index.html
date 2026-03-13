@@ -1016,7 +1016,7 @@
 
   function showConfigTab(tab) {
     configActiveTab = tab;
-    document.querySelectorAll('.cfg-tab').forEach(function(tabBtn) { tabBtn.classList.remove('active'); });
+    document.querySelectorAll('.cfg-tab').forEach(function(btn) { btn.classList.remove('active'); });
     const tabEl = document.getElementById('cfg-tab-' + tab);
     if (tabEl) tabEl.classList.add('active');
 
