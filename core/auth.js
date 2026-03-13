@@ -3,15 +3,19 @@
 /**
  * core/auth.js
  *
- * JWT-based authentication for user collections.
+ * JWT-based authentication for authenticable entities.
  *
- * Endpoints (registered per user-collection slug):
- *   POST /auth/:collectionSlug/signup   – create account, return token
- *   POST /auth/:collectionSlug/login    – verify credentials, return token
- *   GET  /auth/:collectionSlug/me       – return current user (requires token)
+ * In the docs-baas format, user collections are entities with
+ * `authenticable: true`. This module registers auth routes for
+ * each authenticable entity.
+ *
+ * Endpoints (registered per authenticable entity slug):
+ *   POST /api/auth/:slug/signup   – create account, return token
+ *   POST /api/auth/:slug/login    – verify credentials, return token
+ *   GET  /api/auth/:slug/me       – return current user (requires token)
  *
  * Middleware:
- *   requireAuth(collectionSlug?)  – protect any route
+ *   requireAuth(entityName?)  – protect any route
  */
 
 const jwt = require('jsonwebtoken');
@@ -19,7 +23,7 @@ const bcrypt = require('bcryptjs');
 const db = require('./db');
 const logger = require('../utils/logger');
 
-const JWT_SECRET = process.env.JWT_SECRET || (() => {
+const JWT_SECRET = process.env.JWT_SECRET || process.env.TOKEN_SECRET_KEY || (() => {
   if (process.env.NODE_ENV === 'production') {
     throw new Error(
       'JWT_SECRET environment variable must be set in production. ' +
@@ -44,14 +48,17 @@ function verifyToken(token) {
 // ─── Route registration ────────────────────────────────────────────────────
 
 /**
- * Register auth routes for all user collections defined in core.
+ * Register auth routes for all authenticable entities defined in core.
  */
 function registerAuthRoutes(app, core) {
-  for (const uc of Object.values(core.userCollections)) {
-    const slug = toSlug(uc.name);
+  const authenticableEntities = core.authenticableEntities || {};
 
-    // POST /auth/:slug/signup
-    app.post(`/auth/${slug}/signup`, async (req, res) => {
+  for (const entity of Object.values(authenticableEntities)) {
+    const slug = entity.slug || toSlug(entity.name);
+    const tableName = entity.tableName;
+
+    // POST /api/auth/:slug/signup
+    app.post(`/api/auth/${slug}/signup`, async (req, res) => {
       try {
         const { email, password, ...rest } = req.body || {};
         if (!email || !password) {
@@ -59,22 +66,22 @@ function registerAuthRoutes(app, core) {
         }
 
         // Check duplicate email
-        const existing = db.findAll(uc.tableName, { email });
+        const existing = db.findAll(tableName, { email });
         if (existing.length > 0) {
           return res.status(409).json({ error: 'Email already registered' });
         }
 
         const hashedPassword = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
-        // Only allow extra fields declared in the collection's properties
-        const safeRest = sanitizeUserBody(rest, uc);
-        const user = db.create(uc.tableName, {
+        // Only allow extra fields declared in the entity's properties
+        const safeRest = sanitizeUserBody(rest, entity);
+        const user = db.create(tableName, {
           email,
           password: hashedPassword,
           ...safeRest,
         });
 
-        const token = signToken({ id: user.id, collection: uc.name });
+        const token = signToken({ id: user.id, collection: entity.name, entity: entity.name });
         res.status(201).json({ token, user: omitPassword(user) });
       } catch (err) {
         logger.error('signup error', err.message);
@@ -82,15 +89,15 @@ function registerAuthRoutes(app, core) {
       }
     });
 
-    // POST /auth/:slug/login
-    app.post(`/auth/${slug}/login`, async (req, res) => {
+    // POST /api/auth/:slug/login
+    app.post(`/api/auth/${slug}/login`, async (req, res) => {
       try {
         const { email, password } = req.body || {};
         if (!email || !password) {
           return res.status(400).json({ error: 'email and password are required' });
         }
 
-        const rows = db.findAll(uc.tableName, { email });
+        const rows = db.findAll(tableName, { email });
         const user = rows[0] || null;
         if (!user) {
           return res.status(401).json({ error: 'Invalid credentials' });
@@ -101,7 +108,7 @@ function registerAuthRoutes(app, core) {
           return res.status(401).json({ error: 'Invalid credentials' });
         }
 
-        const token = signToken({ id: user.id, collection: uc.name });
+        const token = signToken({ id: user.id, collection: entity.name, entity: entity.name });
         res.json({ token, user: omitPassword(user) });
       } catch (err) {
         logger.error('login error', err.message);
@@ -109,66 +116,14 @@ function registerAuthRoutes(app, core) {
       }
     });
 
-    // GET /auth/:slug/me
-    app.get(`/auth/${slug}/me`, requireAuth(uc.name), (req, res) => {
-      const user = db.findById(uc.tableName, req.user.id);
+    // GET /api/auth/:slug/me
+    app.get(`/api/auth/${slug}/me`, requireAuth(entity.name), (req, res) => {
+      const user = db.findById(tableName, req.user.id);
       if (!user) return res.status(404).json({ error: 'User not found' });
       res.json(omitPassword(user));
     });
 
-    // ── CRUD routes for the user collection (admin-only) ───────────────
-    const apiBase = `/api/${toSlug(uc.name)}s`;
-
-    // GET /api/<slug>s — list all (password omitted)
-    app.get(apiBase, (req, res) => {
-      try {
-        const rows = db.findAll(uc.tableName).map(omitPassword);
-        res.json(rows);
-      } catch (err) {
-        res.status(500).json({ error: err.message });
-      }
-    });
-
-    // GET /api/<slug>s/:id
-    app.get(`${apiBase}/:id`, (req, res) => {
-      try {
-        const row = db.findById(uc.tableName, req.params.id);
-        if (!row) return res.status(404).json({ error: 'Not found' });
-        res.json(omitPassword(row));
-      } catch (err) {
-        res.status(500).json({ error: err.message });
-      }
-    });
-
-    // PATCH /api/<slug>s/:id — update non-password fields
-    app.patch(`${apiBase}/:id`, async (req, res) => {
-      try {
-        const existing = db.findById(uc.tableName, req.params.id);
-        if (!existing) return res.status(404).json({ error: 'Not found' });
-        const { password, ...rest } = req.body || {};
-        const safeData = sanitizeUserBody(rest, uc);
-        if (password) {
-          safeData.password = await bcrypt.hash(password, BCRYPT_ROUNDS);
-        }
-        const updated = db.update(uc.tableName, req.params.id, safeData);
-        res.json(omitPassword(updated));
-      } catch (err) {
-        res.status(400).json({ error: err.message });
-      }
-    });
-
-    // DELETE /api/<slug>s/:id
-    app.delete(`${apiBase}/:id`, (req, res) => {
-      try {
-        const removed = db.remove(uc.tableName, req.params.id);
-        if (!removed) return res.status(404).json({ error: 'Not found' });
-        res.json(omitPassword(removed));
-      } catch (err) {
-        res.status(500).json({ error: err.message });
-      }
-    });
-
-    logger.info(`  Registered auth routes for "${uc.name}" at /auth/${slug}/`);
+    logger.info(`  Registered auth routes for "${entity.name}" at /api/auth/${slug}/`);
   }
 }
 
@@ -176,10 +131,10 @@ function registerAuthRoutes(app, core) {
 
 /**
  * Express middleware that verifies a Bearer JWT.
- * If collectionName is provided, also checks that the token belongs to that collection.
- * Sets req.user = { id, collection } on success.
+ * If entityName is provided, also checks that the token belongs to that entity.
+ * Sets req.user = { id, collection, entity } on success.
  */
-function requireAuth(collectionName) {
+function requireAuth(entityName) {
   return (req, res, next) => {
     const header = req.headers.authorization;
     if (!header || !header.startsWith('Bearer ')) {
@@ -188,7 +143,7 @@ function requireAuth(collectionName) {
     const token = header.slice(7);
     try {
       const payload = verifyToken(token);
-      if (collectionName && payload.collection !== collectionName) {
+      if (entityName && payload.collection !== entityName && payload.entity !== entityName) {
         return res.status(403).json({ error: 'Token does not belong to this collection' });
       }
       req.user = payload;
@@ -222,8 +177,8 @@ function omitPassword(user) {
   return rest;
 }
 
-function sanitizeUserBody(body, uc) {
-  const allowed = new Set(uc.properties.map((p) => p.name));
+function sanitizeUserBody(body, entity) {
+  const allowed = new Set(entity.properties.map((p) => p.name));
   const result = {};
   for (const key of Object.keys(body)) {
     if (allowed.has(key)) result[key] = body[key];

@@ -3,6 +3,9 @@
 /**
  * Validate the parsed YAML config structure.
  * Throws descriptive errors for invalid configs.
+ *
+ * Supports the docs-baas entity format where user collections are
+ * declared as entities with `authenticable: true`.
  */
 function validateSchema(config) {
   if (!config || typeof config !== 'object') {
@@ -40,6 +43,119 @@ function validateSchema(config) {
         if (!Array.isArray(entityDef.belongsTo)) {
           throw new Error(`Entity "${entityName}".belongsTo must be an array`);
         }
+      }
+
+      if (entityDef.belongsToMany !== undefined) {
+        if (!Array.isArray(entityDef.belongsToMany)) {
+          throw new Error(`Entity "${entityName}".belongsToMany must be an array`);
+        }
+      }
+
+      // authenticable: boolean
+      if (entityDef.authenticable !== undefined && typeof entityDef.authenticable !== 'boolean') {
+        throw new Error(`Entity "${entityName}".authenticable must be a boolean`);
+      }
+
+      // single: boolean
+      if (entityDef.single !== undefined && typeof entityDef.single !== 'boolean') {
+        throw new Error(`Entity "${entityName}".single must be a boolean`);
+      }
+
+      // policies: object with create/read/update/delete/signup rules
+      if (entityDef.policies !== undefined) {
+        if (typeof entityDef.policies !== 'object' || Array.isArray(entityDef.policies)) {
+          throw new Error(`Entity "${entityName}".policies must be an object`);
+        }
+        const validRules = ['create', 'read', 'update', 'delete', 'signup'];
+        for (const [rule, policyList] of Object.entries(entityDef.policies)) {
+          if (!validRules.includes(rule)) {
+            throw new Error(
+              `Entity "${entityName}".policies has unknown rule "${rule}". Valid rules: ${validRules.join(', ')}`
+            );
+          }
+          if (!Array.isArray(policyList)) {
+            throw new Error(`Entity "${entityName}".policies.${rule} must be an array of policy objects`);
+          }
+          for (const policy of policyList) {
+            if (!policy || typeof policy !== 'object') {
+              throw new Error(`Each policy in "${entityName}".policies.${rule} must be an object`);
+            }
+            if (!policy.access) {
+              throw new Error(`Each policy in "${entityName}".policies.${rule} must have an "access" field`);
+            }
+          }
+        }
+      }
+
+      // validation: object
+      if (entityDef.validation !== undefined) {
+        if (typeof entityDef.validation !== 'object' || Array.isArray(entityDef.validation)) {
+          throw new Error(`Entity "${entityName}".validation must be an object`);
+        }
+      }
+
+      // hooks: object with lifecycle event arrays
+      if (entityDef.hooks !== undefined) {
+        if (typeof entityDef.hooks !== 'object' || Array.isArray(entityDef.hooks)) {
+          throw new Error(`Entity "${entityName}".hooks must be an object`);
+        }
+        const validHooks = ['beforeCreate', 'afterCreate', 'beforeUpdate', 'afterUpdate', 'beforeDelete', 'afterDelete'];
+        for (const [hook, hookList] of Object.entries(entityDef.hooks)) {
+          if (!validHooks.includes(hook)) {
+            throw new Error(
+              `Entity "${entityName}".hooks has unknown event "${hook}". Valid events: ${validHooks.join(', ')}`
+            );
+          }
+          if (!Array.isArray(hookList)) {
+            throw new Error(`Entity "${entityName}".hooks.${hook} must be an array`);
+          }
+        }
+      }
+
+      // middlewares: object with lifecycle event arrays
+      if (entityDef.middlewares !== undefined) {
+        if (typeof entityDef.middlewares !== 'object' || Array.isArray(entityDef.middlewares)) {
+          throw new Error(`Entity "${entityName}".middlewares must be an object`);
+        }
+        const validEvents = ['beforeCreate', 'afterCreate', 'beforeUpdate', 'afterUpdate', 'beforeDelete', 'afterDelete'];
+        for (const [event, mwList] of Object.entries(entityDef.middlewares)) {
+          if (!validEvents.includes(event)) {
+            throw new Error(
+              `Entity "${entityName}".middlewares has unknown event "${event}". Valid events: ${validEvents.join(', ')}`
+            );
+          }
+          if (!Array.isArray(mwList)) {
+            throw new Error(`Entity "${entityName}".middlewares.${event} must be an array`);
+          }
+        }
+      }
+
+      // Backward compat: permissions (old format)
+      if (entityDef.permissions !== undefined) {
+        if (typeof entityDef.permissions !== 'object' || Array.isArray(entityDef.permissions)) {
+          throw new Error(`Entity "${entityName}".permissions must be an object`);
+        }
+      }
+    }
+  }
+
+  // endpoints: object
+  if (config.endpoints !== undefined) {
+    if (typeof config.endpoints !== 'object' || Array.isArray(config.endpoints)) {
+      throw new Error('"endpoints" must be an object (map of endpoint names to definitions)');
+    }
+    for (const [epName, epDef] of Object.entries(config.endpoints)) {
+      if (!epDef || typeof epDef !== 'object') {
+        throw new Error(`Endpoint "${epName}" must be an object`);
+      }
+      if (!epDef.path || typeof epDef.path !== 'string') {
+        throw new Error(`Endpoint "${epName}" must have a "path" string`);
+      }
+      if (!epDef.method || typeof epDef.method !== 'string') {
+        throw new Error(`Endpoint "${epName}" must have a "method" string`);
+      }
+      if (!epDef.handler || typeof epDef.handler !== 'string') {
+        throw new Error(`Endpoint "${epName}" must have a "handler" string`);
       }
     }
   }
@@ -81,6 +197,7 @@ function validateSchema(config) {
     }
   }
 
+  // Backward compatibility: userCollections (old format)
   if (config.userCollections !== undefined) {
     if (typeof config.userCollections !== 'object' || Array.isArray(config.userCollections)) {
       throw new Error('"userCollections" must be an object (map of collection names to definitions)');
@@ -102,6 +219,21 @@ function validateSchema(config) {
             );
           }
         }
+      }
+    }
+  }
+
+  // groups: object
+  if (config.groups !== undefined) {
+    if (typeof config.groups !== 'object' || Array.isArray(config.groups)) {
+      throw new Error('"groups" must be an object (map of group names to definitions)');
+    }
+    for (const [groupName, groupDef] of Object.entries(config.groups)) {
+      if (!groupDef || typeof groupDef !== 'object') {
+        throw new Error(`Group "${groupName}" must be an object`);
+      }
+      if (groupDef.properties !== undefined && !Array.isArray(groupDef.properties)) {
+        throw new Error(`Group "${groupName}".properties must be an array`);
       }
     }
   }

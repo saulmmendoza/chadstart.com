@@ -4,6 +4,9 @@ const { toKebabCase } = require('./entity-engine');
 
 /**
  * Generate an OpenAPI 3.0 specification from the core model.
+ *
+ * Supports the new authenticable entities format where user collections
+ * are entities with `authenticable: true`.
  */
 function generateOpenApiSpec(core) {
   const spec = {
@@ -26,13 +29,14 @@ function generateOpenApiSpec(core) {
     },
   };
 
-  // ── Auth endpoints per user collection ──────────────────────────────────
-  for (const uc of Object.values(core.userCollections || {})) {
-    const slug = toSlug(uc.name);
-    const ucSchema = buildUserCollectionSchema(uc);
-    spec.components.schemas[uc.name] = ucSchema;
-    spec.components.schemas[`${uc.name}Input`] = buildUserCollectionInputSchema(uc);
-    spec.components.schemas[`${uc.name}LoginInput`] = {
+  // ── Auth endpoints for authenticable entities ───────────────────────────
+  const authenticableEntities = core.authenticableEntities || {};
+  for (const entity of Object.values(authenticableEntities)) {
+    const slug = entity.slug || toSlug(entity.name);
+    const authSchema = buildAuthEntitySchema(entity);
+    spec.components.schemas[entity.name] = authSchema;
+    spec.components.schemas[`${entity.name}Input`] = buildAuthEntityInputSchema(entity);
+    spec.components.schemas[`${entity.name}LoginInput`] = {
       type: 'object',
       required: ['email', 'password'],
       properties: {
@@ -40,52 +44,52 @@ function generateOpenApiSpec(core) {
         password: { type: 'string', format: 'password' },
       },
     };
-    spec.components.schemas[`${uc.name}AuthResponse`] = {
+    spec.components.schemas[`${entity.name}AuthResponse`] = {
       type: 'object',
       properties: {
         token: { type: 'string' },
-        user: { $ref: `#/components/schemas/${uc.name}` },
+        user: { $ref: `#/components/schemas/${entity.name}` },
       },
     };
 
-    spec.paths[`/auth/${slug}/signup`] = {
+    spec.paths[`/api/auth/${slug}/signup`] = {
       post: {
-        tags: [`Auth – ${uc.name}`],
-        summary: `Sign up as ${uc.name}`,
+        tags: [`Auth – ${entity.name}`],
+        summary: `Sign up as ${entity.name}`,
         requestBody: {
           required: true,
-          content: { 'application/json': { schema: { $ref: `#/components/schemas/${uc.name}Input` } } },
+          content: { 'application/json': { schema: { $ref: `#/components/schemas/${entity.name}Input` } } },
         },
         responses: {
-          201: { description: 'Created', content: { 'application/json': { schema: { $ref: `#/components/schemas/${uc.name}AuthResponse` } } } },
+          201: { description: 'Created', content: { 'application/json': { schema: { $ref: `#/components/schemas/${entity.name}AuthResponse` } } } },
           400: { description: 'Validation error' },
           409: { description: 'Email already registered' },
         },
       },
     };
 
-    spec.paths[`/auth/${slug}/login`] = {
+    spec.paths[`/api/auth/${slug}/login`] = {
       post: {
-        tags: [`Auth – ${uc.name}`],
-        summary: `Login as ${uc.name}`,
+        tags: [`Auth – ${entity.name}`],
+        summary: `Login as ${entity.name}`,
         requestBody: {
           required: true,
-          content: { 'application/json': { schema: { $ref: `#/components/schemas/${uc.name}LoginInput` } } },
+          content: { 'application/json': { schema: { $ref: `#/components/schemas/${entity.name}LoginInput` } } },
         },
         responses: {
-          200: { description: 'OK', content: { 'application/json': { schema: { $ref: `#/components/schemas/${uc.name}AuthResponse` } } } },
+          200: { description: 'OK', content: { 'application/json': { schema: { $ref: `#/components/schemas/${entity.name}AuthResponse` } } } },
           401: { description: 'Invalid credentials' },
         },
       },
     };
 
-    spec.paths[`/auth/${slug}/me`] = {
+    spec.paths[`/api/auth/${slug}/me`] = {
       get: {
-        tags: [`Auth – ${uc.name}`],
-        summary: `Get current ${uc.name}`,
+        tags: [`Auth – ${entity.name}`],
+        summary: `Get current ${entity.name}`,
         security: [{ bearerAuth: [] }],
         responses: {
-          200: { description: 'OK', content: { 'application/json': { schema: { $ref: `#/components/schemas/${uc.name}` } } } },
+          200: { description: 'OK', content: { 'application/json': { schema: { $ref: `#/components/schemas/${entity.name}` } } } },
           401: { description: 'Unauthorized' },
         },
       },
@@ -95,117 +99,176 @@ function generateOpenApiSpec(core) {
   // ── Entity CRUD endpoints ────────────────────────────────────────────────
   for (const entity of Object.values(core.entities)) {
     const tag = entity.name;
-    const basePath = `/api/${toKebabCase(entity.name)}s`;
-    const schema = buildEntitySchema(entity, core.entities);
+    const basePath = `/api/${entity.slug || toKebabCase(entity.name)}s`;
 
-    spec.components.schemas[entity.name] = schema;
-    spec.components.schemas[`${entity.name}Input`] = {
-      ...schema,
-      properties: Object.fromEntries(
-        Object.entries(schema.properties).filter(([k]) => k !== 'id')
-      ),
-    };
+    // Skip authenticable entities for schema (already handled above)
+    if (!entity.authenticable) {
+      const schema = buildEntitySchema(entity, core.entities);
+      spec.components.schemas[entity.name] = schema;
+      spec.components.schemas[`${entity.name}Input`] = {
+        ...schema,
+        properties: Object.fromEntries(
+          Object.entries(schema.properties).filter(([k]) => k !== 'id')
+        ),
+      };
+    }
 
-    const readSecurity = permToSecurity(entity.permissions.read);
-    const writeSecurity = permToSecurity(entity.permissions.write);
+    const readSecurity = policyToSecurity(entity, 'read');
+    const writeSecurity = policyToSecurity(entity, 'create');
 
-    // Collection endpoints
-    spec.paths[basePath] = {
-      get: {
-        tags: [tag],
-        summary: `List all ${entity.name}s`,
-        ...(readSecurity ? { security: readSecurity } : {}),
-        parameters: entity.properties.map((p) => ({
-          name: p.name,
-          in: 'query',
-          required: false,
-          schema: { type: 'string' },
-          description: `Filter by ${p.name}`,
-        })),
-        responses: {
-          200: {
-            description: 'OK',
+    if (entity.single) {
+      // Single entity endpoints
+      spec.paths[basePath] = {
+        get: {
+          tags: [tag],
+          summary: `Get ${entity.name}`,
+          ...(readSecurity ? { security: readSecurity } : {}),
+          responses: {
+            200: {
+              description: 'OK',
+              content: {
+                'application/json': { schema: { $ref: `#/components/schemas/${entity.name}` } },
+              },
+            },
+            404: { description: 'Not Found' },
+          },
+        },
+        patch: {
+          tags: [tag],
+          summary: `Update ${entity.name}`,
+          ...(writeSecurity ? { security: writeSecurity } : {}),
+          requestBody: {
+            required: true,
             content: {
               'application/json': {
-                schema: { type: 'array', items: { $ref: `#/components/schemas/${entity.name}` } },
+                schema: { $ref: `#/components/schemas/${entity.name}Input` },
+              },
+            },
+          },
+          responses: {
+            200: {
+              description: 'OK',
+              content: {
+                'application/json': { schema: { $ref: `#/components/schemas/${entity.name}` } },
+              },
+            },
+            404: { description: 'Not Found' },
+          },
+        },
+      };
+    } else {
+      // Collection endpoints
+      spec.paths[basePath] = {
+        get: {
+          tags: [tag],
+          summary: `List all ${entity.name}s`,
+          ...(readSecurity ? { security: readSecurity } : {}),
+          parameters: entity.properties.map((p) => ({
+            name: p.name,
+            in: 'query',
+            required: false,
+            schema: { type: 'string' },
+            description: `Filter by ${p.name}`,
+          })),
+          responses: {
+            200: {
+              description: 'OK',
+              content: {
+                'application/json': {
+                  schema: { type: 'array', items: { $ref: `#/components/schemas/${entity.name}` } },
+                },
               },
             },
           },
         },
-      },
-      post: {
-        tags: [tag],
-        summary: `Create a ${entity.name}`,
-        ...(writeSecurity ? { security: writeSecurity } : {}),
-        requestBody: {
-          required: true,
-          content: {
-            'application/json': {
-              schema: { $ref: `#/components/schemas/${entity.name}Input` },
-            },
-          },
-        },
-        responses: {
-          201: {
-            description: 'Created',
+        post: {
+          tags: [tag],
+          summary: `Create a ${entity.name}`,
+          ...(writeSecurity ? { security: writeSecurity } : {}),
+          requestBody: {
+            required: true,
             content: {
-              'application/json': { schema: { $ref: `#/components/schemas/${entity.name}` } },
+              'application/json': {
+                schema: { $ref: `#/components/schemas/${entity.name}Input` },
+              },
             },
           },
-          400: { description: 'Bad Request' },
+          responses: {
+            201: {
+              description: 'Created',
+              content: {
+                'application/json': { schema: { $ref: `#/components/schemas/${entity.name}` } },
+              },
+            },
+            400: { description: 'Bad Request' },
+          },
         },
-      },
-    };
+      };
 
-    // Single item endpoints
-    spec.paths[`${basePath}/{id}`] = {
-      get: {
-        tags: [tag],
-        summary: `Get ${entity.name} by id`,
-        ...(readSecurity ? { security: readSecurity } : {}),
-        parameters: [idParam()],
-        responses: {
-          200: {
-            description: 'OK',
+      // Single item endpoints
+      spec.paths[`${basePath}/{id}`] = {
+        get: {
+          tags: [tag],
+          summary: `Get ${entity.name} by id`,
+          ...(readSecurity ? { security: readSecurity } : {}),
+          parameters: [idParam()],
+          responses: {
+            200: {
+              description: 'OK',
+              content: {
+                'application/json': { schema: { $ref: `#/components/schemas/${entity.name}` } },
+              },
+            },
+            404: { description: 'Not Found' },
+          },
+        },
+        patch: {
+          tags: [tag],
+          summary: `Update ${entity.name}`,
+          ...(writeSecurity ? { security: writeSecurity } : {}),
+          parameters: [idParam()],
+          requestBody: {
+            required: true,
             content: {
-              'application/json': { schema: { $ref: `#/components/schemas/${entity.name}` } },
+              'application/json': {
+                schema: { $ref: `#/components/schemas/${entity.name}Input` },
+              },
             },
           },
-          404: { description: 'Not Found' },
-        },
-      },
-      patch: {
-        tags: [tag],
-        summary: `Update ${entity.name}`,
-        ...(writeSecurity ? { security: writeSecurity } : {}),
-        parameters: [idParam()],
-        requestBody: {
-          required: true,
-          content: {
-            'application/json': {
-              schema: { $ref: `#/components/schemas/${entity.name}Input` },
+          responses: {
+            200: {
+              description: 'OK',
+              content: {
+                'application/json': { schema: { $ref: `#/components/schemas/${entity.name}` } },
+              },
             },
+            404: { description: 'Not Found' },
           },
         },
-        responses: {
-          200: {
-            description: 'OK',
-            content: {
-              'application/json': { schema: { $ref: `#/components/schemas/${entity.name}` } },
-            },
+        delete: {
+          tags: [tag],
+          summary: `Delete ${entity.name}`,
+          ...(writeSecurity ? { security: writeSecurity } : {}),
+          parameters: [idParam()],
+          responses: {
+            200: { description: 'Deleted' },
+            404: { description: 'Not Found' },
           },
-          404: { description: 'Not Found' },
         },
-      },
-      delete: {
-        tags: [tag],
-        summary: `Delete ${entity.name}`,
-        ...(writeSecurity ? { security: writeSecurity } : {}),
-        parameters: [idParam()],
-        responses: {
-          200: { description: 'Deleted' },
-          404: { description: 'Not Found' },
-        },
+      };
+    }
+  }
+
+  // ── Custom endpoints ──────────────────────────────────────────────────────
+  for (const [epName, epDef] of Object.entries(core.endpoints || {})) {
+    const epPath = `/endpoints${epDef.path}`;
+    const method = (epDef.method || 'GET').toLowerCase();
+    spec.paths[epPath] = spec.paths[epPath] || {};
+    spec.paths[epPath][method] = {
+      tags: ['Endpoints'],
+      summary: epDef.description || epName,
+      responses: {
+        200: { description: 'OK' },
       },
     };
   }
@@ -244,9 +307,9 @@ function buildEntitySchema(entity, allEntities) {
     properties[prop.name] = { type: openApiType(prop.type) };
   }
 
-  for (const rel of entity.belongsTo) {
-    const relName = typeof rel === 'string' ? rel : rel;
-    const refEntity = allEntities[relName];
+  for (const rel of entity.belongsTo || []) {
+    const relEntityName = typeof rel === 'string' ? rel : (rel.entity || rel.name);
+    const refEntity = allEntities[relEntityName];
     if (refEntity) {
       properties[`${refEntity.tableName}_id`] = { type: 'integer' };
     }
@@ -255,23 +318,23 @@ function buildEntitySchema(entity, allEntities) {
   return { type: 'object', properties };
 }
 
-function buildUserCollectionSchema(uc) {
+function buildAuthEntitySchema(entity) {
   const properties = {
     id: { type: 'integer', readOnly: true },
     email: { type: 'string', format: 'email' },
   };
-  for (const prop of uc.properties) {
+  for (const prop of entity.properties) {
     properties[prop.name] = { type: openApiType(prop.type) };
   }
   return { type: 'object', properties };
 }
 
-function buildUserCollectionInputSchema(uc) {
+function buildAuthEntityInputSchema(entity) {
   const properties = {
     email: { type: 'string', format: 'email' },
     password: { type: 'string', format: 'password' },
   };
-  for (const prop of uc.properties) {
+  for (const prop of entity.properties) {
     properties[prop.name] = { type: openApiType(prop.type) };
   }
   return {
@@ -281,8 +344,27 @@ function buildUserCollectionInputSchema(uc) {
   };
 }
 
-function permToSecurity(permission) {
-  if (!permission || permission === 'public') return null;
+/**
+ * Determine if security is needed based on entity policies.
+ */
+function policyToSecurity(entity, rule) {
+  const policies = entity.policies || {};
+  const policyList = policies[rule];
+
+  if (policyList && policyList.length > 0) {
+    const access = policyList[0].access;
+    if (access === 'public') return null;
+    return [{ bearerAuth: [] }];
+  }
+
+  // Backward compat: check old permissions
+  if (entity.permissions) {
+    const perm = rule === 'read' ? entity.permissions.read : entity.permissions.write;
+    if (!perm || perm === 'public') return null;
+    return [{ bearerAuth: [] }];
+  }
+
+  // Default: admin (requires auth)
   return [{ bearerAuth: [] }];
 }
 
@@ -290,14 +372,25 @@ function openApiType(sqlType) {
   const map = {
     text: 'string',
     string: 'string',
+    richText: 'string',
     integer: 'integer',
     int: 'integer',
     number: 'number',
     float: 'number',
     real: 'number',
+    money: 'number',
     boolean: 'boolean',
     bool: 'boolean',
     date: 'string',
+    timestamp: 'string',
+    email: 'string',
+    link: 'string',
+    password: 'string',
+    choice: 'string',
+    location: 'string',
+    file: 'string',
+    image: 'string',
+    group: 'string',
     json: 'string',
   };
   return map[sqlType] || 'string';

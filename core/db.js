@@ -26,8 +26,12 @@ function initDb(core, dbPath) {
 /**
  * Create or migrate tables to match the current entity definitions.
  * Uses a simple additive migration: adds missing columns, never drops.
+ *
+ * Handles both regular entities and authenticable entities (which get
+ * automatic email + password columns).
  */
 function syncSchema(core) {
+  // Sync all entities (including authenticable ones)
   for (const entity of Object.values(core.entities)) {
     const cols = buildColumnDefs(entity, core.entities);
     const existing = getExistingColumns(entity.tableName);
@@ -42,15 +46,44 @@ function syncSchema(core) {
       // Table exists - add any missing columns
       for (const col of cols) {
         if (!existing.has(col.name)) {
-          db.exec(`ALTER TABLE "${entity.tableName}" ADD COLUMN ${col.def}`);
+          const simpleDef = stripColumnConstraints(col.def);
+          db.exec(`ALTER TABLE "${entity.tableName}" ADD COLUMN ${simpleDef}`);
           logger.debug(`Added column ${col.name} to ${entity.tableName}`);
         }
       }
     }
   }
 
-  // Sync user-collection tables (always have email + password)
+  // Sync belongsToMany junction tables
+  for (const entity of Object.values(core.entities)) {
+    for (const rel of entity.belongsToMany || []) {
+      const relEntityName = typeof rel === 'string' ? rel : (rel.entity || rel.name);
+      const relEntity = core.entities[relEntityName];
+      if (!relEntity) continue;
+
+      // Deterministic junction table name (alphabetical order)
+      const names = [entity.tableName, relEntity.tableName].sort();
+      const junctionTable = `${names[0]}_${names[1]}`;
+
+      const existing = getExistingColumns(junctionTable);
+      if (existing === null) {
+        db.exec(
+          `CREATE TABLE "${junctionTable}" (` +
+            `"${names[0]}_id" INTEGER REFERENCES "${names[0]}"(id), ` +
+            `"${names[1]}_id" INTEGER REFERENCES "${names[1]}"(id), ` +
+            `PRIMARY KEY ("${names[0]}_id", "${names[1]}_id")` +
+            `)`
+        );
+        logger.debug(`Created junction table: ${junctionTable}`);
+      }
+    }
+  }
+
+  // Legacy: Sync user-collection tables (if userCollections still used)
   for (const uc of Object.values(core.userCollections || {})) {
+    // Skip if already handled as an entity
+    if (core.entities[uc.name]) continue;
+
     const existing = getExistingColumns(uc.tableName);
     const extraCols = uc.properties.map((p) => ({
       name: p.name,
@@ -69,10 +102,6 @@ function syncSchema(core) {
     } else {
       for (const col of allCols) {
         if (!existing.has(col.name)) {
-          // SQLite ALTER TABLE ADD COLUMN does not support column-level constraints
-          // (NOT NULL, UNIQUE, DEFAULT expressions with functions, etc.).
-          // Strip them so the migration succeeds; constraints on email/password are
-          // only enforced at the application layer for migrated databases.
           const simpleDef = stripColumnConstraints(col.def);
           db.exec(`ALTER TABLE "${uc.tableName}" ADD COLUMN ${simpleDef}`);
           logger.debug(`Added column ${col.name} to ${uc.tableName}`);
@@ -94,9 +123,6 @@ function getExistingColumns(tableName) {
 
 /**
  * Strip column-level constraints that SQLite does not support in ALTER TABLE ADD COLUMN.
- * SQLite supports: NULL, NOT NULL (with a literal DEFAULT), DEFAULT, CHECK (limited),
- * but rejects UNIQUE or REFERENCES without full-table re-creation.
- * We strip the most common ones for graceful migration.
  */
 function stripColumnConstraints(def) {
   return def
@@ -110,14 +136,20 @@ function stripColumnConstraints(def) {
 function buildColumnDefs(entity, allEntities) {
   const cols = [];
 
+  // Authenticable entities get email + password columns first
+  if (entity.authenticable) {
+    cols.push({ name: 'email', def: '"email" TEXT NOT NULL UNIQUE' });
+    cols.push({ name: 'password', def: '"password" TEXT NOT NULL' });
+  }
+
   for (const prop of entity.properties) {
     const sqlType = propTypeToSql(prop.type);
     cols.push({ name: prop.name, def: `"${prop.name}" ${sqlType}` });
   }
 
-  for (const rel of entity.belongsTo) {
-    const relName = typeof rel === 'string' ? rel : rel;
-    const refEntity = allEntities[relName];
+  for (const rel of entity.belongsTo || []) {
+    const relEntityName = typeof rel === 'string' ? rel : (rel.entity || rel.name);
+    const refEntity = allEntities[relEntityName];
     if (refEntity) {
       const fkCol = `${refEntity.tableName}_id`;
       cols.push({
@@ -134,14 +166,25 @@ function propTypeToSql(type) {
   const map = {
     text: 'TEXT',
     string: 'TEXT',
+    richText: 'TEXT',
     integer: 'INTEGER',
     int: 'INTEGER',
     number: 'REAL',
     float: 'REAL',
     real: 'REAL',
+    money: 'REAL',
     boolean: 'INTEGER',
     bool: 'INTEGER',
     date: 'TEXT',
+    timestamp: 'TEXT',
+    email: 'TEXT',
+    link: 'TEXT',
+    password: 'TEXT',
+    choice: 'TEXT',
+    location: 'TEXT',
+    file: 'TEXT',
+    image: 'TEXT',
+    group: 'TEXT',
     json: 'TEXT',
   };
   return map[type] || 'TEXT';

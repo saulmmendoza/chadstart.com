@@ -82,10 +82,163 @@ await test('rejects invalid plugin (missing repo or path)', () => {
   );
 });
 
+// --- schema-validator: authenticable entities ---------------------------------
+
+console.log('\nschema-validator – authenticable entities');
+
+await test('accepts entity with authenticable: true', () => {
+  assert.strictEqual(
+    validateSchema({
+      name: 'App',
+      entities: { Admin: { authenticable: true, properties: ['name'] } },
+    }),
+    true
+  );
+});
+
+await test('rejects authenticable as non-boolean', () => {
+  assert.throws(
+    () => validateSchema({ name: 'App', entities: { Admin: { authenticable: 'yes' } } }),
+    /authenticable/
+  );
+});
+
+await test('accepts entity with policies', () => {
+  assert.strictEqual(
+    validateSchema({
+      name: 'App',
+      entities: {
+        Post: {
+          properties: ['title'],
+          policies: {
+            read: [{ access: 'public' }],
+            create: [{ access: 'restricted', allow: 'Admin' }],
+          },
+        },
+      },
+    }),
+    true
+  );
+});
+
+await test('rejects policies with unknown rule', () => {
+  assert.throws(
+    () => validateSchema({
+      name: 'App',
+      entities: { Post: { policies: { unknown: [{ access: 'public' }] } } },
+    }),
+    /unknown.*rule|unknown/i
+  );
+});
+
+await test('accepts entity with validation', () => {
+  assert.strictEqual(
+    validateSchema({
+      name: 'App',
+      entities: {
+        Post: {
+          properties: ['title'],
+          validation: { title: { required: true } },
+        },
+      },
+    }),
+    true
+  );
+});
+
+await test('accepts entity with hooks', () => {
+  assert.strictEqual(
+    validateSchema({
+      name: 'App',
+      entities: {
+        Post: {
+          properties: ['title'],
+          hooks: { beforeCreate: [{ url: 'https://example.com' }] },
+        },
+      },
+    }),
+    true
+  );
+});
+
+await test('accepts entity with middlewares', () => {
+  assert.strictEqual(
+    validateSchema({
+      name: 'App',
+      entities: {
+        Post: {
+          properties: ['title'],
+          middlewares: { afterCreate: [{ handler: 'sendEmail' }] },
+        },
+      },
+    }),
+    true
+  );
+});
+
+await test('accepts entity with belongsToMany', () => {
+  assert.strictEqual(
+    validateSchema({
+      name: 'App',
+      entities: {
+        Player: { properties: ['name'], belongsToMany: ['Skill'] },
+        Skill: { properties: ['name'] },
+      },
+    }),
+    true
+  );
+});
+
+await test('accepts entity with single: true', () => {
+  assert.strictEqual(
+    validateSchema({
+      name: 'App',
+      entities: {
+        HomePage: { single: true, properties: [{ name: 'title', type: 'string' }] },
+      },
+    }),
+    true
+  );
+});
+
+await test('accepts endpoints config', () => {
+  assert.strictEqual(
+    validateSchema({
+      name: 'App',
+      endpoints: {
+        helloWorld: { path: '/hello', method: 'GET', handler: 'helloWorld' },
+      },
+    }),
+    true
+  );
+});
+
+await test('rejects endpoint missing handler', () => {
+  assert.throws(
+    () => validateSchema({
+      name: 'App',
+      endpoints: { bad: { path: '/bad', method: 'GET' } },
+    }),
+    /handler/
+  );
+});
+
+await test('accepts groups config', () => {
+  assert.strictEqual(
+    validateSchema({
+      name: 'App',
+      groups: {
+        Testimonial: { properties: [{ name: 'author', type: 'text' }] },
+      },
+    }),
+    true
+  );
+});
+
 // --- entity-engine -----------------------------------------------------------
 
 console.log('\nentity-engine');
-const { buildCore, toSnakeCase } = require('../core/entity-engine');
+const { buildCore, toSnakeCase, getAuthenticableEntities } = require('../core/entity-engine');
 
 await test('toSnakeCase converts PascalCase', () => {
   assert.strictEqual(toSnakeCase('BlogPost'), 'blog_post');
@@ -125,6 +278,144 @@ await test('buildCore normalizes object properties', () => {
 await test('buildCore sets default port', () => {
   const core = buildCore({ name: 'App' });
   assert.ok(typeof core.port === 'number');
+});
+
+// --- entity-engine: authenticable entities -----------------------------------
+
+console.log('\nentity-engine – authenticable entities');
+
+await test('buildCore handles authenticable entities', () => {
+  const core = buildCore({
+    name: 'App',
+    entities: {
+      Admin: { authenticable: true, properties: ['name'] },
+      Customer: { authenticable: true, properties: ['name', 'phone'] },
+      Post: { properties: ['title'] },
+    },
+  });
+  assert.ok(core.entities.Admin);
+  assert.ok(core.entities.Admin.authenticable);
+  assert.ok(core.authenticableEntities.Admin);
+  assert.ok(core.authenticableEntities.Customer);
+  assert.ok(!core.authenticableEntities.Post);
+});
+
+await test('buildCore handles policies', () => {
+  const core = buildCore({
+    name: 'App',
+    entities: {
+      Post: {
+        properties: ['title'],
+        policies: {
+          read: [{ access: 'public' }],
+          create: [{ access: 'restricted', allow: 'Admin' }],
+        },
+      },
+    },
+  });
+  assert.ok(core.entities.Post.policies.read);
+  assert.strictEqual(core.entities.Post.policies.read[0].access, 'public');
+  assert.strictEqual(core.entities.Post.policies.create[0].access, 'restricted');
+  assert.strictEqual(core.entities.Post.policies.create[0].allow, 'Admin');
+});
+
+await test('buildCore normalizes belongsTo to objects', () => {
+  const core = buildCore({
+    name: 'App',
+    entities: {
+      Comment: { properties: ['text'], belongsTo: ['Post'] },
+      Post: { properties: ['title'] },
+    },
+  });
+  assert.strictEqual(core.entities.Comment.belongsTo[0].entity, 'Post');
+  assert.strictEqual(core.entities.Comment.belongsTo[0].name, 'Post');
+});
+
+await test('buildCore handles belongsToMany', () => {
+  const core = buildCore({
+    name: 'App',
+    entities: {
+      Player: { properties: ['name'], belongsToMany: ['Skill'] },
+      Skill: { properties: ['name'] },
+    },
+  });
+  assert.ok(core.entities.Player.belongsToMany.length === 1);
+  assert.strictEqual(core.entities.Player.belongsToMany[0].entity, 'Skill');
+});
+
+await test('buildCore backward compat: merges legacy userCollections into entities', () => {
+  const core = buildCore({
+    name: 'App',
+    userCollections: { Admin: { properties: ['name'] } },
+  });
+  assert.ok(core.entities.Admin);
+  assert.ok(core.entities.Admin.authenticable);
+  assert.ok(core.authenticableEntities.Admin);
+});
+
+await test('buildCore includes endpoints and groups', () => {
+  const core = buildCore({
+    name: 'App',
+    endpoints: { hello: { path: '/hello', method: 'GET', handler: 'hello' } },
+    groups: { Testimonial: { properties: [{ name: 'author', type: 'text' }] } },
+  });
+  assert.ok(core.endpoints.hello);
+  assert.ok(core.groups.Testimonial);
+});
+
+await test('buildCore handles single entities', () => {
+  const core = buildCore({
+    name: 'App',
+    entities: {
+      HomePage: { single: true, properties: [{ name: 'title', type: 'string' }] },
+    },
+  });
+  assert.ok(core.entities.HomePage.single);
+});
+
+await test('buildCore handles validation on entities', () => {
+  const core = buildCore({
+    name: 'App',
+    entities: {
+      Dog: {
+        properties: ['name', { name: 'age', type: 'number' }],
+        validation: { name: { minLength: 3 } },
+      },
+    },
+  });
+  assert.ok(core.entities.Dog.validation.name);
+  assert.strictEqual(core.entities.Dog.validation.name.minLength, 3);
+});
+
+await test('buildCore handles hooks on entities', () => {
+  const core = buildCore({
+    name: 'App',
+    entities: {
+      Cat: {
+        properties: ['name'],
+        hooks: { beforeCreate: [{ url: 'https://example.com' }] },
+      },
+    },
+  });
+  assert.ok(core.entities.Cat.hooks.beforeCreate);
+  assert.strictEqual(core.entities.Cat.hooks.beforeCreate[0].url, 'https://example.com');
+});
+
+await test('buildCore handles emoji access in policies', () => {
+  const core = buildCore({
+    name: 'App',
+    entities: {
+      Post: {
+        properties: ['title'],
+        policies: {
+          read: [{ access: '🌐' }],
+          delete: [{ access: '🚫' }],
+        },
+      },
+    },
+  });
+  assert.strictEqual(core.entities.Post.policies.read[0].access, 'public');
+  assert.strictEqual(core.entities.Post.policies.delete[0].access, 'forbidden');
 });
 
 // --- db ----------------------------------------------------------------------
@@ -197,6 +488,79 @@ await test('findAll with filters', () => {
 // Cleanup test db file
 fs.unlinkSync(tmpDb);
 
+// --- db: authenticable entities -----------------------------------------------
+
+console.log('\ndb – authenticable entities');
+{
+  const tmpDb2 = path.join(os.tmpdir(), `chadstart-auth-test-${Date.now()}.db`);
+  const authCore = buildCore({
+    name: 'TestApp2',
+    entities: {
+      Admin: { authenticable: true, properties: ['name'] },
+    },
+  });
+
+  await test('authenticable entity table has email + password + custom properties', () => {
+    dbModule.initDb(authCore, tmpDb2);
+    const cols = dbModule.getDb().pragma('table_info("admin")').map(r => r.name);
+    assert.ok(cols.includes('id'));
+    assert.ok(cols.includes('email'));
+    assert.ok(cols.includes('password'));
+    assert.ok(cols.includes('name'));
+  });
+
+  fs.unlinkSync(tmpDb2);
+}
+
+// --- db: legacy userCollections backward compat --------------------------------
+
+console.log('\ndb – legacy userCollections backward compat');
+{
+  const tmpDb3 = path.join(os.tmpdir(), `chadstart-uc-compat-test-${Date.now()}.db`);
+  const ucCore = buildCore({
+    name: 'TestApp3',
+    entities: {},
+    userCollections: {
+      Admin: { properties: ['name'] },
+    },
+  });
+
+  await test('legacy userCollection merged into entities with email + password', () => {
+    dbModule.initDb(ucCore, tmpDb3);
+    const cols = dbModule.getDb().pragma('table_info("admin")').map(r => r.name);
+    assert.ok(cols.includes('id'));
+    assert.ok(cols.includes('email'));
+    assert.ok(cols.includes('password'));
+    assert.ok(cols.includes('name'));
+  });
+
+  fs.unlinkSync(tmpDb3);
+}
+
+// --- db: belongsToMany junction table -----------------------------------------
+
+console.log('\ndb – belongsToMany junction tables');
+{
+  const tmpDb4 = path.join(os.tmpdir(), `chadstart-btm-test-${Date.now()}.db`);
+  const btmCore = buildCore({
+    name: 'TestApp4',
+    entities: {
+      Player: { properties: ['name'], belongsToMany: ['Skill'] },
+      Skill: { properties: ['name'] },
+    },
+  });
+
+  await test('belongsToMany creates junction table', () => {
+    dbModule.initDb(btmCore, tmpDb4);
+    const tables = dbModule.getDb().prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '%player%skill%' OR name LIKE '%skill%player%'"
+    ).all();
+    assert.ok(tables.length > 0, 'Junction table should exist');
+  });
+
+  fs.unlinkSync(tmpDb4);
+}
+
 // --- openapi -----------------------------------------------------------------
 
 console.log('\nopenapi');
@@ -238,20 +602,21 @@ await test('loads the example chadstart.yaml', () => {
   assert.ok(config.entities.Post);
 });
 
-await test('loads userCollections from chadstart.yaml', () => {
+await test('loads authenticable entities from chadstart.yaml', () => {
   const config = loadYaml(path.resolve(__dirname, '..', 'chadstart.yaml'));
-  assert.ok(config.userCollections);
-  assert.ok(config.userCollections.Admin);
-  assert.ok(config.userCollections.Customer);
+  assert.ok(config.entities.Admin);
+  assert.ok(config.entities.Admin.authenticable);
+  assert.ok(config.entities.Customer);
+  assert.ok(config.entities.Customer.authenticable);
 });
 
 await test('throws when file does not exist', () => {
   assert.throws(() => loadYaml('/nonexistent/path/chadstart.yaml'), /not found/i);
 });
 
-// --- schema-validator: userCollections ----------------------------------------
+// --- schema-validator: userCollections (backward compat) ----------------------
 
-console.log('\nschema-validator – userCollections');
+console.log('\nschema-validator – userCollections (backward compat)');
 
 await test('accepts valid userCollections', () => {
   assert.strictEqual(
@@ -270,65 +635,6 @@ await test('rejects invalid userCollection property', () => {
     /property/i
   );
 });
-
-// --- entity-engine: userCollections -------------------------------------------
-
-console.log('\nentity-engine – userCollections');
-const { buildUserCollections } = require('../core/entity-engine');
-
-await test('buildUserCollections builds user collections', () => {
-  const config = {
-    name: 'App',
-    userCollections: {
-      Admin: { properties: ['name'] },
-      Customer: { properties: ['name', 'phone'] },
-    },
-  };
-  const ucs = buildUserCollections(config);
-  assert.ok(ucs.Admin);
-  assert.ok(ucs.Customer);
-  assert.strictEqual(ucs.Admin.tableName, 'admin');
-  assert.strictEqual(ucs.Admin.admin, true);
-});
-
-await test('buildCore includes userCollections', () => {
-  const core = buildCore({
-    name: 'App',
-    userCollections: { Admin: { properties: ['name'] } },
-  });
-  assert.ok(core.userCollections.Admin);
-});
-
-// --- db: user collections -------------------------------------------------------
-
-console.log('\ndb – user collections');
-{
-  const tmpDb2 = path.join(os.tmpdir(), `chadstart-uc-test-${Date.now()}.db`);
-  const ucCore = buildCore({
-    name: 'TestApp2',
-    entities: {},
-    userCollections: {
-      Admin: { properties: ['name'] },
-    },
-  });
-
-  const dbModule2 = (() => {
-    // We need a fresh db module instance for each test run
-    // Re-use the already-loaded module but re-init with a new path
-    return require('../core/db');
-  })();
-
-  await test('user collection table is created with email + password', () => {
-    dbModule2.initDb(ucCore, tmpDb2);
-    const cols = dbModule2.getDb().pragma('table_info("admin")').map(r => r.name);
-    assert.ok(cols.includes('id'));
-    assert.ok(cols.includes('email'));
-    assert.ok(cols.includes('password'));
-    assert.ok(cols.includes('name'));
-  });
-
-  fs.unlinkSync(tmpDb2);
-}
 
 // --- auth module ----------------------------------------------------------------
 
@@ -358,31 +664,109 @@ await test('omitPassword removes password field', () => {
 
 console.log('\nopenapi – auth endpoints');
 
-await test('openapi spec includes auth paths for user collections', () => {
+await test('openapi spec includes auth paths for authenticable entities', () => {
   const core = buildCore({
     name: 'App',
-    userCollections: { Admin: { properties: ['name'] } },
+    entities: {
+      Admin: { authenticable: true, properties: ['name'] },
+    },
   });
   const spec = generateOpenApiSpec(core);
-  assert.ok(spec.paths['/auth/admin/signup']);
-  assert.ok(spec.paths['/auth/admin/login']);
-  assert.ok(spec.paths['/auth/admin/me']);
+  assert.ok(spec.paths['/api/auth/admin/signup']);
+  assert.ok(spec.paths['/api/auth/admin/login']);
+  assert.ok(spec.paths['/api/auth/admin/me']);
   assert.ok(spec.components.securitySchemes.bearerAuth);
 });
 
-await test('openapi spec has security on restricted entity', () => {
+await test('openapi spec has security on restricted entity (policies format)', () => {
   const core = buildCore({
     name: 'App',
     entities: {
       Post: {
         properties: ['title'],
-        permissions: { read: 'public', write: 'restricted' },
+        policies: {
+          read: [{ access: 'public' }],
+          create: [{ access: 'restricted', allow: 'Admin' }],
+        },
       },
     },
   });
   const spec = generateOpenApiSpec(core);
   assert.ok(!spec.paths['/api/posts'].get.security);
   assert.ok(spec.paths['/api/posts'].post.security);
+});
+
+await test('openapi spec backward compat: works with legacy userCollections', () => {
+  const core = buildCore({
+    name: 'App',
+    userCollections: { Admin: { properties: ['name'] } },
+  });
+  const spec = generateOpenApiSpec(core);
+  assert.ok(spec.paths['/api/auth/admin/signup']);
+  assert.ok(spec.paths['/api/auth/admin/login']);
+});
+
+// --- validation ----------------------------------------------------------------
+
+console.log('\nvalidation');
+const { validateBody } = require('../core/api-generator');
+
+await test('validates required field', () => {
+  const entity = {
+    properties: [{ name: 'title', type: 'string' }],
+    validation: { title: { required: true } },
+  };
+  const result = validateBody({}, entity);
+  assert.ok(result.errors);
+  assert.strictEqual(result.errors[0].property, 'title');
+});
+
+await test('validates minLength', () => {
+  const entity = {
+    properties: [{ name: 'name', type: 'string' }],
+    validation: { name: { minLength: 3 } },
+  };
+  const result = validateBody({ name: 'ab' }, entity);
+  assert.ok(result.errors);
+  assert.ok(result.errors[0].constraints.minLength);
+});
+
+await test('passes valid data', () => {
+  const entity = {
+    properties: [{ name: 'name', type: 'string' }],
+    validation: { name: { minLength: 3 } },
+  };
+  const result = validateBody({ name: 'Alice' }, entity);
+  assert.strictEqual(result.errors, null);
+});
+
+await test('validates min/max for numbers', () => {
+  const entity = {
+    properties: [{ name: 'age', type: 'number' }],
+    validation: { age: { min: 1, max: 30 } },
+  };
+  const result = validateBody({ age: 50 }, entity);
+  assert.ok(result.errors);
+  assert.ok(result.errors[0].constraints.max);
+});
+
+await test('validates isOptional skips validation for undefined', () => {
+  const entity = {
+    properties: [{ name: 'email', type: 'email' }],
+    validation: { email: { isOptional: true, contains: '@company.com' } },
+  };
+  const result = validateBody({}, entity);
+  assert.strictEqual(result.errors, null);
+});
+
+await test('validates contains', () => {
+  const entity = {
+    properties: [{ name: 'email', type: 'email' }],
+    validation: { email: { contains: '@company.com' } },
+  };
+  const result = validateBody({ email: 'john@gmail.com' }, entity);
+  assert.ok(result.errors);
+  assert.ok(result.errors[0].constraints.contains);
 });
 
 // --- Summary -----------------------------------------------------------------

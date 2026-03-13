@@ -85,23 +85,26 @@ async function createServer(yamlPath) {
   // 6. Register file storage routes
   registerFileRoutes(app, core);
 
-  // 7. Register auth routes for user collections (with rate limiting)
-  app.use('/auth', authRateLimiter);
+  // 7. Register auth routes for authenticable entities (with rate limiting)
+  app.use('/api/auth', authRateLimiter);
   registerAuthRoutes(app, core);
 
   // 8. Register REST API routes (with rate limiting)
   app.use('/api', apiRateLimiter);
   registerApiRoutes(app, core, emit);
 
-  // 9. OpenAPI spec endpoint
+  // 9. Register custom endpoints
+  await registerCustomEndpoints(app, core);
+
+  // 10. OpenAPI spec endpoint
   const openApiSpec = generateOpenApiSpec(core);
   app.get('/openapi.json', (_req, res) => res.json(openApiSpec));
 
-  // 10. Swagger UI
+  // 11. Swagger UI
   app.use('/docs', swaggerUi.serve, swaggerUi.setup(openApiSpec));
   logger.info('  Swagger UI available at /docs');
 
-  // 11. Admin UI — serve the SPA and an API endpoint for the schema
+  // 12. Admin UI — serve the SPA and an API endpoint for the schema
   const adminHtml = path.join(__dirname, '..', 'admin', 'index.html');
   app.get('/admin', adminRateLimiter, (_req, res) => {
     if (fs.existsSync(adminHtml)) {
@@ -112,36 +115,82 @@ async function createServer(yamlPath) {
   });
   // Provide schema info to admin UI
   app.get('/admin/schema', (_req, res) => {
+    const authenticableEntities = Object.values(core.authenticableEntities || {}).map((e) => ({
+      name: e.name,
+      tableName: e.tableName,
+      slug: e.slug,
+      properties: e.properties,
+      authenticable: true,
+    }));
+
+    const regularEntities = Object.values(core.entities)
+      .filter((e) => !e.authenticable)
+      .map((e) => ({
+        name: e.name,
+        tableName: e.tableName,
+        slug: e.slug,
+        properties: e.properties,
+        belongsTo: e.belongsTo,
+        belongsToMany: e.belongsToMany,
+        policies: e.policies,
+        single: e.single || false,
+      }));
+
     res.json({
       name: core.name,
-      entities: Object.values(core.entities).map((e) => ({
+      entities: regularEntities,
+      authenticableEntities,
+      // Backward compat
+      userCollections: authenticableEntities.map((e) => ({
         name: e.name,
         tableName: e.tableName,
         properties: e.properties,
-        belongsTo: e.belongsTo,
-        permissions: e.permissions,
-      })),
-      userCollections: Object.values(core.userCollections).map((uc) => ({
-        name: uc.name,
-        tableName: uc.tableName,
-        properties: uc.properties,
-        admin: uc.admin,
+        admin: true,
       })),
     });
   });
   logger.info('  Admin UI available at /admin');
 
-  // 12. Load plugins
+  // 13. Load plugins
   await loadPlugins(app, core);
 
-  // 13. Health check
+  // 14. Health check
   app.get('/health', (_req, res) => res.json({ status: 'ok', name: core.name }));
 
-  // 14. Create HTTP server and attach WebSocket realtime
+  // 15. Create HTTP server and attach WebSocket realtime
   const server = http.createServer(app);
   initRealtime(server);
 
   return { app, server, core };
+}
+
+/**
+ * Register custom endpoints defined in the YAML config.
+ */
+async function registerCustomEndpoints(app, core) {
+  const endpoints = core.endpoints || {};
+
+  for (const [epName, epDef] of Object.entries(endpoints)) {
+    const epPath = `/endpoints${epDef.path}`;
+    const method = (epDef.method || 'GET').toLowerCase();
+    const handlerName = epDef.handler;
+
+    // Try to load the handler file
+    const handlersDir = process.env.MANIFEST_HANDLERS_FOLDER || path.resolve('handlers');
+    const handlerFile = path.resolve(handlersDir, `${handlerName}.js`);
+
+    if (fs.existsSync(handlerFile)) {
+      const handler = require(handlerFile);
+      app[method](epPath, (req, res) => {
+        handler(req, res, {
+          from: (slug) => require('../core/db'),
+        });
+      });
+      logger.info(`  Registered custom endpoint: ${epDef.method} ${epPath}`);
+    } else {
+      logger.warn(`  Handler file not found for endpoint "${epName}": ${handlerFile}`);
+    }
+  }
 }
 
 /**
