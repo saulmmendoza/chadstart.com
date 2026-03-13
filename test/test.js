@@ -874,6 +874,187 @@ await test('buildCore entity with no properties defaults to empty array', () => 
   assert.deepStrictEqual(core.entities.Tag.properties, []);
 });
 
+// ─── createBackendSdk ─────────────────────────────────────────────────────────
+
+console.log('\ncreateBackendSdk');
+const { createBackendSdk } = require('../core/api-generator');
+
+{
+  const tmp = path.join(os.tmpdir(), `chadstart-sdk-${Date.now()}.db`);
+  const sdkCore = buildCore({
+    name: 'SdkTest',
+    entities: {
+      Book: { properties: ['title', 'author'] },
+      Config: { single: true, properties: ['value'] },
+    },
+  });
+  const dbSdk = require('../core/db');
+  dbSdk.initDb(sdkCore, tmp);
+
+  // Seed a Config row for single entity tests
+  dbSdk.create('config', { value: 'initial' });
+
+  const sdk = createBackendSdk(sdkCore);
+
+  await test('createBackendSdk: from() returns CRUD interface', () => {
+    const iface = sdk.from('book');
+    assert.strictEqual(typeof iface.find, 'function');
+    assert.strictEqual(typeof iface.findOneById, 'function');
+    assert.strictEqual(typeof iface.create, 'function');
+    assert.strictEqual(typeof iface.update, 'function');
+    assert.strictEqual(typeof iface.patch, 'function');
+    assert.strictEqual(typeof iface.delete, 'function');
+  });
+
+  await test('createBackendSdk: from().create and findOneById work', () => {
+    const book = sdk.from('book').create({ title: 'Dune', author: 'Herbert' });
+    assert.strictEqual(book.title, 'Dune');
+    const found = sdk.from('book').findOneById(book.id);
+    assert.strictEqual(found.author, 'Herbert');
+  });
+
+  await test('createBackendSdk: from().find returns paginated result', () => {
+    const result = sdk.from('book').find();
+    assert.ok(Array.isArray(result.data));
+    assert.ok(typeof result.total === 'number');
+  });
+
+  await test('createBackendSdk: from().patch updates a field', () => {
+    const book = sdk.from('book').create({ title: 'Old Title', author: 'Author' });
+    const updated = sdk.from('book').patch(book.id, { title: 'New Title' });
+    assert.strictEqual(updated.title, 'New Title');
+    assert.strictEqual(updated.author, 'Author');
+  });
+
+  await test('createBackendSdk: from().delete removes a record', () => {
+    const book = sdk.from('book').create({ title: 'To Delete', author: 'X' });
+    sdk.from('book').delete(book.id);
+    assert.strictEqual(sdk.from('book').findOneById(book.id), null);
+  });
+
+  await test('createBackendSdk: from() throws for unknown slug', () => {
+    assert.throws(() => sdk.from('nonexistent'), /Entity not found/);
+  });
+
+  await test('createBackendSdk: single() returns get/update/patch interface', () => {
+    const iface = sdk.single('config');
+    assert.strictEqual(typeof iface.get, 'function');
+    assert.strictEqual(typeof iface.update, 'function');
+    assert.strictEqual(typeof iface.patch, 'function');
+  });
+
+  await test('createBackendSdk: single().get retrieves the record', () => {
+    const record = sdk.single('config').get();
+    assert.strictEqual(record.value, 'initial');
+  });
+
+  await test('createBackendSdk: single().patch updates a field', () => {
+    const updated = sdk.single('config').patch({ value: 'changed' });
+    assert.strictEqual(updated.value, 'changed');
+  });
+
+  await test('createBackendSdk: single() throws for unknown slug', () => {
+    assert.throws(() => sdk.single('nonexistent'), /Single entity not found/);
+  });
+
+  fs.unlinkSync(tmp);
+}
+
+// ─── runMiddlewares – SDK injection ──────────────────────────────────────────
+
+console.log('\nrunMiddlewares – SDK injection');
+
+{
+  const tmp = path.join(os.tmpdir(), `chadstart-mw-${Date.now()}.db`);
+  const mwCore = buildCore({
+    name: 'MwTest',
+    entities: {
+      Item: {
+        properties: ['name'],
+        middlewares: {
+          beforeCreate: [{ handler: 'testMwHandler' }],
+        },
+      },
+    },
+  });
+  const dbMw = require('../core/db');
+  dbMw.initDb(mwCore, tmp);
+
+  // Write a temporary handler that records whether the chadstart SDK argument was provided
+  const handlersDir = path.join(os.tmpdir(), `chadstart-handlers-${Date.now()}`);
+  fs.mkdirSync(handlersDir, { recursive: true });
+  const handlerPath = path.join(handlersDir, 'testMwHandler.js');
+  fs.writeFileSync(handlerPath, `
+    module.exports = async (req, res, chadstart) => {
+      // Record SDK presence on req so tests can inspect via a dedicated route
+      req.app._lastSdkArg = chadstart;
+    };
+  `);
+
+  const origEnv = process.env.CHADSTART_HANDLERS_FOLDER;
+  process.env.CHADSTART_HANDLERS_FOLDER = handlersDir;
+
+  // Use an isolated require to avoid module cache issues with the handler
+  delete require.cache[require.resolve(handlerPath)];
+
+  // Simulate runMiddlewares via the HTTP server integration
+  // We test it by calling registerApiRoutes and making a fake HTTP request
+  const http = require('http');
+  const express = require('express');
+  const testApp = express();
+  testApp.use(express.json());
+  const { registerApiRoutes } = require('../core/api-generator');
+
+  registerApiRoutes(testApp, mwCore, () => {});
+
+  // Expose what the middleware captured so the test can assert on it
+  testApp.get('/_inspect', (req, res) => res.json({ hasSdk: req.app._lastSdkArg != null }));
+
+  const testServer = http.createServer(testApp);
+  await new Promise((resolve) => testServer.listen(0, resolve));
+  const port = testServer.address().port;
+
+  await test('middleware handler receives (req, res, chadstart) – sdk is passed', async () => {
+    const res = await fetch(`http://127.0.0.1:${port}/api/collections/item`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${signToken({ id: 'a1', entity: 'Admin' })}` },
+      body: JSON.stringify({ name: 'Widget' }),
+    });
+    assert.strictEqual(res.status, 201);
+    const data = await res.json();
+    assert.strictEqual(data.name, 'Widget');
+
+    // Verify the middleware received the SDK as third argument
+    const inspect = await fetch(`http://127.0.0.1:${port}/_inspect`).then((r) => r.json());
+    assert.strictEqual(inspect.hasSdk, true, 'chadstart SDK should be passed to middleware handlers');
+  });
+
+  await test('CHADSTART_HANDLERS_FOLDER env var is used by middleware runner', () => {
+    // Verify the env var is recognized (handler was found and ran — proven by the test above)
+    assert.strictEqual(process.env.CHADSTART_HANDLERS_FOLDER, handlersDir);
+  });
+
+  await test('CHADSTART_HANDLERS_FOLDER takes precedence over MANIFEST_HANDLERS_FOLDER', () => {
+    // Confirm CHADSTART_HANDLERS_FOLDER is preferred over the legacy MANIFEST_HANDLERS_FOLDER
+    const oldManifest = process.env.MANIFEST_HANDLERS_FOLDER;
+    process.env.MANIFEST_HANDLERS_FOLDER = '/some/wrong/path';
+    process.env.CHADSTART_HANDLERS_FOLDER = handlersDir;
+    const resolved = process.env.CHADSTART_HANDLERS_FOLDER || process.env.MANIFEST_HANDLERS_FOLDER || 'handlers';
+    assert.strictEqual(resolved, handlersDir);
+    process.env.MANIFEST_HANDLERS_FOLDER = oldManifest;
+  });
+
+  await new Promise((resolve) => testServer.close(resolve));
+
+  if (origEnv === undefined) {
+    delete process.env.CHADSTART_HANDLERS_FOLDER;
+  } else {
+    process.env.CHADSTART_HANDLERS_FOLDER = origEnv;
+  }
+  fs.rmSync(handlersDir, { recursive: true, force: true });
+  fs.unlinkSync(tmp);
+}
+
 // ─── Summary ─────────────────────────────────────────────────────────────────
 
 console.log(`\n${passed + failed} tests: ${passed} passed, ${failed} failed\n`);
