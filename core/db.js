@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const fs = require('fs');
 const Database = require('better-sqlite3');
 const path = require('path');
 const logger = require('../utils/logger');
@@ -24,7 +25,12 @@ function generateUUID() {
 }
 
 function initDb(core, dbPath) {
-  const resolved = dbPath ? path.resolve(dbPath) : path.resolve('chadstart.db');
+  const resolved = dbPath ? path.resolve(dbPath) : path.resolve(process.env.DB_PATH || 'chadstart.db');
+  try {
+    fs.mkdirSync(path.dirname(resolved), { recursive: true });
+  } catch (err) {
+    throw new Error(`Failed to create database directory "${path.dirname(resolved)}": ${err.message}`);
+  }
   db = new Database(resolved);
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
