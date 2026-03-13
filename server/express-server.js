@@ -24,7 +24,7 @@ function limiter(windowMs, max) {
 }
 const authLimiter  = limiter(15 * 60 * 1000, 30);
 const apiLimiter   = limiter(60 * 1000, 200);
-const adminLimiter = limiter(60 * 1000, 100);
+const adminRateLimiter = limiter(60 * 1000, 100);
 
 async function createServer(yamlPath) {
   const config = loadYaml(yamlPath);
