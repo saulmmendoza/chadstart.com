@@ -1,6 +1,7 @@
 'use strict';
 
 const express = require('express');
+const jwt = require('jsonwebtoken');
 const db = require('./db');
 const { toSnakeCase } = require('./entity-engine');
 const { requireAuth, optionalAuth, omitPassword } = require('./auth');
@@ -115,7 +116,7 @@ function policyMiddleware(rule, entity) {
         const header = req.headers.authorization;
         if (!header || !header.startsWith('Bearer ')) return res.status(401).json({ error: 'Authorization required' });
         try {
-          req.user = require('jsonwebtoken').verify(
+          req.user = jwt.verify(
             header.slice(7),
             process.env.JWT_SECRET || process.env.TOKEN_SECRET_KEY || 'chadstart-dev-secret-change-in-production'
           );
@@ -181,7 +182,9 @@ function fireWebhooks(entity, event, record) {
       if (typeof v === 'string') headers[k] = v.replace(/\$\{([^}]+)\}/g, (_, e) => process.env[e] || '');
     }
     const body = JSON.stringify({ event, createdAt: new Date().toISOString(), entity: entity.slug, record });
-    fetch(hook.url, { method, headers, body: method !== 'GET' ? body : undefined }).catch(() => {});
+    fetch(hook.url, { method, headers, body: method !== 'GET' ? body : undefined }).catch((err) => {
+      logger.error(`Webhook ${event} to ${hook.url} failed: ${err.message}`);
+    });
   }
 }
 

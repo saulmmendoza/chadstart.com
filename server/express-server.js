@@ -19,9 +19,12 @@ const { registerFileRoutes } = require('../core/file-storage');
 const { loadPlugins } = require('../core/plugin-loader');
 const logger = require('../utils/logger');
 
-const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30, standardHeaders: true, legacyHeaders: false, message: { error: 'Too many requests, please try again later.' } });
-const apiLimiter  = rateLimit({ windowMs: 60 * 1000, max: 200, standardHeaders: true, legacyHeaders: false, message: { error: 'Too many requests, please try again later.' } });
-const adminLimiter = rateLimit({ windowMs: 60 * 1000, max: 100, standardHeaders: true, legacyHeaders: false, message: { error: 'Too many requests, please try again later.' } });
+function limiter(windowMs, max) {
+  return rateLimit({ windowMs, max, standardHeaders: true, legacyHeaders: false, message: { error: 'Too many requests, please try again later.' } });
+}
+const authLimiter  = limiter(15 * 60 * 1000, 30);
+const apiLimiter   = limiter(60 * 1000, 200);
+const adminLimiter = limiter(60 * 1000, 100);
 
 async function createServer(yamlPath) {
   const config = loadYaml(yamlPath);
