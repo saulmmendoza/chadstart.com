@@ -32,6 +32,8 @@
     .nav-item.active { background: rgba(187,134,252,.07); border-left-color: #bb86fc; color: #bb86fc; }
     /* ── Thin sidebar scrollbar ───────────────────────────────────── */
     .sidebar-nav { scrollbar-width: thin; scrollbar-color: #2a2a2a transparent; }
+    /* ── Config editor tab active state ──────────────────────────── */
+    .cfg-tab.active { background: rgba(187,134,252,.12); border-color: #bb86fc; color: #bb86fc; }
   </style>
 </head>
 <body class="bg-cs-bg text-cs-text min-h-screen flex" style="font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;">
@@ -87,6 +89,10 @@
     <div id="nav-user-collections"></div>
     <div class="px-4 pt-4 pb-1 text-xs text-cs-muted border-t border-cs-border mt-2">Entities</div>
     <div id="nav-entities"></div>
+    <div class="px-4 pt-4 pb-1 text-xs text-cs-muted border-t border-cs-border mt-2">Admin</div>
+    <div id="nav-admin">
+      <div class="nav-item" id="nav-config-item" onclick="selectConfig(this)">⚙ Config Editor</div>
+    </div>
   </nav>
 
   <div class="border-t border-cs-border px-4 py-3">
@@ -126,6 +132,47 @@
       <div class="w-6 h-6 border-2 border-cs-border border-t-cs-primary rounded-full animate-spin"></div>
     </div>
     <div id="table-area"></div>
+
+    <!-- ── Config Editor ─────────────────────────────────────────── -->
+    <div id="config-area" class="hidden">
+      <!-- Section tabs -->
+      <div class="flex gap-1 flex-wrap mb-4 border-b border-cs-border pb-3">
+        <button onclick="showConfigTab('general')"   id="cfg-tab-general"   class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;">General</button>
+        <button onclick="showConfigTab('entities')"  id="cfg-tab-entities"  class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;">Entities</button>
+        <button onclick="showConfigTab('endpoints')" id="cfg-tab-endpoints" class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;">Endpoints</button>
+        <button onclick="showConfigTab('files')"     id="cfg-tab-files"     class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;">Files &amp; Uploads</button>
+        <button onclick="showConfigTab('settings')"  id="cfg-tab-settings"  class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;">Settings</button>
+        <button onclick="showConfigTab('all')"       id="cfg-tab-all"       class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;">All</button>
+      </div>
+
+      <!-- Section description -->
+      <p id="cfg-section-desc" class="text-xs mb-3" style="color:#888;"></p>
+
+      <!-- JSON editor -->
+      <textarea id="cfg-editor"
+        class="w-full bg-cs-bg border border-cs-border rounded text-cs-text px-3 py-2.5 text-xs font-mono outline-none focus:border-cs-primary resize-y"
+        style="min-height:400px;transition:border-color 150ms;line-height:1.6;tab-size:2;"
+        spellcheck="false"></textarea>
+
+      <!-- Actions -->
+      <div class="flex items-center gap-3 mt-4">
+        <button onclick="saveConfig()"
+          class="py-1.5 px-4 rounded text-sm cursor-pointer bg-cs-primary text-cs-bg font-medium hover:opacity-90 disabled:opacity-50"
+          id="cfg-save-btn" style="transition:opacity 150ms;">Save Config</button>
+        <button onclick="resetConfigTab()"
+          class="text-sm border border-cs-border rounded py-1.5 px-4 text-cs-muted hover:text-cs-text hover:bg-cs-border" style="transition:color 150ms,background 150ms;">Reset</button>
+        <span id="cfg-status" class="text-xs" style="color:#888;"></span>
+      </div>
+
+      <!-- S3 info note -->
+      <div id="cfg-s3-note" class="hidden mt-4 p-3 rounded border text-xs" style="border-color:#2a2a2a;color:#888;">
+        <strong style="color:#e1e1e1;">S3 Storage</strong> is configured via environment variables:<br>
+        <code style="color:#bb86fc;">S3_BUCKET</code>, <code style="color:#bb86fc;">S3_ENDPOINT</code>,
+        <code style="color:#bb86fc;">S3_REGION</code>, <code style="color:#bb86fc;">S3_ACCESS_KEY_ID</code>,
+        <code style="color:#bb86fc;">S3_SECRET_ACCESS_KEY</code>.<br>
+        Set these in your <code style="color:#bb86fc;">.env</code> file or deployment environment.
+      </div>
+    </div>
   </main>
 </div>
 
@@ -315,6 +362,9 @@
   }
 
   function selectItem(type, name, el) {
+    configMode = false;
+    document.getElementById('config-area').classList.add('hidden');
+    document.getElementById('table-area').classList.remove('hidden');
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     el.classList.add('active');
     currentItem = { type, name };
@@ -457,6 +507,124 @@
   function toKebab(s) { return s.replace(/([A-Z])/g,(m,p,o)=>(o>0?'-':'')+p.toLowerCase()).replace(/^-/,''); }
   function toSlug(s) { return s.replace(/([A-Z])/g,(m,p,o)=>(o>0?'-':'')+p.toLowerCase()).replace(/^-/,'').replace(/[^a-z0-9-]/g,'-'); }
   function toSnake(s) { return s.replace(/([A-Z])/g,(m,p,o)=>(o>0?'_':'')+p.toLowerCase()).replace(/^_/,''); }
+
+  // ── Config Editor ─────────────────────────────────────────────────────
+  let configMode = false;
+  let configData = null;     // full config object from server
+  let configActiveTab = 'general';
+
+  const CFG_TABS = {
+    general:   { keys: ['name', 'port', 'database', 'public'],  desc: 'Application name, port, database path, and public static folder.' },
+    entities:  { keys: ['entities'],  desc: 'Entity definitions including properties, relations, access policies, webhooks, and middlewares.' },
+    endpoints: { keys: ['endpoints'], desc: 'Custom REST endpoint definitions (path, method, handler, policies).' },
+    files:     { keys: ['files'],     desc: 'File bucket definitions for local uploads.', s3: true },
+    settings:  { keys: ['settings', 'groups'], desc: 'API rate limits and reusable property groups.' },
+    all:       { keys: null,          desc: 'Full configuration — all sections combined.' },
+  };
+
+  function selectConfig(el) {
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    el.classList.add('active');
+    configMode = true;
+    document.getElementById('page-title').textContent = 'Config Editor';
+    document.getElementById('btn-add').classList.add('hidden');
+    document.getElementById('table-area').classList.add('hidden');
+    document.getElementById('config-area').classList.remove('hidden');
+    loadConfig();
+  }
+
+  async function loadConfig() {
+    document.getElementById('cfg-status').textContent = 'Loading…';
+    try {
+      const r = await apiFetch('/admin/config');
+      if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Failed to load'); }
+      configData = await r.json();
+      showConfigTab(configActiveTab);
+      document.getElementById('cfg-status').textContent = '';
+    } catch (e) {
+      document.getElementById('cfg-status').textContent = 'Error: ' + e.message;
+      toast('Failed to load config: ' + e.message, 'error');
+    }
+  }
+
+  function showConfigTab(tab) {
+    configActiveTab = tab;
+    document.querySelectorAll('.cfg-tab').forEach(t => t.classList.remove('active'));
+    const tabEl = document.getElementById('cfg-tab-' + tab);
+    if (tabEl) tabEl.classList.add('active');
+
+    const def = CFG_TABS[tab] || CFG_TABS.all;
+    document.getElementById('cfg-section-desc').textContent = def.desc || '';
+
+    const s3Note = document.getElementById('cfg-s3-note');
+    if (def.s3) { s3Note.classList.remove('hidden'); } else { s3Note.classList.add('hidden'); }
+
+    let data;
+    if (!def.keys) {
+      data = configData || {};
+    } else {
+      data = {};
+      for (const key of def.keys) {
+        if (configData && configData[key] !== undefined) data[key] = configData[key];
+      }
+    }
+    document.getElementById('cfg-editor').value = JSON.stringify(data, null, 2);
+  }
+
+  async function saveConfig() {
+    const rawText = document.getElementById('cfg-editor').value.trim();
+    let sectionData;
+    try {
+      sectionData = JSON.parse(rawText);
+    } catch (e) {
+      toast('Invalid JSON: ' + e.message, 'error');
+      return;
+    }
+    if (typeof sectionData !== 'object' || Array.isArray(sectionData) || sectionData === null) {
+      toast('Config must be a JSON object', 'error');
+      return;
+    }
+
+    // Merge section data into full config.
+    // For non-'all' tabs, remove all keys belonging to this section first
+    // so that keys the user deleted from the editor are properly removed.
+    let fullConfig;
+    if (configActiveTab === 'all') {
+      fullConfig = sectionData;
+    } else {
+      fullConfig = Object.assign({}, configData || {});
+      const tabKeys = CFG_TABS[configActiveTab].keys || [];
+      for (const key of tabKeys) delete fullConfig[key];
+      Object.assign(fullConfig, sectionData);
+    }
+
+    const btn = document.getElementById('cfg-save-btn');
+    btn.disabled = true; btn.textContent = 'Saving…';
+    document.getElementById('cfg-status').textContent = '';
+
+    try {
+      const r = await apiFetch('/admin/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(fullConfig),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'Save failed');
+      configData = fullConfig;
+      document.getElementById('cfg-status').textContent = '✓ Saved — restart the server to apply changes.';
+      toast('Config saved successfully', 'success');
+    } catch (e) {
+      toast('Save failed: ' + e.message, 'error');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Save Config';
+    }
+  }
+
+  function resetConfigTab() {
+    if (!configData) return;
+    showConfigTab(configActiveTab);
+    toast('Reset to last saved state', 'info');
+  }
 
   init();
 </script>

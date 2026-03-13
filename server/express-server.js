@@ -7,7 +7,7 @@ const express = require('express');
 const swaggerUi = require('swagger-ui-express');
 const rateLimit = require('express-rate-limit');
 
-const { loadYaml } = require('../core/yaml-loader');
+const { loadYaml, saveYaml } = require('../core/yaml-loader');
 const { validateSchema } = require('../core/schema-validator');
 const { buildCore } = require('../core/entity-engine');
 const { initDb, findAll, findAllSimple } = require('../core/db');
@@ -114,6 +114,50 @@ async function createServer(yamlPath) {
         authenticable: e.authenticable, single: e.single, policies: e.policies,
       })),
     });
+  });
+
+  // ── Admin config endpoints ────────────────────────────────────────────
+  // GET /admin/config — return the current YAML config as JSON (auth required)
+  app.get('/admin/config', adminRateLimiter, (req, res) => {
+    const header = req.headers.authorization;
+    if (!header || !header.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    try { verifyToken(header.slice(7)); } catch {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    try {
+      res.json(loadYaml(yamlPath));
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // PUT /admin/config — receive JSON config, validate, and save as YAML (auth required)
+  app.put('/admin/config', adminRateLimiter, (req, res) => {
+    const header = req.headers.authorization;
+    if (!header || !header.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    try { verifyToken(header.slice(7)); } catch {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    const newConfig = req.body;
+    if (!newConfig || typeof newConfig !== 'object' || Array.isArray(newConfig)) {
+      return res.status(400).json({ error: 'Invalid config: expected a JSON object' });
+    }
+    try {
+      validateSchema(newConfig);
+    } catch (e) {
+      return res.status(400).json({ error: e.message });
+    }
+    try {
+      saveYaml(yamlPath, newConfig);
+      res.json({ success: true, message: 'Config saved. Restart the server to apply changes.' });
+    } catch (e) {
+      logger.error('Failed to save config:', e.message);
+      res.status(500).json({ error: 'Failed to save config' });
+    }
   });
 
   // HTMX table partial – returns an HTML fragment used by the Admin UI
