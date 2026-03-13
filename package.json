@@ -29,6 +29,7 @@
   "homepage": "https://github.com/saulmmendoza/chadstart.com#readme",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1009.0",
+    "@sentry/node": "^10.43.0",
     "@tailwindcss/browser": "4.2.1",
     "ajv": "^8.18.0",
     "ajv-formats": "^3.0.1",
