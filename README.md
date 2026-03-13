@@ -18,8 +18,9 @@ npm install
 # Create your chadstart.yaml first (see Configuration section below), then:
 docker run -p 3000:3000 \
   -e JWT_SECRET=your-secret \
+  -e DB_PATH=data/chadstart.db \
   -v ./chadstart.yaml:/app/chadstart.yaml:ro \
-  -v ./chadstart.db:/app/chadstart.db \
+  -v ./data:/app/data \
   ghcr.io/saulmmendoza/chadstart.com:latest
 ```
 
