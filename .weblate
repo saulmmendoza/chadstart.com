@@ -1,0 +1,9 @@
+[weblate]
+project = chadstart
+version = 2
+
+[component: admin]
+filemask = locales/*/admin.json
+template = locales/en/admin.json
+file_format = json-nested
+source_language = en

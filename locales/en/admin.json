@@ -1,0 +1,164 @@
+{
+  "page": {
+    "title": "ChadStart Admin"
+  },
+  "login": {
+    "title": "ChadStart Admin",
+    "collection_label": "Collection",
+    "collection_placeholder": "Admin collection name",
+    "change_collection": "Change collection",
+    "hide_collection": "Hide collection",
+    "email_label": "Email",
+    "email_placeholder": "admin@example.com",
+    "password_label": "Password",
+    "password_placeholder": "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022",
+    "sign_in": "Sign in",
+    "signing_in": "Signing in\u2026",
+    "errors": {
+      "no_admin_collections": "No admin collections configured",
+      "all_fields_required": "All fields are required",
+      "collection_not_found": "Collection not found",
+      "login_failed": "Login failed",
+      "network_error": "Network error"
+    }
+  },
+  "sidebar": {
+    "subtitle": "Admin",
+    "collections": "Collections",
+    "entities": "Entities",
+    "admin": "Admin",
+    "config_editor": "\u2699 Config Editor",
+    "log_out": "Log out"
+  },
+  "header": {
+    "select_collection": "Select a collection",
+    "new_record": "+ New record"
+  },
+  "modal": {
+    "title_new": "New {{name}}",
+    "title_edit": "Edit {{name}} #{{id}}",
+    "cancel": "Cancel",
+    "save": "Save",
+    "saving": "Saving\u2026"
+  },
+  "table": {
+    "no_records": "No records yet. Click + New record to create one.",
+    "actions": "Actions",
+    "edit": "Edit",
+    "delete": "Delete",
+    "delete_confirm": "Delete record #{{id}}?"
+  },
+  "toast": {
+    "failed_load_data": "Failed to load data",
+    "failed_load_schema": "Failed to load schema",
+    "record_created": "Record created",
+    "record_updated": "Record updated",
+    "record_deleted": "Record deleted",
+    "config_reloading": "Config saved \u2014 reloading server\u2026",
+    "config_applied": "Config applied",
+    "config_saved": "Config saved successfully",
+    "config_reset": "Reset to last saved state",
+    "form_read_error": "Could not read form data",
+    "config_not_object": "Config must be a JSON object",
+    "invalid_json": "Invalid JSON: {{message}}",
+    "save_failed": "Save failed: {{message}}",
+    "config_load_failed": "Failed to load config: {{message}}"
+  },
+  "config": {
+    "tabs": {
+      "general": "General",
+      "entities": "Entities",
+      "endpoints": "Endpoints",
+      "files": "Files & Uploads",
+      "settings": "Settings",
+      "all": "All"
+    },
+    "descriptions": {
+      "general": "Application name, port, database path, and public static folder.",
+      "entities": "Entity definitions \u2014 properties, relations, and flags.",
+      "endpoints": "Custom REST endpoint definitions (path, method, handler).",
+      "files": "File bucket definitions for local uploads.",
+      "settings": "API rate limits and reusable property groups.",
+      "all": "Full configuration \u2014 all sections combined (raw JSON for advanced use)."
+    },
+    "save_btn": "Save Config",
+    "saving_btn": "Saving\u2026",
+    "reset_btn": "Reset",
+    "editor_title": "Config Editor",
+    "status": {
+      "loading": "Loading\u2026",
+      "reloading": "Reloading\u2026",
+      "applied": "\u2713 Config applied.",
+      "saved_reload": "\u2713 Saved \u2014 reload the page to see changes.",
+      "saved_restart": "\u2713 Saved \u2014 restart the server to apply changes."
+    },
+    "s3_note": {
+      "title": "S3 Storage",
+      "intro": "is configured via environment variables:",
+      "env_hint": "Set these in your",
+      "env_file": ".env",
+      "env_or": "file or deployment environment."
+    },
+    "general": {
+      "app_name": "App Name",
+      "port": "Port",
+      "port_hint": "Default: 3000",
+      "database": "Database path",
+      "database_placeholder": "data/chadstart.db",
+      "database_hint": "Path relative to the config file. Leave blank for the default.",
+      "public_folder": "Public folder",
+      "public_folder_placeholder": "public",
+      "public_folder_hint": "Folder for static files served at the root (HTML, CSS, JS, etc.)."
+    },
+    "entities": {
+      "entity_name": "Entity name",
+      "entity_placeholder": "Post",
+      "user_collection": "User collection",
+      "single": "Single",
+      "remove": "Remove",
+      "belongs_to": "Belongs to",
+      "belongs_to_hint": "(comma-separated)",
+      "belongs_to_placeholder": "User, Category",
+      "belongs_to_many": "Belongs to many",
+      "belongs_to_many_placeholder": "Tag",
+      "properties": "Properties",
+      "add_property": "+ Add property",
+      "add_entity": "+ Add entity",
+      "property_placeholder": "property name"
+    },
+    "endpoints": {
+      "name": "Name",
+      "name_placeholder": "sendEmail",
+      "path_label": "Path",
+      "path_placeholder": "/send-email",
+      "method": "Method",
+      "handler": "Handler",
+      "handler_placeholder": "sendEmailHandler",
+      "description": "Description",
+      "description_hint": "(optional)",
+      "description_placeholder": "What this endpoint does",
+      "remove": "Remove",
+      "add_endpoint": "+ Add endpoint"
+    },
+    "files": {
+      "name": "Name",
+      "name_placeholder": "images",
+      "path_label": "Path",
+      "path_placeholder": "uploads/images",
+      "public": "Public",
+      "remove": "Remove",
+      "add_bucket": "+ Add file bucket"
+    },
+    "settings": {
+      "rate_limits_hint": "Rate limits cap the number of API requests per time window.",
+      "name": "Name",
+      "name_placeholder": "api",
+      "max_requests": "Max requests",
+      "max_requests_placeholder": "200",
+      "window_ms": "Window (ms)",
+      "window_placeholder": "60000",
+      "remove": "Remove",
+      "add_rate_limit": "+ Add rate limit"
+    }
+  }
+}

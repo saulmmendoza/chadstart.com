@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" id="html-root">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -38,36 +38,37 @@
 </head>
 <body class="bg-cs-bg text-cs-text min-h-screen flex" style="font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;">
 
-<!-- ── Login overlay ──────────────────────────────────────────────────── -->
+<!-- Login overlay -->
 <div id="login-overlay" class="fixed inset-0 bg-cs-bg flex items-center justify-center z-50 p-4">
   <div class="bg-cs-surface border border-cs-border rounded p-8 w-full max-w-sm" style="box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
-    <div class="font-semibold text-cs-text text-base mb-6">ChadStart Admin</div>
+    <div class="font-semibold text-cs-text text-base mb-6" data-i18n="login.title">ChadStart Admin</div>
     <div id="login-error" class="text-red-400 text-sm mb-4 hidden"></div>
 
     <div id="login-collection-section" class="hidden mb-4">
-      <label class="block text-sm text-cs-muted mb-1">Collection</label>
+      <label class="block text-sm text-cs-muted mb-1" data-i18n="login.collection_label">Collection</label>
       <input type="text" id="login-collection"
         class="w-full bg-cs-bg border border-cs-border rounded text-cs-text px-3 py-2 text-sm outline-none focus:border-cs-primary" style="transition: border-color 150ms ease;"
-        placeholder="Admin collection name" autocomplete="off" />
+        data-i18n-ph="login.collection_placeholder" placeholder="Admin collection name" autocomplete="off" />
     </div>
     <div class="mb-4 text-right">
       <button type="button" id="toggle-collection-btn" onclick="toggleCollectionField()"
-        class="text-xs text-cs-muted hover:text-cs-primary cursor-pointer" style="transition: color 150ms ease; background: none; border: none; padding: 0;">
+        class="text-xs text-cs-muted hover:text-cs-primary cursor-pointer" style="transition: color 150ms ease; background: none; border: none; padding: 0;"
+        data-i18n="login.change_collection">
         Change collection
       </button>
     </div>
 
-    <label class="block text-sm text-cs-muted mb-1">Email</label>
-    <input type="email" id="login-email" placeholder="admin@example.com" autocomplete="email"
+    <label class="block text-sm text-cs-muted mb-1" data-i18n="login.email_label">Email</label>
+    <input type="email" id="login-email" data-i18n-ph="login.email_placeholder" placeholder="admin@example.com" autocomplete="email"
       class="w-full bg-cs-bg border border-cs-border rounded text-cs-text px-3 py-2 text-sm mb-4 outline-none focus:border-cs-primary" style="transition: border-color 150ms ease;" />
 
-    <label class="block text-sm text-cs-muted mb-1">Password</label>
-    <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password"
+    <label class="block text-sm text-cs-muted mb-1" data-i18n="login.password_label">Password</label>
+    <input type="password" id="login-password" data-i18n-ph="login.password_placeholder" placeholder="••••••••" autocomplete="current-password"
       class="w-full bg-cs-bg border border-cs-border rounded text-cs-text px-3 py-2 text-sm mb-5 outline-none focus:border-cs-primary" style="transition: border-color 150ms ease;" />
 
     <button id="login-btn" onclick="doLogin()"
       class="w-full py-2 px-4 rounded text-sm cursor-pointer bg-cs-primary text-cs-bg font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed" style="transition: opacity 150ms ease;">
-      <span>Sign in</span>
+      <span data-i18n="login.sign_in">Sign in</span>
     </button>
   </div>
 </div>
@@ -81,17 +82,17 @@
          -translate-x-full lg:translate-x-0" style="transition: transform 150ms ease;">
   <div class="px-4 py-4 border-b border-cs-border">
     <div class="font-semibold text-cs-text">ChadStart</div>
-    <div id="project-name" class="text-cs-muted text-xs mt-0.5">Admin</div>
+    <div id="project-name" class="text-cs-muted text-xs mt-0.5" data-i18n="sidebar.subtitle">Admin</div>
   </div>
 
   <nav class="sidebar-nav flex-1 overflow-y-auto py-2">
-    <div class="px-4 pt-3 pb-1 text-xs text-cs-muted">Collections</div>
+    <div class="px-4 pt-3 pb-1 text-xs text-cs-muted" data-i18n="sidebar.collections">Collections</div>
     <div id="nav-user-collections"></div>
-    <div class="px-4 pt-4 pb-1 text-xs text-cs-muted border-t border-cs-border mt-2">Entities</div>
+    <div class="px-4 pt-4 pb-1 text-xs text-cs-muted border-t border-cs-border mt-2" data-i18n="sidebar.entities">Entities</div>
     <div id="nav-entities"></div>
-    <div class="px-4 pt-4 pb-1 text-xs text-cs-muted border-t border-cs-border mt-2">Admin</div>
+    <div class="px-4 pt-4 pb-1 text-xs text-cs-muted border-t border-cs-border mt-2" data-i18n="sidebar.admin">Admin</div>
     <div id="nav-admin">
-      <div class="nav-item" id="nav-config-item" onclick="selectConfig(this)">⚙ Config Editor</div>
+      <div class="nav-item" id="nav-config-item" onclick="selectConfig(this)" data-i18n="sidebar.config_editor">⚙ Config Editor</div>
     </div>
   </nav>
 
@@ -106,7 +107,8 @@
     </div>
     <button onclick="logout()"
       class="w-full text-sm text-cs-muted border border-cs-border rounded py-1.5 px-3
-             hover:border-red-500/50 hover:text-red-400" style="transition: color 150ms ease, border-color 150ms ease;">Log out</button>
+             hover:border-red-500/50 hover:text-red-400" style="transition: color 150ms ease, border-color 150ms ease;"
+      data-i18n="sidebar.log_out">Log out</button>
   </div>
 </aside>
 
@@ -119,10 +121,11 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
         </svg>
       </button>
-      <span id="page-title" class="font-medium text-sm text-cs-text">Select a collection</span>
+      <span id="page-title" class="font-medium text-sm text-cs-text" data-i18n="header.select_collection">Select a collection</span>
     </div>
     <button id="btn-add" onclick="openAddModal()"
-      class="hidden py-1.5 px-3 rounded text-sm cursor-pointer border border-cs-border text-cs-text hover:bg-cs-border" style="transition: background 150ms ease;">
+      class="hidden py-1.5 px-3 rounded text-sm cursor-pointer border border-cs-border text-cs-text hover:bg-cs-border" style="transition: background 150ms ease;"
+      data-i18n="header.new_record">
       + New record
     </button>
   </header>
@@ -137,12 +140,12 @@
     <div id="config-area" class="hidden">
       <!-- Section tabs -->
       <div class="flex gap-1 flex-wrap mb-4 border-b border-cs-border pb-3">
-        <button onclick="showConfigTab('general')"   id="cfg-tab-general"   class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;">General</button>
-        <button onclick="showConfigTab('entities')"  id="cfg-tab-entities"  class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;">Entities</button>
-        <button onclick="showConfigTab('endpoints')" id="cfg-tab-endpoints" class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;">Endpoints</button>
-        <button onclick="showConfigTab('files')"     id="cfg-tab-files"     class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;">Files &amp; Uploads</button>
-        <button onclick="showConfigTab('settings')"  id="cfg-tab-settings"  class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;">Settings</button>
-        <button onclick="showConfigTab('all')"       id="cfg-tab-all"       class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;">All</button>
+        <button onclick="showConfigTab('general')"   id="cfg-tab-general"   class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;" data-i18n="config.tabs.general">General</button>
+        <button onclick="showConfigTab('entities')"  id="cfg-tab-entities"  class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;" data-i18n="config.tabs.entities">Entities</button>
+        <button onclick="showConfigTab('endpoints')" id="cfg-tab-endpoints" class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;" data-i18n="config.tabs.endpoints">Endpoints</button>
+        <button onclick="showConfigTab('files')"     id="cfg-tab-files"     class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;" data-i18n="config.tabs.files">Files &amp; Uploads</button>
+        <button onclick="showConfigTab('settings')"  id="cfg-tab-settings"  class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;" data-i18n="config.tabs.settings">Settings</button>
+        <button onclick="showConfigTab('all')"       id="cfg-tab-all"       class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;" data-i18n="config.tabs.all">All</button>
       </div>
 
       <!-- Section description -->
@@ -161,19 +164,20 @@
       <div class="flex items-center gap-3 mt-4">
         <button onclick="saveConfig()"
           class="py-1.5 px-4 rounded text-sm cursor-pointer bg-cs-primary text-cs-bg font-medium hover:opacity-90 disabled:opacity-50"
-          id="cfg-save-btn" style="transition:opacity 150ms;">Save Config</button>
+          id="cfg-save-btn" style="transition:opacity 150ms;" data-i18n="config.save_btn">Save Config</button>
         <button onclick="resetConfigTab()"
-          class="text-sm border border-cs-border rounded py-1.5 px-4 text-cs-muted hover:text-cs-text hover:bg-cs-border" style="transition:color 150ms,background 150ms;">Reset</button>
+          class="text-sm border border-cs-border rounded py-1.5 px-4 text-cs-muted hover:text-cs-text hover:bg-cs-border" style="transition:color 150ms,background 150ms;"
+          data-i18n="config.reset_btn">Reset</button>
         <span id="cfg-status" class="text-xs" style="color:#888;"></span>
       </div>
 
       <!-- S3 info note -->
       <div id="cfg-s3-note" class="hidden mt-4 p-3 rounded border text-xs" style="border-color:#2a2a2a;color:#888;">
-        <strong style="color:#e1e1e1;">S3 Storage</strong> is configured via environment variables:<br>
+        <strong style="color:#e1e1e1;" data-i18n="config.s3_note.title">S3 Storage</strong> <span data-i18n="config.s3_note.intro">is configured via environment variables:</span><br>
         <code style="color:#bb86fc;">S3_BUCKET</code>, <code style="color:#bb86fc;">S3_ENDPOINT</code>,
         <code style="color:#bb86fc;">S3_REGION</code>, <code style="color:#bb86fc;">S3_ACCESS_KEY_ID</code>,
         <code style="color:#bb86fc;">S3_SECRET_ACCESS_KEY</code>.<br>
-        Set these in your <code style="color:#bb86fc;">.env</code> file or deployment environment.
+        <span data-i18n="config.s3_note.env_hint">Set these in your</span> <code style="color:#bb86fc;">.env</code> <span data-i18n="config.s3_note.env_or">file or deployment environment.</span>
       </div>
     </div>
   </main>
@@ -189,10 +193,11 @@
     <div id="modal-body" class="p-5 overflow-y-auto flex-1"></div>
     <div class="flex justify-end gap-2 px-5 py-3 border-t border-cs-border">
       <button onclick="closeModal()"
-        class="text-sm border border-cs-border rounded py-1.5 px-4 text-cs-muted hover:text-cs-text hover:bg-cs-border" style="transition: color 150ms ease, background 150ms ease;">Cancel</button>
+        class="text-sm border border-cs-border rounded py-1.5 px-4 text-cs-muted hover:text-cs-text hover:bg-cs-border" style="transition: color 150ms ease, background 150ms ease;"
+        data-i18n="modal.cancel">Cancel</button>
       <button id="modal-save-btn" onclick="saveRecord()"
         class="py-1.5 px-4 rounded text-sm cursor-pointer bg-cs-primary text-cs-bg font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed" style="transition: opacity 150ms ease;">
-        <span>Save</span>
+        <span data-i18n="modal.save">Save</span>
       </button>
     </div>
   </div>
@@ -202,14 +207,69 @@
 <div id="toast" class="hidden fixed bottom-6 right-6 z-50"></div>
 
 <script>
+  // ── i18n ───────────────────────────────────────────────────────────────
+  let i18n = {}, currentLang = 'en';
+
+  /**
+   * Load locale JSON from /admin/i18n/<lang>.
+   * Falls back to English when the requested language is unavailable.
+   */
+  async function loadI18n(lang) {
+    currentLang = lang;
+    try {
+      const res = await fetch(`/admin/i18n/${encodeURIComponent(lang)}`);
+      if (res.ok) { i18n = await res.json(); applyI18n(); return; }
+    } catch { /* ignore */ }
+    if (lang !== 'en') {
+      try {
+        const res = await fetch('/admin/i18n/en');
+        if (res.ok) { i18n = await res.json(); currentLang = 'en'; }
+      } catch { /* ignore */ }
+    }
+    applyI18n();
+  }
+
+  /**
+   * Translate a dot-separated key, optionally interpolating {{param}} placeholders.
+   * Falls back to the key itself when the translation is missing.
+   *
+   * @param {string} key     Dot-separated translation key, e.g. "login.sign_in".
+   * @param {object} [params] Interpolation parameters, e.g. { name: 'Post' }.
+   * @returns {string}
+   */
+  function t(key, params) {
+    const parts = key.split('.');
+    let val = i18n;
+    for (const p of parts) {
+      if (val && typeof val === 'object') val = val[p];
+      else { val = undefined; break; }
+    }
+    if (typeof val !== 'string') return key;
+    if (!params) return val;
+    return val.replace(/\{\{(\w+)\}\}/g, (_, k) => params[k] !== undefined ? String(params[k]) : `{{${k}}}`);
+  }
+
+  /** Apply translations to all [data-i18n] and [data-i18n-ph] elements. */
+  function applyI18n() {
+    document.documentElement.lang = currentLang;
+    document.title = t('page.title');
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      el.textContent = t(el.dataset.i18n);
+    });
+    document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+      el.placeholder = t(el.dataset.i18nPh);
+    });
+  }
+
   // ── State ──────────────────────────────────────────────────────────────
   let schema = null, currentItem = null, editingRecord = null, toastTimer;
   let authToken = localStorage.getItem('cs_token') || null; // NOTE: httpOnly cookie preferred in production
   let authUser = null, authCollection = null;
 
-  // ── HTMX: inject Bearer token on every request ─────────────────────────
+  // ── HTMX: inject Bearer token and language on every request ───────────
   document.body.addEventListener('htmx:configRequest', e => {
     if (authToken) e.detail.headers['Authorization'] = 'Bearer ' + authToken;
+    e.detail.headers['Accept-Language'] = currentLang;
   });
 
   // ── HTMX: after table partial swaps in ─────────────────────────────────
@@ -220,15 +280,18 @@
   document.body.addEventListener('htmx:responseError', e => {
     if (e.detail.target?.id === 'table-area') {
       document.getElementById('loading').classList.add('hidden');
-      toast('Failed to load data', 'error');
+      toast(t('toast.failed_load_data'), 'error');
     }
   });
 
   // ── Bootstrap ─────────────────────────────────────────────────────────
   async function init() {
+    const preferredLang = ((navigator.language || 'en').split('-')[0] || 'en').toLowerCase();
+    await loadI18n(preferredLang);
+
     try {
       schema = await fetch('/admin/schema').then(r => r.json());
-    } catch { toast('Failed to load schema', 'error'); return; }
+    } catch { toast(t('toast.failed_load_schema'), 'error'); return; }
 
     document.getElementById('project-name').textContent = schema.name;
     populateLoginCollections();
@@ -261,7 +324,7 @@
     } else {
       input.value = '';
       const errEl = document.getElementById('login-error');
-      errEl.textContent = 'No admin collections configured'; errEl.classList.remove('hidden');
+      errEl.textContent = t('login.errors.no_admin_collections'); errEl.classList.remove('hidden');
       document.getElementById('login-btn').disabled = true;
     }
   }
@@ -271,7 +334,7 @@
     const btn = document.getElementById('toggle-collection-btn');
     const isHidden = section.classList.contains('hidden');
     section.classList.toggle('hidden', !isHidden);
-    btn.textContent = isHidden ? 'Hide collection' : 'Change collection';
+    btn.textContent = isHidden ? t('login.hide_collection') : t('login.change_collection');
     if (isHidden) document.getElementById('login-collection').focus();
   }
 
@@ -285,13 +348,13 @@
 
     errEl.classList.add('hidden');
     if (!collectionName || !email || !password) {
-      errEl.textContent = 'All fields are required'; errEl.classList.remove('hidden'); return;
+      errEl.textContent = t('login.errors.all_fields_required'); errEl.classList.remove('hidden'); return;
     }
 
-    btn.disabled = true; btnText.textContent = 'Signing in…';
+    btn.disabled = true; btnText.textContent = t('login.signing_in');
 
     const col = getAdminCollections().find(c => c.name === collectionName);
-    if (!col) { showLoginError('Collection not found'); return; }
+    if (!col) { showLoginError(t('login.errors.collection_not_found')); return; }
 
     try {
       const r = await fetch(`/api/auth/${toSlug(col.name)}/login`, {
@@ -299,15 +362,15 @@
         body: JSON.stringify({ email, password }),
       });
       const data = await r.json();
-      if (!r.ok) { showLoginError(data.error || 'Login failed'); return; }
+      if (!r.ok) { showLoginError(data.error || t('login.errors.login_failed')); return; }
       authToken = data.token; authUser = data.user; authCollection = col.name;
       localStorage.setItem('cs_token', authToken);
       showApp();
-    } catch { showLoginError('Network error'); }
+    } catch { showLoginError(t('login.errors.network_error')); }
 
     function showLoginError(msg) {
       errEl.textContent = msg; errEl.classList.remove('hidden');
-      btn.disabled = false; btnText.textContent = 'Sign in';
+      btn.disabled = false; btnText.textContent = t('login.sign_in');
     }
   }
 
@@ -320,7 +383,7 @@
     localStorage.removeItem('cs_token'); currentItem = null;
     document.getElementById('table-area').innerHTML = '';
     document.getElementById('btn-add').classList.add('hidden');
-    document.getElementById('page-title').textContent = 'Select a collection';
+    document.getElementById('page-title').textContent = t('header.select_collection');
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     showLogin();
   }
@@ -329,7 +392,7 @@
     document.getElementById('login-overlay').classList.remove('hidden');
     document.getElementById('loading').classList.add('hidden');
     const btn = document.getElementById('login-btn');
-    btn.disabled = false; btn.querySelector('span').textContent = 'Sign in';
+    btn.disabled = false; btn.querySelector('span').textContent = t('login.sign_in');
   }
 
   function showApp() {
@@ -421,7 +484,7 @@
     if (!currentItem) return;
     editingRecord = null;
     const isCollection = currentItem.type === 'collection';
-    document.getElementById('modal-title').textContent = `New ${currentItem.name}`;
+    document.getElementById('modal-title').textContent = t('modal.title_new', { name: currentItem.name });
     document.getElementById('modal-body').innerHTML = getFields(isCollection).map(f => fieldHtml(f, '', f.name === 'password')).join('');
     showModal();
   }
@@ -430,7 +493,7 @@
     if (!currentItem) return;
     editingRecord = record;
     const isCollection = currentItem.type === 'collection';
-    document.getElementById('modal-title').textContent = `Edit ${currentItem.name} #${record.id}`;
+    document.getElementById('modal-title').textContent = t('modal.title_edit', { name: currentItem.name, id: record.id });
     document.getElementById('modal-body').innerHTML =
       getFields(isCollection).filter(f => f.name !== 'password').map(f => fieldHtml(f, String(record[f.name] ?? ''))).join('');
     showModal();
@@ -439,7 +502,7 @@
   function showModal() {
     document.getElementById('modal-backdrop').classList.remove('hidden');
     const btn = document.getElementById('modal-save-btn');
-    btn.disabled = false; btn.querySelector('span').textContent = 'Save';
+    btn.disabled = false; btn.querySelector('span').textContent = t('modal.save');
   }
 
   function closeModal() {
@@ -459,7 +522,7 @@
     }
     const apiPath = `/api/${toKebab(currentItem.name)}s`;
     const btn = document.getElementById('modal-save-btn');
-    btn.disabled = true; btn.querySelector('span').textContent = 'Saving…';
+    btn.disabled = true; btn.querySelector('span').textContent = t('modal.saving');
     try {
       let r;
       if (editingRecord) {
@@ -470,22 +533,22 @@
         r = await apiFetch(apiPath, { method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } });
       }
       const data = await r.json();
-      if (!r.ok) throw new Error(data.error || 'Save failed');
-      toast(editingRecord ? 'Record updated' : 'Record created', 'success');
+      if (!r.ok) throw new Error(data.error || t('toast.save_failed', { message: '' }).replace(': ', ''));
+      toast(editingRecord ? t('toast.record_updated') : t('toast.record_created'), 'success');
       closeModal();
       reloadTable();
     } catch (e) {
       toast(e.message, 'error');
-      btn.disabled = false; btn.querySelector('span').textContent = 'Save';
+      btn.disabled = false; btn.querySelector('span').textContent = t('modal.save');
     }
   }
 
   async function deleteRecord(id) {
-    if (!currentItem || !confirm(`Delete record #${id}?`)) return;
+    if (!currentItem || !confirm(t('table.delete_confirm', { id }))) return;
     try {
       const r = await apiFetch(`/api/${toKebab(currentItem.name)}s/${id}`, { method: 'DELETE' });
-      if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Delete failed'); }
-      toast('Record deleted', 'success');
+      if (!r.ok) { const d = await r.json(); throw new Error(d.error || t('toast.record_deleted')); }
+      toast(t('toast.record_deleted'), 'success');
       reloadTable();
     } catch (e) { toast(e.message, 'error'); }
   }
@@ -518,12 +581,12 @@
   let _cfgEntityId = 0, _cfgEndpointId = 0, _cfgFileId = 0, _cfgRlId = 0;
 
   const CFG_TABS = {
-    general:   { keys: ['name', 'port', 'database', 'public'],  desc: 'Application name, port, database path, and public static folder.' },
-    entities:  { keys: ['entities'],  desc: 'Entity definitions — properties, relations, and flags.' },
-    endpoints: { keys: ['endpoints'], desc: 'Custom REST endpoint definitions (path, method, handler).' },
-    files:     { keys: ['files'],     desc: 'File bucket definitions for local uploads.', s3: true },
-    settings:  { keys: ['settings', 'groups'], desc: 'API rate limits and reusable property groups.' },
-    all:       { keys: null,          desc: 'Full configuration — all sections combined (raw JSON for advanced use).' },
+    general:   { keys: ['name', 'port', 'database', 'public'] },
+    entities:  { keys: ['entities'] },
+    endpoints: { keys: ['endpoints'] },
+    files:     { keys: ['files'], s3: true },
+    settings:  { keys: ['settings', 'groups'] },
+    all:       { keys: null },
   };
 
   const CFG_FORM_TABS = new Set(['general', 'entities', 'endpoints', 'files', 'settings']);
@@ -552,10 +615,10 @@
         + '</div>';
     }
     return '<div class="space-y-4 max-w-lg">'
-      + fld('App Name <span style="color:#f87171;">*</span>', 'cfg-f-name',          d.name || '',                       'My App',           'text')
-      + fld('Port',                                          'cfg-f-port',          d.port !== undefined ? d.port : '', '3000',             'number', 'Default: 3000')
-      + fld('Database path',                                 'cfg-f-database',      d.database || '',                   'data/chadstart.db','text',   'Path relative to the config file. Leave blank for the default.')
-      + fld('Public folder',                                 'cfg-f-public-folder', pub.folder || '',                   'public',           'text',   'Folder for static files served at the root (HTML, CSS, JS, etc.).')
+      + fld(t('config.general.app_name') + ' <span style="color:#f87171;">*</span>', 'cfg-f-name',          d.name || '',                       'My App',                                      'text')
+      + fld(t('config.general.port'),                                                 'cfg-f-port',          d.port !== undefined ? d.port : '', '3000',                                        'number', t('config.general.port_hint'))
+      + fld(t('config.general.database'),                                             'cfg-f-database',      d.database || '',                   t('config.general.database_placeholder'),      'text',   t('config.general.database_hint'))
+      + fld(t('config.general.public_folder'),                                        'cfg-f-public-folder', pub.folder || '',                   t('config.general.public_folder_placeholder'), 'text',   t('config.general.public_folder_hint'))
       + '</div>';
   }
 
@@ -580,7 +643,7 @@
     return '<div id="cfg-entities-list" class="space-y-3">' + cards + '</div>'
       + '<button type="button" onclick="addEntityCard()"'
       + ' class="mt-3 text-xs border border-cs-border rounded px-3 py-1.5 text-cs-muted hover:text-cs-text cursor-pointer"'
-      + ' style="transition:color 150ms,background 150ms;">+ Add entity</button>';
+      + ' style="transition:color 150ms,background 150ms;">' + t('config.entities.add_entity') + '</button>';
   }
 
   function _propTypeSelect(cls, sel) {
@@ -605,36 +668,36 @@
       + ' data-entity-id="' + id + '" data-original-name="' + escAttr(entityName) + '">'
       + '<div class="flex flex-wrap items-end gap-3 mb-3">'
         + '<div class="flex-1" style="min-width:160px;">'
-          + '<label class="' + _LBL + '" style="color:#888;">Entity name</label>'
-          + '<input type="text" id="cfg-e-name-' + id + '" value="' + escAttr(entityName) + '" placeholder="Post"'
+          + '<label class="' + _LBL + '" style="color:#888;">' + t('config.entities.entity_name') + '</label>'
+          + '<input type="text" id="cfg-e-name-' + id + '" value="' + escAttr(entityName) + '" placeholder="' + escAttr(t('config.entities.entity_placeholder')) + '"'
           + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" />'
         + '</div>'
         + '<div class="flex gap-4 items-center" style="padding-bottom:2px;">'
           + '<label class="flex items-center gap-1.5 text-xs cursor-pointer select-none" style="color:#888;">'
           + '<input type="checkbox" id="cfg-e-auth-' + id + '"' + (def.authenticable ? ' checked' : '') + ' />'
-          + ' User collection</label>'
+          + ' ' + t('config.entities.user_collection') + '</label>'
           + '<label class="flex items-center gap-1.5 text-xs cursor-pointer select-none" style="color:#888;">'
           + '<input type="checkbox" id="cfg-e-single-' + id + '"' + (def.single ? ' checked' : '') + ' />'
-          + ' Single</label>'
+          + ' ' + t('config.entities.single') + '</label>'
         + '</div>'
         + '<button type="button" onclick="removeEntityCard(' + id + ')"'
         + ' class="text-xs px-2 py-1.5 rounded border cursor-pointer"'
-        + ' style="border-color:rgba(239,68,68,0.3);color:#f87171;background:transparent;">Remove</button>'
+        + ' style="border-color:rgba(239,68,68,0.3);color:#f87171;background:transparent;">' + t('config.entities.remove') + '</button>'
       + '</div>'
       + '<div class="grid gap-3 mb-3" style="grid-template-columns:1fr 1fr;">'
-        + '<div><label class="' + _LBL + '" style="color:#888;">Belongs to <span style="color:#555;">(comma-separated)</span></label>'
-        + '<input type="text" id="cfg-e-bt-' + id + '" value="' + escAttr(btArr.join(', ')) + '" placeholder="User, Category"'
+        + '<div><label class="' + _LBL + '" style="color:#888;">' + t('config.entities.belongs_to') + ' <span style="color:#555;">' + t('config.entities.belongs_to_hint') + '</span></label>'
+        + '<input type="text" id="cfg-e-bt-' + id + '" value="' + escAttr(btArr.join(', ')) + '" placeholder="' + escAttr(t('config.entities.belongs_to_placeholder')) + '"'
         + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
-        + '<div><label class="' + _LBL + '" style="color:#888;">Belongs to many <span style="color:#555;">(comma-separated)</span></label>'
-        + '<input type="text" id="cfg-e-btm-' + id + '" value="' + escAttr(btmArr.join(', ')) + '" placeholder="Tag"'
+        + '<div><label class="' + _LBL + '" style="color:#888;">' + t('config.entities.belongs_to_many') + ' <span style="color:#555;">' + t('config.entities.belongs_to_hint') + '</span></label>'
+        + '<input type="text" id="cfg-e-btm-' + id + '" value="' + escAttr(btmArr.join(', ')) + '" placeholder="' + escAttr(t('config.entities.belongs_to_many_placeholder')) + '"'
         + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
       + '</div>'
       + '<div>'
         + '<div class="flex items-center justify-between mb-1.5">'
-          + '<span class="text-xs" style="color:#888;">Properties</span>'
+          + '<span class="text-xs" style="color:#888;">' + t('config.entities.properties') + '</span>'
           + '<button type="button" onclick="addPropRow(' + id + ')"'
           + ' class="text-xs px-2 py-0.5 rounded border cursor-pointer"'
-          + ' style="border-color:#2a2a2a;color:#888;background:transparent;transition:color 150ms;">+ Add property</button>'
+          + ' style="border-color:#2a2a2a;color:#888;background:transparent;transition:color 150ms;">' + t('config.entities.add_property') + '</button>'
         + '</div>'
         + '<div id="cfg-e-props-' + id + '" class="space-y-1.5">' + propsHtml + '</div>'
       + '</div>'
@@ -643,11 +706,11 @@
 
   function renderPropRow(name, type) {
     return '<div class="flex gap-2 items-center prop-row">'
-      + '<input type="text" value="' + escAttr(name) + '" placeholder="property name"'
+      + '<input type="text" value="' + escAttr(name) + '" placeholder="' + escAttr(t('config.entities.property_placeholder')) + '"'
       + ' class="flex-1 ' + _INP_XS + ' prop-name" style="transition:border-color 150ms;" />'
       + _propTypeSelect(_INP_XS + ' prop-type', type)
       + '<button type="button" onclick="_cfgRmPropRow(this)"'
-      + ' class="text-xs px-1.5 rounded cursor-pointer" style="color:#555;background:transparent;" title="Remove">×</button>'
+      + ' class="text-xs px-1.5 rounded cursor-pointer" style="color:#555;background:transparent;" title="' + escAttr(t('config.entities.remove')) + '">\xd7</button>'
       + '</div>';
   }
 
@@ -737,7 +800,7 @@
     return '<div id="cfg-endpoints-list" class="space-y-3">' + cards + '</div>'
       + '<button type="button" onclick="addEndpointCard()"'
       + ' class="mt-3 text-xs border border-cs-border rounded px-3 py-1.5 text-cs-muted hover:text-cs-text cursor-pointer"'
-      + ' style="transition:color 150ms,background 150ms;">+ Add endpoint</button>';
+      + ' style="transition:color 150ms,background 150ms;">' + t('config.endpoints.add_endpoint') + '</button>';
   }
 
   function renderEndpointCard(epName, def) {
@@ -748,24 +811,24 @@
     const methodSel = '<select id="cfg-ep-method-' + id + '" class="w-full ' + _INP + '" style="transition:border-color 150ms;">' + methodOpts + '</select>';
     return '<div class="endpoint-card rounded border p-4" style="border-color:#2a2a2a;background:#181818;" data-endpoint-id="' + id + '">'
       + '<div class="grid gap-3 mb-3" style="grid-template-columns:1fr 1fr;">'
-        + '<div><label class="' + _LBL + '" style="color:#888;">Name</label>'
-        + '<input type="text" id="cfg-ep-name-' + id + '" value="' + escAttr(epName) + '" placeholder="sendEmail"'
+        + '<div><label class="' + _LBL + '" style="color:#888;">' + t('config.endpoints.name') + '</label>'
+        + '<input type="text" id="cfg-ep-name-' + id + '" value="' + escAttr(epName) + '" placeholder="' + escAttr(t('config.endpoints.name_placeholder')) + '"'
         + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
-        + '<div><label class="' + _LBL + '" style="color:#888;">Path</label>'
-        + '<input type="text" id="cfg-ep-path-' + id + '" value="' + escAttr(def.path || '') + '" placeholder="/send-email"'
+        + '<div><label class="' + _LBL + '" style="color:#888;">' + t('config.endpoints.path_label') + '</label>'
+        + '<input type="text" id="cfg-ep-path-' + id + '" value="' + escAttr(def.path || '') + '" placeholder="' + escAttr(t('config.endpoints.path_placeholder')) + '"'
         + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
-        + '<div><label class="' + _LBL + '" style="color:#888;">Method</label>' + methodSel + '</div>'
-        + '<div><label class="' + _LBL + '" style="color:#888;">Handler</label>'
-        + '<input type="text" id="cfg-ep-handler-' + id + '" value="' + escAttr(def.handler || '') + '" placeholder="sendEmailHandler"'
+        + '<div><label class="' + _LBL + '" style="color:#888;">' + t('config.endpoints.method') + '</label>' + methodSel + '</div>'
+        + '<div><label class="' + _LBL + '" style="color:#888;">' + t('config.endpoints.handler') + '</label>'
+        + '<input type="text" id="cfg-ep-handler-' + id + '" value="' + escAttr(def.handler || '') + '" placeholder="' + escAttr(t('config.endpoints.handler_placeholder')) + '"'
         + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
       + '</div>'
       + '<div class="flex items-end gap-3">'
-        + '<div class="flex-1"><label class="' + _LBL + '" style="color:#888;">Description <span style="color:#555;">(optional)</span></label>'
-        + '<input type="text" id="cfg-ep-desc-' + id + '" value="' + escAttr(def.description || '') + '" placeholder="What this endpoint does"'
+        + '<div class="flex-1"><label class="' + _LBL + '" style="color:#888;">' + t('config.endpoints.description') + ' <span style="color:#555;">' + t('config.endpoints.description_hint') + '</span></label>'
+        + '<input type="text" id="cfg-ep-desc-' + id + '" value="' + escAttr(def.description || '') + '" placeholder="' + escAttr(t('config.endpoints.description_placeholder')) + '"'
         + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
         + '<button type="button" onclick="_cfgRmEndpointCard(this)"'
         + ' class="text-xs px-2 py-1.5 rounded border cursor-pointer"'
-        + ' style="border-color:rgba(239,68,68,0.3);color:#f87171;background:transparent;">Remove</button>'
+        + ' style="border-color:rgba(239,68,68,0.3);color:#f87171;background:transparent;">' + t('config.endpoints.remove') + '</button>'
       + '</div>'
       + '</div>';
   }
@@ -806,24 +869,24 @@
     return '<div id="cfg-files-list" class="space-y-2">' + cards + '</div>'
       + '<button type="button" onclick="addFileBucketCard()"'
       + ' class="mt-3 text-xs border border-cs-border rounded px-3 py-1.5 text-cs-muted hover:text-cs-text cursor-pointer"'
-      + ' style="transition:color 150ms,background 150ms;">+ Add file bucket</button>';
+      + ' style="transition:color 150ms,background 150ms;">' + t('config.files.add_bucket') + '</button>';
   }
 
   function renderFileBucketCard(bucketName, def) {
     const id = _cfgFileId++;
     return '<div class="file-bucket-card flex flex-wrap gap-3 items-end rounded border p-3"'
       + ' style="border-color:#2a2a2a;background:#181818;" data-bucket-id="' + id + '">'
-      + '<div><label class="' + _LBL + '" style="color:#888;">Name</label>'
-      + '<input type="text" id="cfg-fb-name-' + id + '" value="' + escAttr(bucketName) + '" placeholder="images"'
+      + '<div><label class="' + _LBL + '" style="color:#888;">' + t('config.files.name') + '</label>'
+      + '<input type="text" id="cfg-fb-name-' + id + '" value="' + escAttr(bucketName) + '" placeholder="' + escAttr(t('config.files.name_placeholder')) + '"'
       + ' class="' + _INP + '" style="transition:border-color 150ms;width:130px;" /></div>'
-      + '<div class="flex-1"><label class="' + _LBL + '" style="color:#888;">Path</label>'
-      + '<input type="text" id="cfg-fb-path-' + id + '" value="' + escAttr(def.path || '') + '" placeholder="uploads/images"'
+      + '<div class="flex-1"><label class="' + _LBL + '" style="color:#888;">' + t('config.files.path_label') + '</label>'
+      + '<input type="text" id="cfg-fb-path-' + id + '" value="' + escAttr(def.path || '') + '" placeholder="' + escAttr(t('config.files.path_placeholder')) + '"'
       + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
       + '<label class="flex items-center gap-1.5 text-xs cursor-pointer select-none" style="color:#888;padding-bottom:6px;">'
-      + '<input type="checkbox" id="cfg-fb-public-' + id + '"' + (def.public ? ' checked' : '') + ' /> Public</label>'
+      + '<input type="checkbox" id="cfg-fb-public-' + id + '"' + (def.public ? ' checked' : '') + ' /> ' + t('config.files.public') + '</label>'
       + '<button type="button" onclick="_cfgRmFileBucketCard(this)"'
       + ' class="text-xs px-2 py-1.5 rounded border cursor-pointer"'
-      + ' style="border-color:rgba(239,68,68,0.3);color:#f87171;background:transparent;">Remove</button>'
+      + ' style="border-color:rgba(239,68,68,0.3);color:#f87171;background:transparent;">' + t('config.files.remove') + '</button>'
       + '</div>';
   }
 
@@ -856,29 +919,29 @@
     let rows = '';
     for (const rl of rls) rows += renderRateLimitRow(rl);
     return '<div>'
-      + '<p class="text-xs mb-3" style="color:#666;">Rate limits cap the number of API requests per time window.</p>'
+      + '<p class="text-xs mb-3" style="color:#666;">' + t('config.settings.rate_limits_hint') + '</p>'
       + '<div id="cfg-rl-list" class="space-y-2">' + rows + '</div>'
       + '<button type="button" onclick="addRateLimitRow()"'
       + ' class="mt-3 text-xs border border-cs-border rounded px-3 py-1.5 text-cs-muted hover:text-cs-text cursor-pointer"'
-      + ' style="transition:color 150ms,background 150ms;">+ Add rate limit</button>'
+      + ' style="transition:color 150ms,background 150ms;">' + t('config.settings.add_rate_limit') + '</button>'
       + '</div>';
   }
 
   function renderRateLimitRow(rl) {
     const id = _cfgRlId++;
     return '<div class="flex flex-wrap gap-2 items-end rl-row" data-rl-id="' + id + '">'
-      + '<div><label class="' + _LBL + '" style="color:#888;">Name</label>'
-      + '<input type="text" id="cfg-rl-name-' + id + '" value="' + escAttr(rl.name || '') + '" placeholder="api"'
+      + '<div><label class="' + _LBL + '" style="color:#888;">' + t('config.settings.name') + '</label>'
+      + '<input type="text" id="cfg-rl-name-' + id + '" value="' + escAttr(rl.name || '') + '" placeholder="' + escAttr(t('config.settings.name_placeholder')) + '"'
       + ' class="' + _INP_XS + '" style="transition:border-color 150ms;width:90px;" /></div>'
-      + '<div><label class="' + _LBL + '" style="color:#888;">Max requests</label>'
-      + '<input type="number" id="cfg-rl-limit-' + id + '" value="' + escAttr(rl.limit !== undefined ? String(rl.limit) : '') + '" placeholder="200"'
+      + '<div><label class="' + _LBL + '" style="color:#888;">' + t('config.settings.max_requests') + '</label>'
+      + '<input type="number" id="cfg-rl-limit-' + id + '" value="' + escAttr(rl.limit !== undefined ? String(rl.limit) : '') + '" placeholder="' + escAttr(t('config.settings.max_requests_placeholder')) + '"'
       + ' class="' + _INP_XS + '" style="transition:border-color 150ms;width:105px;" /></div>'
-      + '<div><label class="' + _LBL + '" style="color:#888;">Window (ms)</label>'
-      + '<input type="number" id="cfg-rl-ttl-' + id + '" value="' + escAttr(rl.ttl !== undefined ? String(rl.ttl) : '') + '" placeholder="60000"'
+      + '<div><label class="' + _LBL + '" style="color:#888;">' + t('config.settings.window_ms') + '</label>'
+      + '<input type="number" id="cfg-rl-ttl-' + id + '" value="' + escAttr(rl.ttl !== undefined ? String(rl.ttl) : '') + '" placeholder="' + escAttr(t('config.settings.window_placeholder')) + '"'
       + ' class="' + _INP_XS + '" style="transition:border-color 150ms;width:105px;" /></div>'
       + '<button type="button" onclick="_cfgRmRateLimitRow(this)"'
       + ' class="text-xs px-2 py-1.5 rounded border cursor-pointer"'
-      + ' style="border-color:rgba(239,68,68,0.3);color:#f87171;background:transparent;">Remove</button>'
+      + ' style="border-color:rgba(239,68,68,0.3);color:#f87171;background:transparent;">' + t('config.settings.remove') + '</button>'
       + '</div>';
   }
 
@@ -929,7 +992,7 @@
     document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.remove('active'); });
     el.classList.add('active');
     configMode = true;
-    document.getElementById('page-title').textContent = 'Config Editor';
+    document.getElementById('page-title').textContent = t('config.editor_title');
     document.getElementById('btn-add').classList.add('hidden');
     document.getElementById('table-area').classList.add('hidden');
     document.getElementById('config-area').classList.remove('hidden');
@@ -938,7 +1001,7 @@
   }
 
   async function loadConfig() {
-    document.getElementById('cfg-status').textContent = 'Loading…';
+    document.getElementById('cfg-status').textContent = t('config.status.loading');
     try {
       const r = await apiFetch('/admin/config');
       if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Failed to load'); }
@@ -947,18 +1010,20 @@
       document.getElementById('cfg-status').textContent = '';
     } catch (e) {
       document.getElementById('cfg-status').textContent = 'Error: ' + e.message;
-      toast('Failed to load config: ' + e.message, 'error');
+      toast(t('toast.config_load_failed', { message: e.message }), 'error');
     }
   }
 
   function showConfigTab(tab) {
     configActiveTab = tab;
-    document.querySelectorAll('.cfg-tab').forEach(function(t) { t.classList.remove('active'); });
+    document.querySelectorAll('.cfg-tab').forEach(function(tabBtn) { tabBtn.classList.remove('active'); });
     const tabEl = document.getElementById('cfg-tab-' + tab);
     if (tabEl) tabEl.classList.add('active');
 
     const def = CFG_TABS[tab] || CFG_TABS.all;
-    document.getElementById('cfg-section-desc').textContent = def.desc || '';
+    const descKey = 'config.descriptions.' + tab;
+    const desc = t(descKey);
+    document.getElementById('cfg-section-desc').textContent = desc !== descKey ? desc : '';
 
     const s3Note = document.getElementById('cfg-s3-note');
     if (def.s3) s3Note.classList.remove('hidden'); else s3Note.classList.add('hidden');
@@ -982,17 +1047,17 @@
 
     if (CFG_FORM_TABS.has(configActiveTab)) {
       sectionData = collectFormData();
-      if (sectionData === null) { toast('Could not read form data', 'error'); return; }
+      if (sectionData === null) { toast(t('toast.form_read_error'), 'error'); return; }
     } else {
       const rawText = document.getElementById('cfg-editor').value.trim();
       try {
         sectionData = JSON.parse(rawText);
       } catch (e) {
-        toast('Invalid JSON: ' + e.message, 'error');
+        toast(t('toast.invalid_json', { message: e.message }), 'error');
         return;
       }
       if (typeof sectionData !== 'object' || Array.isArray(sectionData) || sectionData === null) {
-        toast('Config must be a JSON object', 'error');
+        toast(t('toast.config_not_object'), 'error');
         return;
       }
     }
@@ -1009,7 +1074,7 @@
     }
 
     const btn = document.getElementById('cfg-save-btn');
-    btn.disabled = true; btn.textContent = 'Saving…';
+    btn.disabled = true; btn.textContent = t('config.saving_btn');
     document.getElementById('cfg-status').textContent = '';
 
     try {
@@ -1023,34 +1088,34 @@
       configData = fullConfig;
 
       if (data.reloading) {
-        document.getElementById('cfg-status').textContent = 'Reloading…';
-        toast('Config saved — reloading server…', 'info');
+        document.getElementById('cfg-status').textContent = t('config.status.reloading');
+        toast(t('toast.config_reloading'), 'info');
         setTimeout(async function() {
           try {
             schema = await fetch('/admin/schema').then(function(r2) { return r2.json(); });
             document.getElementById('project-name').textContent = schema.name;
             buildSidebar();
-            document.getElementById('cfg-status').textContent = '✓ Config applied.';
-            toast('Config applied', 'success');
+            document.getElementById('cfg-status').textContent = t('config.status.applied');
+            toast(t('toast.config_applied'), 'success');
           } catch (ex) {
-            document.getElementById('cfg-status').textContent = '✓ Saved — reload the page to see changes.';
+            document.getElementById('cfg-status').textContent = t('config.status.saved_reload');
           }
         }, 800);
       } else {
-        document.getElementById('cfg-status').textContent = '✓ Saved — restart the server to apply changes.';
-        toast('Config saved successfully', 'success');
+        document.getElementById('cfg-status').textContent = t('config.status.saved_restart');
+        toast(t('toast.config_saved'), 'success');
       }
     } catch (e) {
-      toast('Save failed: ' + e.message, 'error');
+      toast(t('toast.save_failed', { message: e.message }), 'error');
     } finally {
-      btn.disabled = false; btn.textContent = 'Save Config';
+      btn.disabled = false; btn.textContent = t('config.save_btn');
     }
   }
 
   function resetConfigTab() {
     if (!configData) return;
     showConfigTab(configActiveTab);
-    toast('Reset to last saved state', 'info');
+    toast(t('toast.config_reset'), 'info');
   }
   init();
 </script>
