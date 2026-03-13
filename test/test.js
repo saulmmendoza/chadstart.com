@@ -48,10 +48,11 @@ await test('rejects unknown top-level key', () => assert.throws(() => validateSc
 // ─── entity-engine ───────────────────────────────────────────────────────────
 
 console.log('\nentity-engine');
-const { buildCore, toSnakeCase } = require('../core/entity-engine');
+const { buildCore, toSnakeCase, toKebabCase } = require('../core/entity-engine');
 
 await test('toSnakeCase converts PascalCase', () => assert.strictEqual(toSnakeCase('BlogPost'), 'blog_post'));
 await test('toSnakeCase leaves lowercase', () => assert.strictEqual(toSnakeCase('post'), 'post'));
+await test('toKebabCase converts PascalCase', () => assert.strictEqual(toKebabCase('BlogPost'), 'blog-post'));
 
 await test('buildCore populates entities', () => {
   const core = buildCore({ name: 'Blog', entities: { Post: { properties: ['title', 'content'] } } });
@@ -102,6 +103,41 @@ await test('buildCore handles singles, validation, hooks, endpoints, groups', ()
   assert.strictEqual(core.entities.Home.hooks.beforeCreate[0].url, 'https://x.com');
   assert.ok(core.endpoints.hi);
   assert.ok(core.groups.G);
+});
+
+await test('buildCore passes nameSingular and namePlural', () => {
+  const core = buildCore({
+    name: 'App',
+    entities: { Person: { nameSingular: 'person', namePlural: 'people', properties: ['name'] } },
+  });
+  assert.strictEqual(core.entities.Person.nameSingular, 'person');
+  assert.strictEqual(core.entities.Person.namePlural, 'people');
+});
+
+await test('inline validation merges and inline prevails on conflict', () => {
+  const base = buildCore({
+    name: 'App',
+    entities: {
+      Dog: {
+        properties: [{ name: 'name', type: 'string', validation: { minLength: 3 } }, { name: 'age', type: 'number' }],
+        validation: { age: { min: 1 } },
+      },
+    },
+  });
+  assert.strictEqual(base.entities.Dog.validation.name.minLength, 3);
+  assert.strictEqual(base.entities.Dog.validation.age.min, 1);
+
+  const conflict = buildCore({
+    name: 'App',
+    entities: {
+      Dog: {
+        properties: [{ name: 'name', type: 'string', validation: { minLength: 5 } }],
+        validation: { name: { minLength: 3, maxLength: 100 } },
+      },
+    },
+  });
+  assert.strictEqual(conflict.entities.Dog.validation.name.minLength, 5, 'inline prevails');
+  assert.strictEqual(conflict.entities.Dog.validation.name.maxLength, 100, 'block-only key preserved');
 });
 
 // ─── db ──────────────────────────────────────────────────────────────────────
@@ -269,55 +305,26 @@ await test('validates contains', () => {
   assert.ok(validateBody({ e: 'john@gmail.com' }, { properties: [{ name: 'e', type: 'email' }], validation: { e: { contains: '@co.com' } } }).errors);
 });
 
-// ─── New validators ──────────────────────────────────────────────────────────
-
-console.log('\nnew validators');
-
-await test('validates isAlpha', () => {
-  assert.ok(validateBody({ n: 'abc123' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { isAlpha: true } } }).errors);
-  assert.strictEqual(validateBody({ n: 'abc' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { isAlpha: true } } }).errors, null);
-});
-await test('validates isAlphanumeric', () => {
-  assert.ok(validateBody({ n: 'abc!@#' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { isAlphanumeric: true } } }).errors);
-  assert.strictEqual(validateBody({ n: 'abc123' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { isAlphanumeric: true } } }).errors, null);
-});
-await test('validates isAscii', () => {
-  assert.ok(validateBody({ n: 'héllo' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { isAscii: true } } }).errors);
-  assert.strictEqual(validateBody({ n: 'hello' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { isAscii: true } } }).errors, null);
-});
-await test('validates isJSON', () => {
-  assert.ok(validateBody({ n: 'not json' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { isJSON: true } } }).errors);
-  assert.strictEqual(validateBody({ n: '{"a":1}' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { isJSON: true } } }).errors, null);
-});
-await test('validates isDefined', () => {
-  assert.ok(validateBody({}, { properties: [{ name: 'n', type: 'string' }], validation: { n: { isDefined: true } } }).errors);
-  assert.strictEqual(validateBody({ n: '' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { isDefined: true } } }).errors, null);
-});
-await test('validates isEmpty', () => {
-  assert.ok(validateBody({ n: 'x' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { isEmpty: true } } }).errors);
-  assert.strictEqual(validateBody({ n: '' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { isEmpty: true } } }).errors, null);
-});
-await test('validates isIn', () => {
-  assert.ok(validateBody({ n: 'c' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { isIn: ['a', 'b'] } } }).errors);
-  assert.strictEqual(validateBody({ n: 'a' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { isIn: ['a', 'b'] } } }).errors, null);
-});
-await test('validates isNotIn', () => {
-  assert.ok(validateBody({ n: 'a' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { isNotIn: ['a', 'b'] } } }).errors);
-  assert.strictEqual(validateBody({ n: 'c' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { isNotIn: ['a', 'b'] } } }).errors, null);
-});
-await test('validates notContains', () => {
-  assert.ok(validateBody({ n: 'hello world' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { notContains: 'world' } } }).errors);
-  assert.strictEqual(validateBody({ n: 'hello' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { notContains: 'world' } } }).errors, null);
-});
-await test('validates equals/notEquals', () => {
-  assert.ok(validateBody({ n: 'a' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { equals: 'b' } } }).errors);
-  assert.strictEqual(validateBody({ n: 'b' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { equals: 'b' } } }).errors, null);
-  assert.ok(validateBody({ n: 'b' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { notEquals: 'b' } } }).errors);
-});
-await test('validates matches', () => {
-  assert.ok(validateBody({ n: 'hello' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { matches: '^[0-9]+$' } } }).errors);
-  assert.strictEqual(validateBody({ n: '123' }, { properties: [{ name: 'n', type: 'string' }], validation: { n: { matches: '^[0-9]+$' } } }).errors, null);
-});
+for (const [label, ruleObj, bad, good] of [
+  ['isAlpha',        { isAlpha: true },          { n: 'abc123' },      { n: 'abc' }],
+  ['isAlphanumeric', { isAlphanumeric: true },    { n: 'abc!@#' },      { n: 'abc123' }],
+  ['isAscii',        { isAscii: true },           { n: 'héllo' },       { n: 'hello' }],
+  ['isJSON',         { isJSON: true },            { n: 'not json' },    { n: '{"a":1}' }],
+  ['isDefined',      { isDefined: true },         {},                   { n: '' }],
+  ['isEmpty',        { isEmpty: true },           { n: 'x' },           { n: '' }],
+  ['isIn',           { isIn: ['a', 'b'] },        { n: 'c' },           { n: 'a' }],
+  ['isNotIn',        { isNotIn: ['a', 'b'] },     { n: 'a' },           { n: 'c' }],
+  ['notContains',    { notContains: 'world' },    { n: 'hello world' }, { n: 'hello' }],
+  ['equals',         { equals: 'b' },             { n: 'a' },           { n: 'b' }],
+  ['notEquals',      { notEquals: 'b' },          { n: 'b' },           { n: 'c' }],
+  ['matches',        { matches: '^[0-9]+$' },     { n: 'hello' },       { n: '123' }],
+]) {
+  await test(`validates ${label}`, () => {
+    const ent = { properties: [{ name: 'n', type: 'string' }], validation: { n: ruleObj } };
+    assert.ok(validateBody(bad, ent).errors, `${label}: invalid input should fail`);
+    assert.strictEqual(validateBody(good, ent).errors, null, `${label}: valid input should pass`);
+  });
+}
 
 // ─── Hidden properties & defaults ────────────────────────────────────────────
 
@@ -342,56 +349,6 @@ await test('applyDefaults does not override existing values', () => {
   const entity = { properties: [{ name: 'status', type: 'string', default: 'draft' }] };
   const result = applyDefaults({ status: 'published' }, entity);
   assert.strictEqual(result.status, 'published');
-});
-
-// ─── Inline validation merge ─────────────────────────────────────────────────
-
-console.log('\ninline validation merge');
-
-await test('inline property validation merges into entity validation', () => {
-  const core = buildCore({
-    name: 'App',
-    entities: {
-      Dog: {
-        properties: [
-          { name: 'name', type: 'string', validation: { minLength: 3 } },
-          { name: 'age', type: 'number' },
-        ],
-        validation: { age: { min: 1 } },
-      },
-    },
-  });
-  assert.strictEqual(core.entities.Dog.validation.name.minLength, 3);
-  assert.strictEqual(core.entities.Dog.validation.age.min, 1);
-});
-
-await test('inline validation prevails over block on conflict', () => {
-  const core = buildCore({
-    name: 'App',
-    entities: {
-      Dog: {
-        properties: [
-          { name: 'name', type: 'string', validation: { minLength: 5 } },
-        ],
-        validation: { name: { minLength: 3, maxLength: 100 } },
-      },
-    },
-  });
-  assert.strictEqual(core.entities.Dog.validation.name.minLength, 5, 'inline should prevail');
-  assert.strictEqual(core.entities.Dog.validation.name.maxLength, 100, 'block-only keys preserved');
-});
-
-// ─── entity-engine nameSingular/namePlural ───────────────────────────────────
-
-console.log('\nentity-engine extra params');
-
-await test('buildCore passes nameSingular and namePlural', () => {
-  const core = buildCore({
-    name: 'App',
-    entities: { Person: { nameSingular: 'person', namePlural: 'people', properties: ['name'] } },
-  });
-  assert.strictEqual(core.entities.Person.nameSingular, 'person');
-  assert.strictEqual(core.entities.Person.namePlural, 'people');
 });
 
 // ─── JSON Schema file ────────────────────────────────────────────────────────
