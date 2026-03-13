@@ -54,6 +54,18 @@
     "plugins": {
       "type": "array",
       "items": { "$ref": "#/$defs/plugin" }
+    },
+    "settings": {
+      "type": "object",
+      "description": "Global application settings.",
+      "additionalProperties": false,
+      "properties": {
+        "rateLimits": {
+          "type": "array",
+          "description": "Rate limit definitions applied to API routes.",
+          "items": { "$ref": "#/$defs/rateLimit" }
+        }
+      }
     }
   },
   "$defs": {
@@ -270,6 +282,16 @@
         "name": { "type": "string" }
       },
       "additionalProperties": false
+    },
+    "rateLimit": {
+      "type": "object",
+      "required": ["name", "limit", "ttl"],
+      "additionalProperties": false,
+      "properties": {
+        "name":  { "type": "string",  "description": "Identifier for this rate limit definition." },
+        "limit": { "type": "integer", "description": "Maximum number of requests allowed in the time window." },
+        "ttl":   { "type": "integer", "description": "Time window in milliseconds." }
+      }
     }
   }
 }
