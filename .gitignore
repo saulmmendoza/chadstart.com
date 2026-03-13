@@ -7,3 +7,4 @@ uploads/
 .env
 site/
 sdk/dist/
+coverage/
