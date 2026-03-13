@@ -1,0 +1,23 @@
+name: Blog
+
+port: 3000
+
+entities:
+  Post:
+    properties:
+      - title
+      - content
+      - published
+  Comment:
+    properties:
+      - text
+    belongsTo:
+      - Post
+
+files:
+  uploads:
+    path: ./uploads
+    public: true
+
+public:
+  folder: ./public
