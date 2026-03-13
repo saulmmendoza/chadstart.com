@@ -10,6 +10,54 @@ const { requireAuth, optionalAuth, omitPassword, JWT_SECRET } = require('./auth'
 const logger = require('../utils/logger');
 
 /**
+ * Create a backend SDK for use in middleware and custom endpoint handlers.
+ * Provides a `from(slug)` interface for CRUD and a `single(slug)` interface
+ * for single-record entities — the same API as the front-end JS SDK.
+ */
+function createBackendSdk(core) {
+  return {
+    from(slug) {
+      const entity = Object.values(core.entities).find(
+        (e) => e.slug === slug || e.slug + 's' === slug || slug === e.tableName
+      );
+      if (!entity) throw new Error(`Entity not found for slug: ${slug}`);
+      const table = entity.tableName;
+      return {
+        find(opts) { return db.findAll(table, {}, opts || {}); },
+        findOneById(id) { return db.findById(table, id); },
+        create(data) { return db.create(table, data); },
+        update(id, data) { return db.update(table, id, data); },
+        patch(id, data) { return db.update(table, id, data); },
+        delete(id) { return db.remove(table, id); },
+      };
+    },
+    single(slug) {
+      const entity = Object.values(core.entities).find(
+        (e) => (e.slug === slug || e.tableName === slug) && e.single
+      );
+      if (!entity) throw new Error(`Single entity not found for slug: ${slug}`);
+      const table = entity.tableName;
+      return {
+        get() {
+          const rows = db.findAllSimple(table);
+          return rows[0] || null;
+        },
+        update(data) {
+          const rows = db.findAllSimple(table);
+          if (!rows[0]) return null;
+          return db.update(table, rows[0].id, data);
+        },
+        patch(data) {
+          const rows = db.findAllSimple(table);
+          if (!rows[0]) return null;
+          return db.update(table, rows[0].id, data);
+        },
+      };
+    },
+  };
+}
+
+/**
  * Register CRUD REST routes for all entities.
  *
  * Collections: /api/collections/:slug
@@ -17,6 +65,7 @@ const logger = require('../utils/logger');
  */
 function registerApiRoutes(app, core, emit) {
   const router = express.Router();
+  const sdk = createBackendSdk(core);
 
   for (const entity of Object.values(core.entities)) {
     const slug = entity.slug;
@@ -55,7 +104,7 @@ function registerApiRoutes(app, core, emit) {
           const sanitized = sanitizeBody(req.body, entity, true);
           const updated = db.update(table, row.id, sanitized);
           fireWebhooks(entity, 'afterUpdate', updated);
-          await runMiddlewares('afterUpdate', entity, req, res);
+          await runMiddlewares('afterUpdate', entity, req, res, sdk);
           emit(`${entity.name}.updated`, hide(updated));
           res.json(hide(updated));
         } catch (e) { res.status(400).json({ error: e.message }); }
@@ -73,7 +122,7 @@ function registerApiRoutes(app, core, emit) {
           fireWebhooks(entity, 'beforeUpdate', req.body);
           const updated = db.update(table, row.id, sanitizeBody(req.body, entity));
           fireWebhooks(entity, 'afterUpdate', updated);
-          await runMiddlewares('afterUpdate', entity, req, res);
+          await runMiddlewares('afterUpdate', entity, req, res, sdk);
           emit(`${entity.name}.updated`, hide(updated));
           res.json(hide(updated));
         } catch (e) { res.status(400).json({ error: e.message }); }
@@ -129,7 +178,7 @@ function registerApiRoutes(app, core, emit) {
       // POST create
       router.post(base, mw.create, async (req, res) => {
         try {
-          if (!await runMiddlewares('beforeCreate', entity, req, res)) return;
+          if (!await runMiddlewares('beforeCreate', entity, req, res, sdk)) return;
           const body = applyDefaults(req.body, entity);
           const v = validateBody(body, entity, core.groups);
           if (v.errors) return res.status(400).json(v.errors);
@@ -137,7 +186,7 @@ function registerApiRoutes(app, core, emit) {
           const row = db.create(table, sanitizeBody(body, entity));
           db.saveBelongsToMany(entity, row.id, req.body);
           fireWebhooks(entity, 'afterCreate', row);
-          await runMiddlewares('afterCreate', entity, req, res);
+          await runMiddlewares('afterCreate', entity, req, res, sdk);
           emit(`${entity.name}.created`, hide(row));
           res.status(201).json(hide(row));
         } catch (e) { res.status(400).json({ error: e.message }); }
@@ -155,7 +204,7 @@ function registerApiRoutes(app, core, emit) {
           const row = db.update(table, req.params.id, sanitized);
           db.saveBelongsToMany(entity, row.id, req.body);
           fireWebhooks(entity, 'afterUpdate', row);
-          await runMiddlewares('afterUpdate', entity, req, res);
+          await runMiddlewares('afterUpdate', entity, req, res, sdk);
           emit(`${entity.name}.updated`, hide(row));
           res.json(hide(row));
         } catch (e) { res.status(400).json({ error: e.message }); }
@@ -172,7 +221,7 @@ function registerApiRoutes(app, core, emit) {
           const row = db.update(table, req.params.id, sanitizeBody(req.body, entity));
           db.saveBelongsToMany(entity, row.id, req.body);
           fireWebhooks(entity, 'afterUpdate', row);
-          await runMiddlewares('afterUpdate', entity, req, res);
+          await runMiddlewares('afterUpdate', entity, req, res, sdk);
           emit(`${entity.name}.updated`, hide(row));
           res.json(hide(row));
         } catch (e) { res.status(400).json({ error: e.message }); }
@@ -183,11 +232,11 @@ function registerApiRoutes(app, core, emit) {
         try {
           const existing = db.findById(table, req.params.id);
           if (!existing) return res.status(404).json({ error: 'Not found' });
-          if (!await runMiddlewares('beforeDelete', entity, req, res)) return;
+          if (!await runMiddlewares('beforeDelete', entity, req, res, sdk)) return;
           fireWebhooks(entity, 'beforeDelete', existing);
           const row = db.remove(table, req.params.id);
           fireWebhooks(entity, 'afterDelete', row);
-          await runMiddlewares('afterDelete', entity, req, res);
+          await runMiddlewares('afterDelete', entity, req, res, sdk);
           emit(`${entity.name}.deleted`, hide(row));
           res.json(hide(row));
         } catch (e) { res.status(500).json({ error: e.message }); }
@@ -296,15 +345,16 @@ function enforceSelfCondition(rule, entity, req, core) {
 /**
  * Run entity middlewares for a lifecycle event.
  * Returns false if a middleware sent a response (halting the pipeline).
+ * The ChadStart backend SDK is passed to handlers as the third argument.
  */
-async function runMiddlewares(event, entity, req, res) {
+async function runMiddlewares(event, entity, req, res, sdk) {
   const mws = (entity.middlewares || {})[event];
   if (!mws || !mws.length) return true;
 
   for (const mw of mws) {
     if (!mw.handler) continue;
     const handlerFile = path.resolve(
-      process.env.MANIFEST_HANDLERS_FOLDER || 'handlers',
+      process.env.CHADSTART_HANDLERS_FOLDER || process.env.MANIFEST_HANDLERS_FOLDER || 'handlers',
       `${mw.handler}.js`
     );
     if (!fs.existsSync(handlerFile)) {
@@ -313,7 +363,7 @@ async function runMiddlewares(event, entity, req, res) {
     }
     try {
       const handler = require(handlerFile);
-      await handler(req, res);
+      await handler(req, res, sdk);
       if (res.headersSent) return false;
     } catch (e) {
       logger.error(`Middleware ${event}/${mw.handler} error: ${e.message}`);
@@ -513,4 +563,4 @@ function deserializeGroupProps(row, entity) {
   return result;
 }
 
-module.exports = { registerApiRoutes, validateBody, applyDefaults, hideHiddenProps, deserializeGroupProps };
+module.exports = { registerApiRoutes, validateBody, applyDefaults, hideHiddenProps, deserializeGroupProps, createBackendSdk };
