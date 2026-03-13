@@ -884,7 +884,7 @@ const {
   sanitizeFilename,
   generateUniquePrefix,
   saveLocally,
-  getImageSizes,
+  getImageOptions,
 } = require('../core/upload');
 
 await test('getMonthFolder returns correct format', () => {
@@ -992,13 +992,52 @@ await test('saveLocally creates nested directories', () => {
   fs.rmSync(path.join(os.tmpdir(), path.relative(os.tmpdir(), dir).split(path.sep)[0]), { recursive: true, force: true });
 });
 
-await test('getImageSizes returns defaults when no entity config', () => {
+await test('getImageOptions defaults: compress=true, quality=80, sizes=null', () => {
   const core = buildCore({ name: 'App', entities: {} });
-  const sizes = getImageSizes(core, 'cats', 'avatar');
-  assert.deepStrictEqual(sizes, { thumbnail: [80, 80], medium: [160, 160] });
+  const opts = getImageOptions(core, 'cats', 'avatar');
+  assert.strictEqual(opts.compress, true);
+  assert.strictEqual(opts.quality, 80);
+  assert.strictEqual(opts.sizes, null);
 });
 
-await test('getImageSizes returns custom sizes from entity property options', () => {
+await test('getImageOptions: compress=false disables compression', () => {
+  const core = buildCore({
+    name: 'App',
+    entities: {
+      Cat: {
+        properties: [{
+          name: 'avatar',
+          type: 'image',
+          options: { compress: false },
+        }],
+      },
+    },
+  });
+  const opts = getImageOptions(core, 'Cat', 'avatar');
+  assert.strictEqual(opts.compress, false);
+  assert.strictEqual(opts.quality, 80);
+  assert.strictEqual(opts.sizes, null);
+});
+
+await test('getImageOptions: custom quality is respected', () => {
+  const core = buildCore({
+    name: 'App',
+    entities: {
+      Cat: {
+        properties: [{
+          name: 'avatar',
+          type: 'image',
+          options: { quality: 60 },
+        }],
+      },
+    },
+  });
+  const opts = getImageOptions(core, 'Cat', 'avatar');
+  assert.strictEqual(opts.compress, true);
+  assert.strictEqual(opts.quality, 60);
+});
+
+await test('getImageOptions: sizes enables resize mode', () => {
   const core = buildCore({
     name: 'App',
     entities: {
@@ -1011,11 +1050,25 @@ await test('getImageSizes returns custom sizes from entity property options', ()
       },
     },
   });
-  const sizes = getImageSizes(core, 'Cat', 'avatar');
-  assert.deepStrictEqual(sizes, { small: [40, 40], large: [400, 400] });
+  const opts = getImageOptions(core, 'Cat', 'avatar');
+  assert.deepStrictEqual(opts.sizes, { small: [40, 40], large: [400, 400] });
+  assert.strictEqual(opts.compress, true);
 });
 
-await test('getImageSizes looks up by entity tableName', () => {
+await test('getImageOptions: no sizes when not configured', () => {
+  const core = buildCore({
+    name: 'App',
+    entities: {
+      Cat: {
+        properties: [{ name: 'avatar', type: 'image' }],
+      },
+    },
+  });
+  const opts = getImageOptions(core, 'Cat', 'avatar');
+  assert.strictEqual(opts.sizes, null);
+});
+
+await test('getImageOptions looks up by entity tableName', () => {
   const core = buildCore({
     name: 'App',
     entities: {
@@ -1023,41 +1076,61 @@ await test('getImageSizes looks up by entity tableName', () => {
         properties: [{
           name: 'cover',
           type: 'image',
-          options: { sizes: { thumb: [100, 100] } },
+          options: { sizes: { thumb: [100, 100] }, quality: 70 },
         }],
       },
     },
   });
-  const sizes = getImageSizes(core, 'blog_post', 'cover');
-  assert.deepStrictEqual(sizes, { thumb: [100, 100] });
+  const opts = getImageOptions(core, 'blog_post', 'cover');
+  assert.deepStrictEqual(opts.sizes, { thumb: [100, 100] });
+  assert.strictEqual(opts.quality, 70);
 });
 
-// ─── upload – image resize (sharp integration) ────────────────────────────────
+// ─── upload – sharp integration ──────────────────────────────────────────────
 
-console.log('\nupload – image resize');
+console.log('\nupload – sharp integration');
 
-await test('sharp resizes a 1x1 PNG to thumbnail dimensions', async () => {
+const SAMPLE_PNG_B64 =
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC';
+
+await test('sharp compresses a PNG to JPEG at quality 80 (default)', async () => {
   const sharp = require('sharp');
-  // Valid 1x1 red pixel PNG generated with sharp
-  const base64 =
-    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC';
-  const input = Buffer.from(base64, 'base64');
-  const output = await sharp(input).resize(80, 80, { fit: 'cover' }).jpeg().toBuffer();
+  const input = Buffer.from(SAMPLE_PNG_B64, 'base64');
+  const output = await sharp(input).jpeg({ quality: 80 }).toBuffer();
+  const meta = await sharp(output).metadata();
+  assert.strictEqual(meta.format, 'jpeg');
+});
+
+await test('sharp compresses a PNG to JPEG at custom quality', async () => {
+  const sharp = require('sharp');
+  const input = Buffer.from(SAMPLE_PNG_B64, 'base64');
+  const q60 = await sharp(input).jpeg({ quality: 60 }).toBuffer();
+  const q90 = await sharp(input).jpeg({ quality: 90 }).toBuffer();
+  // Both outputs should be valid JPEG buffers
+  const metaQ60 = await sharp(q60).metadata();
+  const metaQ90 = await sharp(q90).metadata();
+  assert.strictEqual(metaQ60.format, 'jpeg');
+  assert.strictEqual(metaQ90.format, 'jpeg');
+});
+
+await test('sharp resizes a 1x1 PNG to specified dimensions with quality', async () => {
+  const sharp = require('sharp');
+  const input = Buffer.from(SAMPLE_PNG_B64, 'base64');
+  const output = await sharp(input).resize(80, 80, { fit: 'cover' }).jpeg({ quality: 80 }).toBuffer();
   const meta = await sharp(output).metadata();
   assert.strictEqual(meta.width, 80);
   assert.strictEqual(meta.height, 80);
   assert.strictEqual(meta.format, 'jpeg');
 });
 
-await test('sharp resizes a 1x1 PNG to medium dimensions', async () => {
+await test('sharp resize with quality:100 produces valid JPEG', async () => {
   const sharp = require('sharp');
-  const base64 =
-    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC';
-  const input = Buffer.from(base64, 'base64');
-  const output = await sharp(input).resize(160, 160, { fit: 'cover' }).jpeg().toBuffer();
+  const input = Buffer.from(SAMPLE_PNG_B64, 'base64');
+  const output = await sharp(input).resize(160, 160, { fit: 'cover' }).jpeg({ quality: 100 }).toBuffer();
   const meta = await sharp(output).metadata();
   assert.strictEqual(meta.width, 160);
   assert.strictEqual(meta.height, 160);
+  assert.strictEqual(meta.format, 'jpeg');
 });
 
 // ─── upload – route logic (unit tests without HTTP server) ────────────────────
@@ -1080,14 +1153,29 @@ await test('file path format: prefix-filename in month folder', () => {
   assert.strictEqual(relPath, 'storage/invoices/contract/Oct2024/abc123-my-contract.pdf');
 });
 
-await test('image path format: prefix-sizeName.jpg in month folder', () => {
+await test('image path format (no sizes): prefix-basename.jpg in month folder', () => {
+  // Default: compress=true, no sizes → single .jpg output
+  const prefix = 'abc123';
+  const month = getMonthFolder(new Date(2024, 9, 1));
+  const baseName = path.basename(sanitizeFilename('my-photo.png'), '.png');
+  const finalName = `${prefix}-${baseName}.jpg`;
+  assert.strictEqual(finalName, 'abc123-my-photo.jpg');
+  assert.ok(`storage/cats/avatar/${month}/${finalName}`.includes('Oct2024'));
+});
+
+await test('image path format (with sizes): prefix-sizeName.jpg in month folder', () => {
   const prefix = 'xyz789';
   const month = getMonthFolder(new Date(2024, 9, 1));
   const thumbName = `${prefix}-thumbnail.jpg`;
-  const medName = `${prefix}-medium.jpg`;
   assert.ok(thumbName.endsWith('-thumbnail.jpg'));
-  assert.ok(medName.endsWith('-medium.jpg'));
   assert.ok(`storage/cats/avatar/${month}/${thumbName}`.includes('Oct2024'));
+});
+
+await test('image path format (compress disabled): prefix-original-name preserved', () => {
+  const prefix = 'def456';
+  const originalName = sanitizeFilename('photo.png');
+  const finalName = `${prefix}-${originalName}`;
+  assert.strictEqual(finalName, 'def456-photo.png');
 });
 
 // ─── Summary ─────────────────────────────────────────────────────────────────

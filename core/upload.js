@@ -84,8 +84,15 @@ async function uploadToS3(buffer, key, contentType) {
   return `${process.env.S3_ENDPOINT}/${process.env.S3_BUCKET}/${fullKey}`;
 }
 
-/** Returns the default image sizes (thumbnail + medium). */
-function getImageSizes(core, entity, property) {
+/**
+ * Returns image processing options for the given entity + property.
+ *
+ * Defaults:
+ *   - compress: true  (convert to JPEG at quality 80; disable with `options.compress: false`)
+ *   - quality:  80    (JPEG quality 1-100; override with `options.quality`)
+ *   - sizes:    null  (no resizing; enable with `options.sizes: { name: [w, h], ... }`)
+ */
+function getImageOptions(core, entity, property) {
   const entityDef = Object.values(core.entities || {}).find(
     (e) =>
       e.slug === entity ||
@@ -93,8 +100,13 @@ function getImageSizes(core, entity, property) {
       e.name === entity
   );
   const propDef = entityDef && entityDef.properties.find((p) => p.name === property);
-  return (propDef && propDef.options && propDef.options.sizes) ||
-    { thumbnail: [80, 80], medium: [160, 160] };
+  const opts = (propDef && propDef.options) || {};
+
+  return {
+    compress: opts.compress !== false,
+    quality:  typeof opts.quality === 'number' ? opts.quality : 80,
+    sizes:    opts.sizes || null,
+  };
 }
 
 /**
@@ -231,40 +243,84 @@ function registerUploadRoutes(app, core) {
             .json({ error: 'Missing entity or property fields' });
         }
 
+        const { compress, quality, sizes } = getImageOptions(core, entity, property);
         const prefix = generateUniquePrefix();
         const monthFolder = getMonthFolder();
-        const sizes = getImageSizes(core, entity, property);
-
         const sharp = getSharp();
-        const result = {};
 
-        for (const [sizeName, dims] of Object.entries(sizes)) {
-          const [width, height] = dims;
-          const filename = `${prefix}-${sizeName}.jpg`;
-          const resized = await sharp(imageBuffer)
-            .resize(width, height, { fit: 'cover' })
-            .jpeg()
-            .toBuffer();
+        if (sizes) {
+          // ── Resize mode: one output file per configured size ──────────────────
+          const result = {};
 
-          if (isS3Configured()) {
-            const key = `storage/${entity}/${property}/${monthFolder}/${filename}`;
-            result[sizeName] = await uploadToS3(resized, key, 'image/jpeg');
-          } else {
-            const publicFolder = (core.public && core.public.folder) || './public';
-            const dir = path.resolve(
-              publicFolder,
-              'storage',
-              entity,
-              property,
-              monthFolder
-            );
-            saveLocally(resized, dir, filename);
-            result[sizeName] =
-              `${getBaseUrl(core)}/storage/${entity}/${property}/${monthFolder}/${filename}`;
+          for (const [sizeName, dims] of Object.entries(sizes)) {
+            const [width, height] = dims;
+            const filename = `${prefix}-${sizeName}.jpg`;
+            let pipeline = sharp(imageBuffer).resize(width, height, { fit: 'cover' });
+            pipeline = compress
+              ? pipeline.jpeg({ quality })
+              : pipeline.jpeg({ quality: 100 });
+            const processed = await pipeline.toBuffer();
+
+            if (isS3Configured()) {
+              const key = `storage/${entity}/${property}/${monthFolder}/${filename}`;
+              result[sizeName] = await uploadToS3(processed, key, 'image/jpeg');
+            } else {
+              const publicFolder = (core.public && core.public.folder) || './public';
+              const dir = path.resolve(
+                publicFolder,
+                'storage',
+                entity,
+                property,
+                monthFolder
+              );
+              saveLocally(processed, dir, filename);
+              result[sizeName] =
+                `${getBaseUrl(core)}/storage/${entity}/${property}/${monthFolder}/${filename}`;
+            }
           }
+
+          return res.json(result);
         }
 
-        res.json(result);
+        // ── No-resize mode: single output file ───────────────────────────────
+        let processedBuffer;
+        let outputMime;
+        let finalName;
+
+        if (compress) {
+          // Convert to JPEG with lossy compression
+          processedBuffer = await sharp(imageBuffer).jpeg({ quality }).toBuffer();
+          outputMime = 'image/jpeg';
+          const baseName = path.basename(
+            sanitizeFilename(imageInfo.filename),
+            path.extname(imageInfo.filename)
+          );
+          finalName = `${prefix}-${baseName}.jpg`;
+        } else {
+          // Keep original bytes untouched
+          processedBuffer = imageBuffer;
+          outputMime = imageInfo.mimeType || 'image/octet-stream';
+          finalName = `${prefix}-${sanitizeFilename(imageInfo.filename)}`;
+        }
+
+        let url;
+        if (isS3Configured()) {
+          const key = `storage/${entity}/${property}/${monthFolder}/${finalName}`;
+          url = await uploadToS3(processedBuffer, key, outputMime);
+        } else {
+          const publicFolder = (core.public && core.public.folder) || './public';
+          const dir = path.resolve(
+            publicFolder,
+            'storage',
+            entity,
+            property,
+            monthFolder
+          );
+          saveLocally(processedBuffer, dir, finalName);
+          url = `${getBaseUrl(core)}/storage/${entity}/${property}/${monthFolder}/${finalName}`;
+        }
+
+        res.json({ path: url });
       } catch (err) {
         logger.error('Image upload error', err.message);
         res.status(500).json({ error: err.message });
@@ -312,5 +368,5 @@ module.exports = {
   sanitizeFilename,
   generateUniquePrefix,
   saveLocally,
-  getImageSizes,
+  getImageOptions,
 };
