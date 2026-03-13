@@ -77,11 +77,19 @@ async function runSeed() {
     initDb(core);
 
     console.log('\n🌱 Seeding database...\n');
-    const summary = await seedAll(core);
+    const result = await seedAll(core);
 
-    for (const [name, count] of Object.entries(summary)) {
+    for (const [name, count] of Object.entries(result.summary)) {
       console.log(`  ✅ ${name}: ${count} record${count !== 1 ? 's' : ''} created`);
     }
+
+    if (result.adminEntities.length > 0) {
+      console.log('\n🔑 Admin user created:');
+      console.log(`   Email:    ${result.adminEmail}`);
+      console.log(`   Password: ${result.adminPassword}`);
+      console.log(`   Entities: ${result.adminEntities.join(', ')}`);
+    }
+
     console.log('\nDone!\n');
   } catch (err) {
     console.error(`\n❌ ${err.message}\n`);

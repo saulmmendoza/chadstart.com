@@ -167,8 +167,8 @@ describe('groups – seeder generates group values', () => {
 
   it('seeder: group property stores valid JSON array for multiple group', async () => {
     const { seedAll } = require('../core/seeder');
-    const summary = await seedAll(groupSeedCore);
-    assert.strictEqual(summary.Service, 3);
+    const result = await seedAll(groupSeedCore);
+    assert.strictEqual(result.summary.Service, 3);
 
     const rows = dbModule.findAll('service', {}, { perPage: 100 });
     assert.strictEqual(rows.total, 3);
@@ -202,8 +202,8 @@ describe('groups – seeder generates group values', () => {
     });
     const tmpNoGroup = path.join(os.tmpdir(), `chadstart-nogrp-${Date.now()}.db`);
     dbModule.initDb(coreNoGroupDef, tmpNoGroup);
-    const summary = await seedAll(coreNoGroupDef);
-    assert.strictEqual(summary.Item, 1);
+    const result = await seedAll(coreNoGroupDef);
+    assert.strictEqual(result.summary.Item, 1);
     const rows = dbModule.findAll('item', {}, { perPage: 10 });
     assert.ok(typeof rows.data[0].stuff === 'string');
     assert.deepStrictEqual(JSON.parse(rows.data[0].stuff), []);

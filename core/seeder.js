@@ -7,7 +7,10 @@
  */
 
 const bcrypt = require('bcryptjs');
-const { create } = require('./db');
+const { create, findAllSimple } = require('./db');
+
+const ADMIN_EMAIL = 'admin@chadstart.com';
+const ADMIN_PASSWORD = 'admin';
 
 // ─── Dummy value generators ──────────────────────────────────────────────────
 
@@ -193,7 +196,27 @@ async function seedAll(core) {
     summary[entityName] = ids.length;
   }
 
-  return summary;
+  // Create the admin@chadstart.com user in every authenticable entity
+  const adminUsers = [];
+  for (const entity of Object.values(core.authenticableEntities || {})) {
+    const existing = findAllSimple(entity.tableName, { email: ADMIN_EMAIL });
+    if (existing.length === 0) {
+      const extraProps = entity.properties.reduce((acc, prop) => {
+        if (prop.type !== 'password') {
+          acc[prop.name] = fakeValueForProp(prop, 0, core.groups);
+        }
+        return acc;
+      }, {});
+      create(entity.tableName, {
+        email: ADMIN_EMAIL,
+        password: bcrypt.hashSync(ADMIN_PASSWORD, 10),
+        ...extraProps,
+      });
+      adminUsers.push(entity.name);
+    }
+  }
+
+  return { summary, adminEmail: ADMIN_EMAIL, adminPassword: ADMIN_PASSWORD, adminEntities: adminUsers };
 }
 
-module.exports = { seedAll };
+module.exports = { seedAll, ADMIN_EMAIL, ADMIN_PASSWORD };
