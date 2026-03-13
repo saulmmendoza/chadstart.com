@@ -1,0 +1,39 @@
+{
+  "name": "@chadstart/sdk",
+  "version": "1.0.0",
+  "description": "Official JavaScript/TypeScript SDK for Chadstart BaaS",
+  "keywords": ["chadstart", "sdk", "baas", "backend", "rest", "crud"],
+  "author": "Chadstart",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/saulmmendoza/chadstart.com.git",
+    "directory": "sdk"
+  },
+  "homepage": "https://github.com/saulmmendoza/chadstart.com#readme",
+  "bugs": {
+    "url": "https://github.com/saulmmendoza/chadstart.com/issues"
+  },
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./types/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "types": "./types/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "types",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "node scripts/build.js",
+    "test": "node test/sdk.test.cjs",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {}
+}
