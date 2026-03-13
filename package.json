@@ -27,6 +27,8 @@
   "dependencies": {
     "@tailwindcss/browser": "4.2.1",
     "animate.css": "4.1.1",
+    "ajv": "^8.18.0",
+    "ajv-formats": "^3.0.1",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.6.2",
     "busboy": "^1.6.0",

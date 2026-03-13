@@ -3,89 +3,103 @@
 /**
  * Convert the raw YAML config into normalized internal models.
  *
- * Normalizes entity properties to objects with at minimum { name, type }.
- * Populates relations derived from belongsTo declarations.
+ * Authenticable entities (user collections) are entities with
+ * `authenticable: true` — no separate userCollections section.
  */
+
+const EMOJI_ACCESS = { '🌐': 'public', '🔒': 'restricted', '👨🏻‍💻': 'admin', '🚫': 'forbidden' };
+
+function normalizePolicies(raw) {
+  if (!raw) return {};
+  const out = {};
+  for (const [rule, list] of Object.entries(raw)) {
+    out[rule] = list.map((p) => ({
+      access: EMOJI_ACCESS[p.access] || p.access,
+      allow: p.allow || null,
+      condition: p.condition || null,
+    }));
+  }
+  return out;
+}
+
+function normalizeRelation(rel) {
+  if (typeof rel === 'string') return { name: rel, entity: rel };
+  return { name: rel.name || rel.entity, entity: rel.entity || rel.name, ...rel };
+}
+
+function normalizeProperty(prop) {
+  if (typeof prop === 'string') return { name: prop, type: 'string' };
+  return {
+    name: prop.name,
+    type: prop.type || 'string',
+    hidden: prop.hidden === true,
+    default: prop.default !== undefined ? prop.default : undefined,
+    options: prop.options || undefined,
+    helpText: prop.helpText || undefined,
+    validation: prop.validation || undefined,
+  };
+}
+
 function buildEntities(config) {
   const entities = {};
 
-  for (const [entityName, entityDef] of Object.entries(config.entities || {})) {
-    const properties = (entityDef.properties || []).map((prop) => {
-      if (typeof prop === 'string') {
-        return { name: prop, type: 'text' };
+  for (const [name, def] of Object.entries(config.entities || {})) {
+    const properties = (def.properties || []).map(normalizeProperty);
+
+    // Merge inline property validation into entity-level validation.
+    // Inline declarations prevail over block-level on conflict.
+    const validation = { ...(def.validation || {}) };
+    for (const p of properties) {
+      if (p.validation) {
+        validation[p.name] = { ...(validation[p.name] || {}), ...p.validation };
       }
-      return { name: prop.name, type: prop.type || 'text', ...prop };
-    });
+    }
 
-    const belongsTo = (entityDef.belongsTo || []).map((rel) => {
-      if (typeof rel === 'string') return rel;
-      return rel;
-    });
-
-    entities[entityName] = {
-      name: entityName,
-      tableName: toSnakeCase(entityName),
+    entities[name] = {
+      name,
+      tableName: toSnakeCase(name),
+      slug: def.slug || toKebabCase(name),
+      authenticable: def.authenticable === true,
+      single: def.single === true,
+      mainProp: def.mainProp || null,
+      nameSingular: def.nameSingular || null,
+      namePlural: def.namePlural || null,
+      seedCount: def.seedCount || 50,
       properties,
-      belongsTo,
-      permissions: entityDef.permissions || { read: 'public', write: 'public' },
+      belongsTo: (def.belongsTo || []).map(normalizeRelation),
+      belongsToMany: (def.belongsToMany || []).map(normalizeRelation),
+      policies: normalizePolicies(def.policies),
+      validation,
+      hooks: def.hooks || {},
+      middlewares: def.middlewares || {},
     };
   }
 
   return entities;
 }
 
-/**
- * Build user-collection models from YAML config.
- * Each user collection automatically has: email (unique), password, plus any extra properties.
- */
-function buildUserCollections(config) {
-  const userCollections = {};
-
-  for (const [name, def] of Object.entries(config.userCollections || {})) {
-    const properties = (def.properties || []).map((prop) => {
-      if (typeof prop === 'string') return { name: prop, type: 'text' };
-      return { name: prop.name, type: prop.type || 'text', ...prop };
-    });
-
-    userCollections[name] = {
-      name,
-      tableName: toSnakeCase(name),
-      // email and password are always injected as first two columns
-      properties,
-      // controls whether this collection can log in to the Admin UI
-      admin: def.admin !== false, // default: true (all user-collections can access admin)
-    };
-  }
-
-  return userCollections;
+function getAuthenticableEntities(entities) {
+  return Object.fromEntries(
+    Object.entries(entities).filter(([, e]) => e.authenticable)
+  );
 }
 
-/**
- * Convert CamelCase or PascalCase name to snake_case table name.
- */
 function toSnakeCase(str) {
-  return str
-    .replace(/([A-Z])/g, (match, p1, offset) => (offset > 0 ? '_' : '') + p1.toLowerCase())
-    .replace(/^_/, '');
+  return str.replace(/([A-Z])/g, (m, p, o) => (o > 0 ? '_' : '') + p.toLowerCase()).replace(/^_/, '');
 }
 
-/**
- * Convert PascalCase / camelCase to kebab-case slug used in API paths.
- */
 function toKebabCase(str) {
-  return str
-    .replace(/([A-Z])/g, (m, p, offset) => (offset > 0 ? '-' : '') + p.toLowerCase())
-    .replace(/^-/, '');
+  return str.replace(/([A-Z])/g, (m, p, o) => (o > 0 ? '-' : '') + p.toLowerCase()).replace(/^-/, '');
 }
 
-/**
- * Build the full core model from a validated YAML config.
- */
 function buildCore(config) {
+  const entities = buildEntities(config);
   return {
     name: config.name,
-    entities: buildEntities(config),
-    userCollections: buildUserCollections(config),
+    entities,
+    authenticableEntities: getAuthenticableEntities(entities),
+    endpoints: config.endpoints || {},
+    groups: config.groups || {},
     plugins: config.plugins || [],
     files: config.files || {},
     public: config.public || null,
@@ -93,4 +107,4 @@ function buildCore(config) {
   };
 }
 
-module.exports = { buildCore, buildEntities, buildUserCollections, toSnakeCase, toKebabCase };
+module.exports = { buildCore, buildEntities, getAuthenticableEntities, toSnakeCase, toKebabCase };
