@@ -109,6 +109,8 @@ function buildColumnDefs(entity, allEntities) {
   }
 
   for (const p of entity.properties) {
+    // Skip email/password for authenticable entities — they are already added above
+    if (entity.authenticable && (p.name === 'email' || p.name === 'password')) continue;
     cols.push({ name: p.name, def: `"${p.name}" ${SQL_TYPE[p.type] || 'TEXT'}` });
   }
 
