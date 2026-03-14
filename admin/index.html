@@ -4,24 +4,20 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ChadStart Admin</title>
-  <!-- Tailwind CSS v4 browser runtime (served locally from node_modules) -->
   <script src="/admin/vendor/tailwind.js"></script>
-  <!-- HTMX – server-driven table loading (served locally from node_modules) -->
-  <script src="/admin/vendor/htmx.min.js"></script>
-  <!-- Carbon Elegance dark palette -->
   <style type="text/tailwindcss">
     @theme {
       --color-cs-bg: #121212;
       --color-cs-surface: #1e1e1e;
       --color-cs-border: #2a2a2a;
-      --color-cs-primary: #bb86fc;
+      --color-cs-primary: #34b1eb;
       --color-cs-accent: #03dac6;
       --color-cs-text: #e1e1e1;
       --color-cs-muted: #888888;
     }
   </style>
   <style>
-    /* ── Sidebar nav items ────────────────────────────────────────── */
+    /* ── Sidebar nav items ─────────────────────────────────────────── */
     .nav-item {
       display: block; padding: 7px 16px; font-size: .875rem; cursor: pointer;
       color: #888; border-left: 2px solid transparent;
@@ -29,21 +25,52 @@
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .nav-item:hover { background: rgba(255,255,255,.04); color: #e1e1e1; }
-    .nav-item.active { background: rgba(187,134,252,.07); border-left-color: #bb86fc; color: #bb86fc; }
-    /* ── Thin sidebar scrollbar ───────────────────────────────────── */
+    .nav-item.active { background: rgba(52,177,235,.07); border-left-color: #34b1eb; color: #34b1eb; }
+    /* ── Thin sidebar scrollbar ────────────────────────────────────── */
     .sidebar-nav { scrollbar-width: thin; scrollbar-color: #2a2a2a transparent; }
-    /* ── Config editor tab active state ──────────────────────────── */
-    .cfg-tab.active { background: rgba(187,134,252,.12); border-color: #bb86fc; color: #bb86fc; }
+    /* ── Config editor tab active state ────────────────────────────── */
+    .cfg-tab.active { background: rgba(52,177,235,.12); border-color: #34b1eb; color: #34b1eb; }
+
+    /* ── Animated glowing border button ────────────────────────────── */
+    @property --glow-a { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+    @keyframes spin-glow { to { --glow-a: 360deg; } }
+    .btn-glow {
+      border: 2px solid transparent;
+      background:
+        linear-gradient(#1e1e1e, #1e1e1e) padding-box,
+        conic-gradient(from var(--glow-a), #34b1eb 0%, #0e7fc4 40%, transparent 60%, #34b1eb 100%) border-box;
+      animation: spin-glow 2s linear infinite;
+      color: #34b1eb; font-weight: 500;
+      transition: opacity 150ms ease;
+    }
+    .btn-glow:hover { opacity: 0.8; }
+    .btn-glow:disabled { opacity: 0.4; animation: none; }
+
+    /* ── Tab buttons ──────────────────────────────────────────────── */
+    .tab-btn { padding: 5px 14px; font-size: 12px; border: 1px solid #2a2a2a; border-radius: 4px; cursor: pointer; color: #888; background: transparent; transition: all 150ms; }
+    .tab-btn.active { border-color: #34b1eb; color: #34b1eb; background: rgba(52,177,235,.08); }
+
+    /* ── Code block ───────────────────────────────────────────────── */
+    .code-block { background: #0d0d0d; border: 1px solid #2a2a2a; border-radius: 6px; padding: 12px 14px; font-family: monospace; font-size: 12px; color: #e1e1e1; white-space: pre; overflow-x: auto; line-height: 1.6; }
+
+    /* ── Activity feed ────────────────────────────────────────────── */
+    .activity-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+    .dot-create { background: #34b1eb; }
+    .dot-update { background: #fbbf24; }
+    .dot-delete { background: #f87171; }
+
+    /* ── Row highlight (vim nav) ──────────────────────────────────── */
+    tr.row-hl td { background: rgba(52,177,235,.06) !important; }
   </style>
 </head>
 <body class="bg-cs-bg text-cs-text min-h-screen flex" style="font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;">
 
-<!-- ── Login overlay ──────────────────────────────────────────────────── -->
+<!-- ── Login overlay ──────────────────────────────────────────────────────── -->
 <div id="login-overlay" class="fixed inset-0 bg-cs-bg flex items-center justify-center z-50 p-4">
-  <div class="bg-cs-surface border border-cs-border rounded p-8 w-full max-w-sm" style="box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
-    <div class="font-semibold text-cs-text text-base mb-6">ChadStart Admin</div>
+  <div class="bg-cs-surface border border-cs-border rounded p-8 w-full max-w-sm" style="box-shadow: 0 2px 16px rgba(52,177,235,.1);">
+    <div id="login-project-name" class="font-bold text-cs-text text-xl mb-0.5">Admin</div>
+    <div class="text-[11px] text-cs-muted mb-6">Powered by ChadStart.com</div>
     <div id="login-error" class="text-red-400 text-sm mb-4 hidden"></div>
-
     <div id="login-collection-section" class="hidden mb-4">
       <label class="block text-sm text-cs-muted mb-1">Collection</label>
       <input type="text" id="login-collection"
@@ -56,45 +83,43 @@
         Change collection
       </button>
     </div>
-
     <label class="block text-sm text-cs-muted mb-1">Email</label>
     <input type="email" id="login-email" placeholder="admin@example.com" autocomplete="email"
       class="w-full bg-cs-bg border border-cs-border rounded text-cs-text px-3 py-2 text-sm mb-4 outline-none focus:border-cs-primary" style="transition: border-color 150ms ease;" />
-
     <label class="block text-sm text-cs-muted mb-1">Password</label>
     <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password"
       class="w-full bg-cs-bg border border-cs-border rounded text-cs-text px-3 py-2 text-sm mb-5 outline-none focus:border-cs-primary" style="transition: border-color 150ms ease;" />
-
-    <button id="login-btn" onclick="doLogin()"
-      class="w-full py-2 px-4 rounded text-sm cursor-pointer bg-cs-primary text-cs-bg font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed" style="transition: opacity 150ms ease;">
+    <button id="login-btn" onclick="doLogin()" class="btn-glow w-full py-2 px-4 rounded text-sm cursor-pointer">
       <span>Sign in</span>
     </button>
   </div>
 </div>
 
-<!-- ── Mobile sidebar backdrop ────────────────────────────────────────── -->
+<!-- ── Mobile sidebar backdrop ────────────────────────────────────────────── -->
 <div id="sidebar-overlay" class="fixed inset-0 bg-black/50 z-30 hidden lg:hidden" onclick="closeSidebar()"></div>
 
-<!-- ── Sidebar ────────────────────────────────────────────────────────── -->
+<!-- ── Sidebar ────────────────────────────────────────────────────────────── -->
 <aside id="sidebar"
   class="fixed inset-y-0 left-0 z-40 w-60 bg-cs-surface border-r border-cs-border flex flex-col
          -translate-x-full lg:translate-x-0" style="transition: transform 150ms ease;">
   <div class="px-4 py-4 border-b border-cs-border">
-    <div class="font-semibold text-cs-text">ChadStart</div>
-    <div id="project-name" class="text-cs-muted text-xs mt-0.5">Admin</div>
+    <div id="project-name" class="text-lg font-bold text-cs-text truncate">Loading…</div>
+    <div class="text-[10px] text-cs-muted mt-0.5">Powered by ChadStart.com</div>
   </div>
-
   <nav class="sidebar-nav flex-1 overflow-y-auto py-2">
-    <div class="px-4 pt-3 pb-1 text-xs text-cs-muted">Collections</div>
+    <div class="px-4 pt-2 pb-1 text-xs text-cs-muted">Overview</div>
+    <div id="nav-dashboard">
+      <div class="nav-item" id="nav-dashboard-item" onclick="selectDashboard(this)">📊 Dashboard</div>
+    </div>
+    <div class="px-4 pt-3 pb-1 text-xs text-cs-muted border-t border-cs-border mt-2">Collections</div>
     <div id="nav-user-collections"></div>
-    <div class="px-4 pt-4 pb-1 text-xs text-cs-muted border-t border-cs-border mt-2">Entities</div>
+    <div class="px-4 pt-3 pb-1 text-xs text-cs-muted border-t border-cs-border mt-2">Entities</div>
     <div id="nav-entities"></div>
-    <div class="px-4 pt-4 pb-1 text-xs text-cs-muted border-t border-cs-border mt-2">Admin</div>
+    <div class="px-4 pt-3 pb-1 text-xs text-cs-muted border-t border-cs-border mt-2">Admin</div>
     <div id="nav-admin">
       <div class="nav-item" id="nav-config-item" onclick="selectConfig(this)">⚙ Config Editor</div>
     </div>
   </nav>
-
   <div class="border-t border-cs-border px-4 py-3">
     <div class="flex items-center gap-2 mb-3">
       <div id="user-avatar"
@@ -110,32 +135,125 @@
   </div>
 </aside>
 
-<!-- ── Main ───────────────────────────────────────────────────────────── -->
+<!-- ── Main ───────────────────────────────────────────────────────────────── -->
 <div id="main" class="flex-1 flex flex-col min-w-0 lg:ml-60">
+
+  <!-- Header -->
   <header class="flex items-center justify-between px-5 py-3 border-b border-cs-border bg-cs-surface sticky top-0 z-20">
     <div class="flex items-center gap-3">
       <button class="lg:hidden text-cs-muted hover:text-cs-text" onclick="openSidebar()" aria-label="Menu" style="transition: color 150ms ease;">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
-        </svg>
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
       </button>
-      <span id="page-title" class="font-medium text-sm text-cs-text">Select a collection</span>
+      <span id="page-title" class="font-medium text-sm text-cs-text">Dashboard</span>
     </div>
-    <button id="btn-add" onclick="openAddModal()"
-      class="hidden py-1.5 px-3 rounded text-sm cursor-pointer border border-cs-border text-cs-text hover:bg-cs-border" style="transition: background 150ms ease;">
-      + New record
-    </button>
+    <div id="header-actions" class="flex items-center gap-2">
+      <!-- Table-only buttons -->
+      <button id="btn-share" onclick="shareView()" title="Share current view"
+        class="hidden py-1.5 px-3 rounded text-sm cursor-pointer border border-cs-border text-cs-muted hover:text-cs-text" style="transition: color 150ms,background 150ms;">🔗 Share</button>
+      <button id="btn-devs" onclick="openDevsModal()"
+        class="hidden py-1.5 px-3 rounded text-sm cursor-pointer border border-cs-border text-cs-muted hover:text-cs-text" style="transition: color 150ms,background 150ms;">&lt;/&gt; Developers</button>
+      <button id="btn-seed" onclick="openSeedModal()"
+        class="py-1.5 px-3 rounded text-sm cursor-pointer border border-cs-border text-cs-muted hover:text-cs-text" style="transition: color 150ms,background 150ms;">🌱 Seed</button>
+      <button onclick="openShortcutsModal()" title="Keyboard shortcuts (?)"
+        class="py-1.5 px-2 rounded text-sm cursor-pointer border border-cs-border text-cs-muted hover:text-cs-text" style="transition: color 150ms,background 150ms;">?</button>
+      <button id="btn-add" onclick="openAddModal()"
+        class="btn-glow hidden py-1.5 px-3 rounded text-sm cursor-pointer">+ New record</button>
+    </div>
   </header>
 
   <main class="p-5 flex-1 overflow-auto">
+
+    <!-- Loading spinner -->
     <div id="loading" class="hidden flex justify-center py-16">
       <div class="w-6 h-6 border-2 border-cs-border border-t-cs-primary rounded-full animate-spin"></div>
     </div>
-    <div id="table-area"></div>
 
-    <!-- ── Config Editor ─────────────────────────────────────────── -->
+    <!-- ── Dashboard ──────────────────────────────────────────────────── -->
+    <div id="dashboard-area" class="hidden">
+      <div id="stats-grid" class="grid gap-4 mb-6" style="grid-template-columns: repeat(auto-fill, minmax(180px,1fr));"></div>
+      <div class="grid gap-4" style="grid-template-columns: 1fr 1fr;">
+        <div class="bg-cs-surface border border-cs-border rounded p-4">
+          <div class="text-sm font-medium text-cs-text mb-3 flex items-center gap-2">
+            <span>📡 Live Activity</span>
+            <span id="ws-badge" class="text-[10px] px-1.5 py-0.5 rounded" style="background:rgba(52,177,235,.12);color:#34b1eb;">connecting…</span>
+          </div>
+          <div id="activity-feed" class="space-y-0 max-h-80 overflow-y-auto text-xs"></div>
+        </div>
+        <div class="bg-cs-surface border border-cs-border rounded p-4">
+          <div class="text-sm font-medium text-cs-text mb-3">📈 Entity Summary</div>
+          <div id="entity-summary"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Table view ──────────────────────────────────────────────────── -->
+    <div id="table-view" class="hidden">
+      <!-- Search & filter toolbar -->
+      <div id="search-toolbar" class="mb-4">
+        <div class="flex gap-2 flex-wrap items-center mb-2">
+          <input id="search-input" type="search" placeholder="Search…"
+            class="bg-cs-bg border border-cs-border rounded text-cs-text px-3 py-1.5 text-sm outline-none focus:border-cs-primary flex-1 min-w-40"
+            style="transition: border-color 150ms;" oninput="onSearchInput()" />
+          <button onclick="toggleAdvancedSearch()" id="btn-adv"
+            class="py-1.5 px-3 text-sm border border-cs-border rounded text-cs-muted hover:text-cs-text cursor-pointer whitespace-nowrap" style="transition: color 150ms;">⚙ Filters</button>
+          <select id="order-by-sel" onchange="onOrderChange()"
+            class="bg-cs-bg border border-cs-border rounded text-cs-text px-2 py-1.5 text-sm outline-none cursor-pointer">
+            <option value="createdAt">Created</option>
+            <option value="updatedAt">Updated</option>
+            <option value="id">ID</option>
+          </select>
+          <select id="order-dir-sel" onchange="onOrderChange()"
+            class="bg-cs-bg border border-cs-border rounded text-cs-text px-2 py-1.5 text-sm outline-none cursor-pointer">
+            <option value="DESC">↓ Desc</option>
+            <option value="ASC">↑ Asc</option>
+          </select>
+          <select id="per-page-sel" onchange="onPerPageChange()"
+            class="bg-cs-bg border border-cs-border rounded text-cs-text px-2 py-1.5 text-sm outline-none cursor-pointer">
+            <option value="10">10/pg</option>
+            <option value="20" selected>20/pg</option>
+            <option value="50">50/pg</option>
+            <option value="100">100/pg</option>
+          </select>
+          <button onclick="exportData('csv')" title="Export CSV"
+            class="py-1.5 px-3 text-sm border border-cs-border rounded text-cs-muted hover:text-cs-text cursor-pointer whitespace-nowrap" style="transition: color 150ms;">↓ CSV</button>
+          <button onclick="exportData('json')" title="Export JSON"
+            class="py-1.5 px-3 text-sm border border-cs-border rounded text-cs-muted hover:text-cs-text cursor-pointer whitespace-nowrap" style="transition: color 150ms;">↓ JSON</button>
+        </div>
+        <!-- Advanced filter panel -->
+        <div id="adv-panel" class="hidden bg-cs-surface border border-cs-border rounded p-3 mb-2">
+          <div class="text-xs text-cs-muted mb-2">Advanced Filters</div>
+          <div id="adv-filter-list" class="space-y-2"></div>
+          <div class="flex gap-2 mt-2">
+            <button onclick="addAdvFilter()" class="text-xs border border-cs-border rounded px-2 py-1 text-cs-muted hover:text-cs-text cursor-pointer">+ Add filter</button>
+            <button onclick="applyAdvFilters()" class="text-xs border rounded px-2 py-1 cursor-pointer" style="border-color:#34b1eb;color:#34b1eb;">Apply</button>
+            <button onclick="clearAdvFilters()" class="text-xs border border-cs-border rounded px-2 py-1 text-cs-muted hover:text-cs-text cursor-pointer">Clear</button>
+          </div>
+        </div>
+        <!-- Bulk actions bar -->
+        <div id="bulk-bar" class="hidden flex items-center gap-3 bg-cs-surface border border-cs-border rounded px-3 py-2 mb-2">
+          <span id="bulk-count" class="text-sm text-cs-text">0 selected</span>
+          <button onclick="bulkDelete()" class="text-xs border rounded px-2 py-1 cursor-pointer" style="border-color:rgba(239,68,68,.4);color:#f87171;">Delete selected</button>
+          <button onclick="clearSelection()" class="text-xs border border-cs-border rounded px-2 py-1 text-cs-muted hover:text-cs-text cursor-pointer">Clear</button>
+        </div>
+      </div>
+
+      <div id="table-area"></div>
+
+      <!-- Pagination -->
+      <div id="pagination" class="hidden flex items-center justify-between mt-4 flex-wrap gap-2">
+        <span id="pg-info" class="text-xs text-cs-muted"></span>
+        <div class="flex items-center gap-1">
+          <button onclick="goPage(1)" id="pg-first" class="px-2 py-1 text-xs border border-cs-border rounded text-cs-muted hover:text-cs-text cursor-pointer">«</button>
+          <button onclick="goPage(curPage-1)" id="pg-prev" class="px-2 py-1 text-xs border border-cs-border rounded text-cs-muted hover:text-cs-text cursor-pointer">‹</button>
+          <span id="pg-btns" class="flex gap-1"></span>
+          <button onclick="goPage(curPage+1)" id="pg-next" class="px-2 py-1 text-xs border border-cs-border rounded text-cs-muted hover:text-cs-text cursor-pointer">›</button>
+          <button onclick="goPage(curLastPage)" id="pg-last" class="px-2 py-1 text-xs border border-cs-border rounded text-cs-muted hover:text-cs-text cursor-pointer">»</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Config Editor ─────────────────────────────────────────────── -->
     <div id="config-area" class="hidden">
-      <!-- Section tabs -->
       <div class="flex gap-1 flex-wrap mb-4 border-b border-cs-border pb-3">
         <button onclick="showConfigTab('general')"   id="cfg-tab-general"   class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;">General</button>
         <button onclick="showConfigTab('entities')"  id="cfg-tab-entities"  class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;">Entities</button>
@@ -144,44 +262,37 @@
         <button onclick="showConfigTab('settings')"  id="cfg-tab-settings"  class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;">Settings</button>
         <button onclick="showConfigTab('all')"       id="cfg-tab-all"       class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;">All</button>
       </div>
-
-      <!-- Section description -->
       <p id="cfg-section-desc" class="text-xs mb-3" style="color:#888;"></p>
-
-      <!-- Form-based editor (General / Entities / Endpoints / Files / Settings tabs) -->
       <div id="cfg-form" class="hidden"></div>
-
-      <!-- Raw JSON editor (All tab) -->
       <textarea id="cfg-editor"
         class="w-full bg-cs-bg border border-cs-border rounded text-cs-text px-3 py-2.5 text-xs font-mono outline-none focus:border-cs-primary resize-y"
         style="min-height:400px;transition:border-color 150ms;line-height:1.6;tab-size:2;"
         spellcheck="false"></textarea>
-
-      <!-- Actions -->
       <div class="flex items-center gap-3 mt-4">
-        <button onclick="saveConfig()"
-          class="py-1.5 px-4 rounded text-sm cursor-pointer bg-cs-primary text-cs-bg font-medium hover:opacity-90 disabled:opacity-50"
-          id="cfg-save-btn" style="transition:opacity 150ms;">Save Config</button>
+        <button onclick="saveConfig()" id="cfg-save-btn"
+          class="py-1.5 px-4 rounded text-sm cursor-pointer font-medium hover:opacity-90 disabled:opacity-50"
+          style="background:#34b1eb;color:#121212;transition:opacity 150ms;">Save Config</button>
         <button onclick="resetConfigTab()"
           class="text-sm border border-cs-border rounded py-1.5 px-4 text-cs-muted hover:text-cs-text hover:bg-cs-border" style="transition:color 150ms,background 150ms;">Reset</button>
         <span id="cfg-status" class="text-xs" style="color:#888;"></span>
       </div>
-
-      <!-- S3 info note -->
       <div id="cfg-s3-note" class="hidden mt-4 p-3 rounded border text-xs" style="border-color:#2a2a2a;color:#888;">
         <strong style="color:#e1e1e1;">S3 Storage</strong> is configured via environment variables:<br>
-        <code style="color:#bb86fc;">S3_BUCKET</code>, <code style="color:#bb86fc;">S3_ENDPOINT</code>,
-        <code style="color:#bb86fc;">S3_REGION</code>, <code style="color:#bb86fc;">S3_ACCESS_KEY_ID</code>,
-        <code style="color:#bb86fc;">S3_SECRET_ACCESS_KEY</code>.<br>
-        Set these in your <code style="color:#bb86fc;">.env</code> file or deployment environment.
+        <code style="color:#34b1eb;">S3_BUCKET</code>, <code style="color:#34b1eb;">S3_ENDPOINT</code>,
+        <code style="color:#34b1eb;">S3_REGION</code>, <code style="color:#34b1eb;">S3_ACCESS_KEY_ID</code>,
+        <code style="color:#34b1eb;">S3_SECRET_ACCESS_KEY</code>.<br>
+        Set these in your <code style="color:#34b1eb;">.env</code> file or deployment environment.
       </div>
     </div>
   </main>
 </div>
 
-<!-- ── Record modal ───────────────────────────────────────────────────── -->
+<!-- ── Toast ──────────────────────────────────────────────────────────────── -->
+<div id="toast" class="hidden fixed bottom-6 right-6 z-50"></div>
+
+<!-- ── Record modal ───────────────────────────────────────────────────────── -->
 <div id="modal-backdrop" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden">
-  <div id="modal" class="bg-cs-surface border border-cs-border rounded w-full max-w-lg max-h-[90vh] flex flex-col" style="box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
+  <div class="bg-cs-surface border border-cs-border rounded w-full max-w-lg max-h-[90vh] flex flex-col" style="box-shadow: 0 2px 8px rgba(0,0,0,.3);">
     <div class="flex items-center justify-between px-5 py-3 border-b border-cs-border">
       <span id="modal-title" class="font-medium text-sm">New record</span>
       <button onclick="closeModal()" class="text-cs-muted hover:text-cs-text text-xl leading-none" style="transition: color 150ms ease;">×</button>
@@ -191,868 +302,1303 @@
       <button onclick="closeModal()"
         class="text-sm border border-cs-border rounded py-1.5 px-4 text-cs-muted hover:text-cs-text hover:bg-cs-border" style="transition: color 150ms ease, background 150ms ease;">Cancel</button>
       <button id="modal-save-btn" onclick="saveRecord()"
-        class="py-1.5 px-4 rounded text-sm cursor-pointer bg-cs-primary text-cs-bg font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed" style="transition: opacity 150ms ease;">
-        <span>Save</span>
-      </button>
+        class="py-1.5 px-4 rounded text-sm cursor-pointer font-medium hover:opacity-90 disabled:opacity-50"
+        style="background:#34b1eb;color:#121212;transition:opacity 150ms;"><span>Save</span></button>
     </div>
   </div>
 </div>
 
-<!-- ── Toast ──────────────────────────────────────────────────────────── -->
-<div id="toast" class="hidden fixed bottom-6 right-6 z-50"></div>
+<!-- ── Developers modal ───────────────────────────────────────────────────── -->
+<div id="devs-modal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden">
+  <div class="bg-cs-surface border border-cs-border rounded w-full max-w-2xl max-h-[90vh] flex flex-col" style="box-shadow: 0 2px 8px rgba(0,0,0,.3);">
+    <div class="flex items-center justify-between px-5 py-3 border-b border-cs-border">
+      <span class="font-medium text-sm">&lt;/&gt; Developer Examples</span>
+      <button onclick="closeDevsModal()" class="text-cs-muted hover:text-cs-text text-xl leading-none">×</button>
+    </div>
+    <div class="px-5 pt-3 pb-2 flex gap-2 border-b border-cs-border">
+      <button class="tab-btn active" id="devs-sdk-tab" onclick="switchDevsTab('sdk')">JS SDK</button>
+      <button class="tab-btn" id="devs-rest-tab" onclick="switchDevsTab('rest')">cURL</button>
+    </div>
+    <div id="devs-body" class="p-5 overflow-y-auto flex-1"></div>
+  </div>
+</div>
+
+<!-- ── Seed modal ─────────────────────────────────────────────────────────── -->
+<div id="seed-modal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden">
+  <div class="bg-cs-surface border border-cs-border rounded w-full max-w-md max-h-[90vh] flex flex-col" style="box-shadow: 0 2px 8px rgba(0,0,0,.3);">
+    <div class="flex items-center justify-between px-5 py-3 border-b border-cs-border">
+      <span class="font-medium text-sm">🌱 Seed Database</span>
+      <button onclick="closeSeedModal()" class="text-cs-muted hover:text-cs-text text-xl leading-none">×</button>
+    </div>
+    <div class="p-5 overflow-y-auto flex-1">
+      <p class="text-xs text-cs-muted mb-4">Choose entities and how many fake records to generate.</p>
+      <div id="seed-list" class="space-y-2 mb-4"></div>
+      <div id="seed-result" class="hidden text-xs mt-2" style="color:#34b1eb;"></div>
+    </div>
+    <div class="flex justify-end gap-2 px-5 py-3 border-t border-cs-border">
+      <button onclick="closeSeedModal()" class="text-sm border border-cs-border rounded py-1.5 px-4 text-cs-muted hover:text-cs-text">Cancel</button>
+      <button id="seed-btn" onclick="doSeed()" class="py-1.5 px-4 rounded text-sm cursor-pointer font-medium hover:opacity-90" style="background:#34b1eb;color:#121212;transition:opacity 150ms;">Seed</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Keyboard shortcuts modal ───────────────────────────────────────────── -->
+<div id="shortcuts-modal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden">
+  <div class="bg-cs-surface border border-cs-border rounded w-full max-w-sm" style="box-shadow: 0 2px 8px rgba(0,0,0,.3);">
+    <div class="flex items-center justify-between px-5 py-3 border-b border-cs-border">
+      <span class="font-medium text-sm">⌨ Keyboard Shortcuts</span>
+      <button onclick="closeShortcutsModal()" class="text-cs-muted hover:text-cs-text text-xl leading-none">×</button>
+    </div>
+    <div class="p-5">
+      <table class="w-full text-xs">
+        <tbody>
+          <tr><td class="py-1 pr-6"><kbd class="bg-cs-bg border border-cs-border rounded px-1.5 py-0.5 font-mono">j / k</kbd></td><td class="py-1 text-cs-muted">Navigate rows down / up</td></tr>
+          <tr><td class="py-1 pr-6"><kbd class="bg-cs-bg border border-cs-border rounded px-1.5 py-0.5 font-mono">/</kbd></td><td class="py-1 text-cs-muted">Focus search</td></tr>
+          <tr><td class="py-1 pr-6"><kbd class="bg-cs-bg border border-cs-border rounded px-1.5 py-0.5 font-mono">n</kbd></td><td class="py-1 text-cs-muted">New record</td></tr>
+          <tr><td class="py-1 pr-6"><kbd class="bg-cs-bg border border-cs-border rounded px-1.5 py-0.5 font-mono">e</kbd></td><td class="py-1 text-cs-muted">Edit highlighted row</td></tr>
+          <tr><td class="py-1 pr-6"><kbd class="bg-cs-bg border border-cs-border rounded px-1.5 py-0.5 font-mono">d</kbd></td><td class="py-1 text-cs-muted">Delete highlighted row</td></tr>
+          <tr><td class="py-1 pr-6"><kbd class="bg-cs-bg border border-cs-border rounded px-1.5 py-0.5 font-mono">] / [</kbd></td><td class="py-1 text-cs-muted">Next / previous page</td></tr>
+          <tr><td class="py-1 pr-6"><kbd class="bg-cs-bg border border-cs-border rounded px-1.5 py-0.5 font-mono">g g</kbd></td><td class="py-1 text-cs-muted">First page</td></tr>
+          <tr><td class="py-1 pr-6"><kbd class="bg-cs-bg border border-cs-border rounded px-1.5 py-0.5 font-mono">G</kbd></td><td class="py-1 text-cs-muted">Last page</td></tr>
+          <tr><td class="py-1 pr-6"><kbd class="bg-cs-bg border border-cs-border rounded px-1.5 py-0.5 font-mono">Esc</kbd></td><td class="py-1 text-cs-muted">Close modal / blur</td></tr>
+          <tr><td class="py-1 pr-6"><kbd class="bg-cs-bg border border-cs-border rounded px-1.5 py-0.5 font-mono">?</kbd></td><td class="py-1 text-cs-muted">Show this help</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
 <script>
-  // ── State ──────────────────────────────────────────────────────────────
-  let schema = null, currentItem = null, editingRecord = null, toastTimer;
-  let authToken = localStorage.getItem('cs_token') || null; // NOTE: httpOnly cookie preferred in production
-  let authUser = null, authCollection = null;
+// ── Global state ─────────────────────────────────────────────────────────────
+let schema = null, currentItem = null, editingRecord = null, toastTimer;
+let authToken = localStorage.getItem('cs_token') || null;
+let authUser = null, authCollection = null;
 
-  // ── HTMX: inject Bearer token on every request ─────────────────────────
-  document.body.addEventListener('htmx:configRequest', e => {
-    if (authToken) e.detail.headers['Authorization'] = 'Bearer ' + authToken;
-  });
+// Table state
+let curPage = 1, curLastPage = 1, curPerPage = 20;
+let curSearch = '', curOrderBy = 'createdAt', curOrder = 'DESC';
+let advFilters = [];
+let selectedIds = new Set();
+let tableRows = [];
+let hlRowIdx = -1;
+let searchDebounce = null;
 
-  // ── HTMX: after table partial swaps in ─────────────────────────────────
-  document.body.addEventListener('htmx:afterSwap', e => {
-    if (e.detail.target.id !== 'table-area') return;
-    document.getElementById('loading').classList.add('hidden');
-  });
-  document.body.addEventListener('htmx:responseError', e => {
-    if (e.detail.target?.id === 'table-area') {
-      document.getElementById('loading').classList.add('hidden');
-      toast('Failed to load data', 'error');
-    }
-  });
+// Config editor
+let configMode = false, configData = null, configActiveTab = 'general';
+let _cfgEntityId = 0, _cfgEndpointId = 0, _cfgFileId = 0, _cfgRlId = 0;
 
-  // ── Bootstrap ─────────────────────────────────────────────────────────
-  async function init() {
+// Devs modal
+let devsTab = 'sdk';
+
+// Realtime
+let rtWs = null;
+let activityLog = [];
+
+// Vim key chording
+let lastVimKey = '', lastVimTime = 0;
+
+// ── Bootstrap ─────────────────────────────────────────────────────────────────
+async function init() {
+  try {
+    schema = await fetch('/admin/schema').then(r => r.json());
+  } catch { toast('Failed to load schema', 'error'); return; }
+
+  document.getElementById('project-name').textContent = schema.name;
+  document.getElementById('login-project-name').textContent = schema.name;
+  document.title = schema.name + ' Admin';
+  populateLoginCollections();
+  buildSidebar();
+
+  // Restore from URL params (share view)
+  const qp = new URLSearchParams(location.search);
+  if (qp.get('entity')) {
+    curSearch = qp.get('search') || '';
+    curOrderBy = qp.get('orderBy') || 'createdAt';
+    curOrder = qp.get('order') || 'DESC';
+    curPage = parseInt(qp.get('page') || '1', 10);
+  }
+
+  if (authToken) {
     try {
-      schema = await fetch('/admin/schema').then(r => r.json());
-    } catch { toast('Failed to load schema', 'error'); return; }
-
-    document.getElementById('project-name').textContent = schema.name;
-    populateLoginCollections();
-    buildSidebar();
-
-    if (authToken) {
-      try {
-        const col = getAdminCollections()[0];
-        if (col) {
-          const r = await apiFetch(`/api/auth/${toSlug(col.name)}/me`);
-          if (r.ok) { authUser = await r.json(); authCollection = col.name; showApp(); return; }
-        }
-      } catch { /* fall through to login */ }
-      authToken = null;
-      localStorage.removeItem('cs_token');
-    }
-    showLogin();
+      const col = getAdminCollections()[0];
+      if (col) {
+        const r = await apiFetch(`/api/auth/${toSlug(col.name)}/me`);
+        if (r.ok) { authUser = await r.json(); authCollection = col.name; showApp(); return; }
+      }
+    } catch { /* fall through */ }
+    authToken = null;
+    localStorage.removeItem('cs_token');
   }
+  showLogin();
+}
 
-  // ── Auth ───────────────────────────────────────────────────────────────
-  function getAdminCollections() {
-    return (schema.entities || []).filter(e => e.authenticable && e.admin !== false);
-  }
+// ── Auth ──────────────────────────────────────────────────────────────────────
+function getAdminCollections() {
+  return (schema.entities || []).filter(e => e.authenticable && e.admin !== false);
+}
 
-  function populateLoginCollections() {
-    const cols = getAdminCollections();
-    const input = document.getElementById('login-collection');
-    if (cols.length) {
-      input.value = cols[0].name;
-    } else {
-      input.value = '';
-      const errEl = document.getElementById('login-error');
-      errEl.textContent = 'No admin collections configured'; errEl.classList.remove('hidden');
-      document.getElementById('login-btn').disabled = true;
-    }
-  }
-
-  function toggleCollectionField() {
-    const section = document.getElementById('login-collection-section');
-    const btn = document.getElementById('toggle-collection-btn');
-    const isHidden = section.classList.contains('hidden');
-    section.classList.toggle('hidden', !isHidden);
-    btn.textContent = isHidden ? 'Hide collection' : 'Change collection';
-    if (isHidden) document.getElementById('login-collection').focus();
-  }
-
-  async function doLogin() {
-    const collectionName = document.getElementById('login-collection').value.trim().replace(/[^a-zA-Z0-9 _-]/g, '');
-    const email = document.getElementById('login-email').value.trim();
-    const password = document.getElementById('login-password').value;
+function populateLoginCollections() {
+  const cols = getAdminCollections();
+  const input = document.getElementById('login-collection');
+  if (cols.length) {
+    input.value = cols[0].name;
+  } else {
+    input.value = '';
     const errEl = document.getElementById('login-error');
-    const btn = document.getElementById('login-btn');
-    const btnText = btn.querySelector('span');
-
-    errEl.classList.add('hidden');
-    if (!collectionName || !email || !password) {
-      errEl.textContent = 'All fields are required'; errEl.classList.remove('hidden'); return;
-    }
-
-    btn.disabled = true; btnText.textContent = 'Signing in…';
-
-    const col = getAdminCollections().find(c => c.name === collectionName);
-    if (!col) { showLoginError('Collection not found'); return; }
-
-    try {
-      const r = await fetch(`/api/auth/${toSlug(col.name)}/login`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-      const data = await r.json();
-      if (!r.ok) { showLoginError(data.error || 'Login failed'); return; }
-      authToken = data.token; authUser = data.user; authCollection = col.name;
-      localStorage.setItem('cs_token', authToken);
-      showApp();
-    } catch { showLoginError('Network error'); }
-
-    function showLoginError(msg) {
-      errEl.textContent = msg; errEl.classList.remove('hidden');
-      btn.disabled = false; btnText.textContent = 'Sign in';
-    }
+    errEl.textContent = 'No admin collections configured'; errEl.classList.remove('hidden');
+    document.getElementById('login-btn').disabled = true;
   }
+}
 
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && !document.getElementById('login-overlay').classList.contains('hidden')) doLogin();
+function toggleCollectionField() {
+  const s = document.getElementById('login-collection-section');
+  const btn = document.getElementById('toggle-collection-btn');
+  const hidden = s.classList.contains('hidden');
+  s.classList.toggle('hidden', !hidden);
+  btn.textContent = hidden ? 'Hide collection' : 'Change collection';
+  if (hidden) document.getElementById('login-collection').focus();
+}
+
+async function doLogin() {
+  const collName = document.getElementById('login-collection').value.trim().replace(/[^a-zA-Z0-9 _-]/g, '');
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+  const btn = document.getElementById('login-btn');
+  const btnText = btn.querySelector('span');
+
+  errEl.classList.add('hidden');
+  if (!collName || !email || !password) { errEl.textContent = 'All fields are required'; errEl.classList.remove('hidden'); return; }
+  btn.disabled = true; btnText.textContent = 'Signing in…';
+
+  const col = getAdminCollections().find(c => c.name === collName);
+  if (!col) { showLoginError('Collection not found'); return; }
+
+  try {
+    const r = await fetch(`/api/auth/${toSlug(col.name)}/login`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password })
+    });
+    const data = await r.json();
+    if (!r.ok) { showLoginError(data.error || 'Login failed'); return; }
+    authToken = data.token; authUser = data.user; authCollection = col.name;
+    localStorage.setItem('cs_token', authToken);
+    showApp();
+  } catch { showLoginError('Network error'); }
+
+  function showLoginError(msg) {
+    errEl.textContent = msg; errEl.classList.remove('hidden');
+    btn.disabled = false; btnText.textContent = 'Sign in';
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !document.getElementById('login-overlay').classList.contains('hidden')) doLogin();
+});
+
+function logout() {
+  authToken = null; authUser = null; authCollection = null;
+  localStorage.removeItem('cs_token'); currentItem = null;
+  if (rtWs) { try { rtWs.close(); } catch {} rtWs = null; }
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  showLogin();
+}
+
+function showLogin() {
+  document.getElementById('login-overlay').classList.remove('hidden');
+  document.getElementById('loading').classList.add('hidden');
+  const btn = document.getElementById('login-btn');
+  btn.disabled = false; btn.querySelector('span').textContent = 'Sign in';
+}
+
+function showApp() {
+  document.getElementById('login-overlay').classList.add('hidden');
+  const name = authUser ? (authUser.name || authUser.email || '?') : '?';
+  document.getElementById('user-name').textContent = name;
+  document.getElementById('user-collection-label').textContent = authCollection || '';
+  document.getElementById('user-avatar').textContent = name[0].toUpperCase();
+  setupRealtime();
+  // Restore entity from URL if present
+  const qp = new URLSearchParams(location.search);
+  if (qp.get('entity')) {
+    const navEl = [...document.querySelectorAll('.nav-item')].find(el => el.textContent.trim() === qp.get('entity'));
+    if (navEl) { navEl.click(); return; }
+  }
+  selectDashboard(document.getElementById('nav-dashboard-item'));
+}
+
+// ── Realtime ──────────────────────────────────────────────────────────────────
+function setupRealtime() {
+  if (rtWs) return;
+  try {
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    rtWs = new WebSocket(`${proto}//${location.host}/realtime`);
+    const badge = document.getElementById('ws-badge');
+    rtWs.onopen = () => {
+      rtWs.send(JSON.stringify({ type: 'subscribe', channel: '*' }));
+      if (badge) { badge.textContent = 'live'; badge.style.background = 'rgba(52,177,235,.15)'; badge.style.color = '#34b1eb'; }
+    };
+    rtWs.onmessage = e => {
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg.type === 'event') onRealtimeEvent(msg);
+      } catch {}
+    };
+    rtWs.onclose = () => {
+      rtWs = null;
+      if (badge) { badge.textContent = 'offline'; badge.style.color = '#888'; }
+    };
+  } catch {}
+}
+
+function onRealtimeEvent(msg) {
+  const [entityName, action] = (msg.event || '').split('.');
+  const data = msg.data || {};
+  const label = data.name || data.title || data.email || `${entityName} #${String(data.id || '').slice(0, 8)}`;
+  activityLog.unshift({ entityName, action: action || 'event', label, id: data.id, at: new Date().toISOString() });
+  if (activityLog.length > 60) activityLog.pop();
+  renderActivityFeed();
+  // Refresh table if viewing this entity
+  if (currentItem && currentItem.name === entityName && !document.getElementById('table-view').classList.contains('hidden')) {
+    loadTableData();
+  }
+}
+
+// ── Sidebar ───────────────────────────────────────────────────────────────────
+function openSidebar() {
+  document.getElementById('sidebar').classList.replace('-translate-x-full', 'translate-x-0');
+  document.getElementById('sidebar-overlay').classList.remove('hidden');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.replace('translate-x-0', '-translate-x-full');
+  document.getElementById('sidebar-overlay').classList.add('hidden');
+}
+
+function buildSidebar() {
+  // Collections = authenticable entities
+  document.getElementById('nav-user-collections').innerHTML =
+    (schema.entities || []).filter(e => e.authenticable).map(e =>
+      `<div class="nav-item" onclick="selectItem('collection','${escHtml(e.name)}',this)">${escHtml(e.name)}</div>`
+    ).join('');
+  // Entities = non-authenticable
+  document.getElementById('nav-entities').innerHTML =
+    (schema.entities || []).filter(e => !e.authenticable).map(e =>
+      `<div class="nav-item" onclick="selectItem('entity','${escHtml(e.name)}',this)">${escHtml(e.name)}</div>`
+    ).join('');
+}
+
+function setActiveNav(el) {
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  if (el) el.classList.add('active');
+}
+
+function showOnlyArea(id) {
+  ['dashboard-area', 'table-view', 'config-area'].forEach(a => {
+    document.getElementById(a).classList.toggle('hidden', a !== id);
   });
+}
 
-  function logout() {
-    authToken = null; authUser = null; authCollection = null;
-    localStorage.removeItem('cs_token'); currentItem = null;
-    document.getElementById('table-area').innerHTML = '';
-    document.getElementById('btn-add').classList.add('hidden');
-    document.getElementById('page-title').textContent = 'Select a collection';
-    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    showLogin();
-  }
+function selectDashboard(el) {
+  configMode = false;
+  setActiveNav(el);
+  showOnlyArea('dashboard-area');
+  document.getElementById('btn-add').classList.add('hidden');
+  document.getElementById('btn-share').classList.add('hidden');
+  document.getElementById('btn-devs').classList.add('hidden');
+  document.getElementById('page-title').textContent = 'Dashboard';
+  currentItem = null;
+  closeSidebar();
+  loadDashboard();
+}
 
-  function showLogin() {
-    document.getElementById('login-overlay').classList.remove('hidden');
-    document.getElementById('loading').classList.add('hidden');
-    const btn = document.getElementById('login-btn');
-    btn.disabled = false; btn.querySelector('span').textContent = 'Sign in';
-  }
+function selectItem(type, name, el) {
+  configMode = false;
+  setActiveNav(el);
+  showOnlyArea('table-view');
+  currentItem = { type, name };
+  document.getElementById('page-title').textContent = name;
+  document.getElementById('btn-add').classList.remove('hidden');
+  document.getElementById('btn-share').classList.remove('hidden');
+  document.getElementById('btn-devs').classList.remove('hidden');
+  closeSidebar();
+  // Reset table state
+  curPage = 1; curSearch = ''; advFilters = [];
+  selectedIds.clear(); hlRowIdx = -1;
+  document.getElementById('search-input').value = '';
+  document.getElementById('order-by-sel').value = 'createdAt';
+  document.getElementById('order-dir-sel').value = 'DESC';
+  updateSortOptions(name);
+  loadTableData();
+}
 
-  function showApp() {
-    document.getElementById('login-overlay').classList.add('hidden');
-    const name = authUser ? (authUser.name || authUser.email || '?') : '?';
-    document.getElementById('user-name').textContent = name;
-    document.getElementById('user-collection-label').textContent = authCollection || '';
-    document.getElementById('user-avatar').textContent = name[0].toUpperCase();
-    const first = document.querySelector('.nav-item');
-    if (first) first.click();
-  }
+function selectConfig(el) {
+  configMode = true;
+  setActiveNav(el);
+  showOnlyArea('config-area');
+  document.getElementById('btn-add').classList.add('hidden');
+  document.getElementById('btn-share').classList.add('hidden');
+  document.getElementById('btn-devs').classList.add('hidden');
+  document.getElementById('page-title').textContent = 'Config Editor';
+  currentItem = null;
+  closeSidebar();
+  loadConfig();
+}
 
-  // ── Sidebar (mobile) ───────────────────────────────────────────────────
-  function openSidebar() {
-    document.getElementById('sidebar').classList.replace('-translate-x-full', 'translate-x-0');
-    document.getElementById('sidebar-overlay').classList.remove('hidden');
-  }
-  function closeSidebar() {
-    document.getElementById('sidebar').classList.replace('translate-x-0', '-translate-x-full');
-    document.getElementById('sidebar-overlay').classList.add('hidden');
-  }
-
-  // ── Sidebar nav ────────────────────────────────────────────────────────
-  function buildSidebar() {
-    document.getElementById('nav-user-collections').innerHTML =
-      (schema.userCollections || []).map(uc =>
-        `<div class="nav-item" onclick="selectItem('collection','${uc.name}',this)">${uc.name}</div>`
-      ).join('');
-    document.getElementById('nav-entities').innerHTML =
-      (schema.entities || []).map(e =>
-        `<div class="nav-item" onclick="selectItem('entity','${e.name}',this)">${e.name}</div>`
-      ).join('');
-  }
-
-  function selectItem(type, name, el) {
-    configMode = false;
-    document.getElementById('config-area').classList.add('hidden');
-    document.getElementById('table-area').classList.remove('hidden');
-    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    el.classList.add('active');
-    currentItem = { type, name };
-    document.getElementById('page-title').textContent = name;
-    document.getElementById('btn-add').classList.remove('hidden');
-    closeSidebar();
-    loadTable(type, name);
-  }
-
-  function loadTable(type, name) {
-    document.getElementById('loading').classList.remove('hidden');
-    document.getElementById('table-area').innerHTML = '';
-    htmx.ajax('GET', `/admin/partials/table?type=${type}&name=${encodeURIComponent(name)}`,
-      { target: '#table-area', swap: 'innerHTML' });
-  }
-
-  function reloadTable() {
-    if (currentItem) loadTable(currentItem.type, currentItem.name);
-  }
-
-  // ── Modal ──────────────────────────────────────────────────────────────
-  function getCurrentSchema() {
-    if (!currentItem) return null;
-    return currentItem.type === 'entity'
-      ? schema.entities.find(e => e.name === currentItem.name)
-      : schema.userCollections.find(uc => uc.name === currentItem.name);
-  }
-
-  function getFields(isCollection) {
-    const s = getCurrentSchema();
-    if (!s) return [];
-    const fields = isCollection
-      ? [{ name: 'email', type: 'text' }, { name: 'password', type: 'text' }, ...s.properties]
-      : [...s.properties];
-    if (!isCollection && s.belongsTo) {
-      // belongsTo entries are entity name strings (e.g. 'Post' → 'post_id')
-      for (const rel of s.belongsTo) fields.push({ name: `${toSnake(String(rel))}_id`, type: 'integer' });
+function updateSortOptions(entityName) {
+  const entity = (schema.entities || []).find(e => e.name === entityName);
+  const sel = document.getElementById('order-by-sel');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="createdAt">Created</option><option value="updatedAt">Updated</option><option value="id">ID</option>';
+  if (entity && entity.properties) {
+    for (const p of entity.properties) {
+      const pName = typeof p === 'string' ? p : p.name;
+      if (!['createdAt', 'updatedAt', 'id'].includes(pName)) {
+        const opt = document.createElement('option');
+        opt.value = pName; opt.textContent = pName;
+        sel.appendChild(opt);
+      }
     }
-    return fields;
+  }
+  sel.value = ['createdAt', 'updatedAt', 'id'].includes(cur) ? cur : 'createdAt';
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+async function loadDashboard() {
+  document.getElementById('stats-grid').innerHTML = '<div class="text-xs text-cs-muted">Loading stats…</div>';
+  try {
+    const r = await apiFetch('/admin/stats');
+    if (!r.ok) throw new Error('Stats fetch failed');
+    const data = await r.json();
+    renderStatsGrid(data.entities || []);
+    renderEntitySummary(data.entities || []);
+    // Seed activity log with server data (if not already live)
+    for (const item of (data.recentActivity || [])) {
+      if (!activityLog.find(a => a.id === item.id && a.entityName === item.entityName)) {
+        activityLog.push({ entityName: item.entityName, action: item.action, label: item.label, id: item.id, at: item.createdAt });
+      }
+    }
+    activityLog.sort((a, b) => new Date(b.at) - new Date(a.at));
+    renderActivityFeed();
+  } catch {
+    document.getElementById('stats-grid').innerHTML = '<div class="text-xs text-red-400">Failed to load stats</div>';
+  }
+}
+
+function renderStatsGrid(entities) {
+  const grid = document.getElementById('stats-grid');
+  if (!entities.length) { grid.innerHTML = '<div class="text-xs text-cs-muted">No entities found.</div>'; return; }
+  grid.innerHTML = entities.map(e => `
+    <div class="bg-cs-surface border border-cs-border rounded p-4 cursor-pointer hover:border-cs-primary" style="transition:border-color 150ms;"
+      onclick="document.querySelector('.nav-item:not(#nav-dashboard-item):not(#nav-config-item)')?.click()">
+      <div class="text-xs text-cs-muted mb-1">${escHtml(e.name)}</div>
+      <div class="text-2xl font-bold" style="color:#34b1eb;">${e.total}</div>
+      <div class="text-xs mt-1 space-x-2">
+        <span class="text-green-400">+${e.lastWeek} this week</span>
+        <span class="text-cs-muted">+${e.lastMonth} this month</span>
+      </div>
+    </div>`).join('');
+}
+
+function renderEntitySummary(entities) {
+  const el = document.getElementById('entity-summary');
+  el.innerHTML = entities.map(e => `
+    <div class="flex items-center justify-between py-2 border-b border-cs-border last:border-0">
+      <span class="text-sm text-cs-text">${escHtml(e.name)}</span>
+      <div class="flex gap-3 text-xs">
+        <span class="text-cs-muted">${e.total} total</span>
+        <span class="text-green-400">+${e.lastWeek}/wk</span>
+      </div>
+    </div>`).join('') || '<div class="text-xs text-cs-muted">No entities.</div>';
+}
+
+function renderActivityFeed() {
+  const el = document.getElementById('activity-feed');
+  if (!activityLog.length) {
+    el.innerHTML = '<div class="text-xs text-cs-muted py-4">No activity yet. Live events will appear here.</div>';
+    return;
+  }
+  const dotClass = a => ({ created: 'dot-create', updated: 'dot-update', deleted: 'dot-delete' }[a] || 'dot-create');
+  el.innerHTML = activityLog.slice(0, 40).map(item => `
+    <div class="flex items-start gap-2 py-1.5 border-b border-cs-border last:border-0">
+      <div class="activity-dot ${dotClass(item.action)} mt-1"></div>
+      <div class="flex-1 min-w-0">
+        <span class="text-cs-text font-medium truncate block">${escHtml(item.label || item.entityName)}</span>
+        <span class="text-cs-muted">${escHtml(item.entityName)} · ${escHtml(item.action)}</span>
+      </div>
+      <span class="text-cs-muted shrink-0 text-[10px]">${fmtTime(item.at)}</span>
+    </div>`).join('');
+}
+
+function fmtTime(iso) {
+  try { return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); } catch { return ''; }
+}
+
+// ── Table ─────────────────────────────────────────────────────────────────────
+async function loadTableData() {
+  if (!currentItem) return;
+  document.getElementById('table-area').innerHTML = '';
+  document.getElementById('pagination').classList.add('hidden');
+  document.getElementById('loading').classList.remove('hidden');
+
+  const params = new URLSearchParams({
+    type: currentItem.type, name: currentItem.name,
+    page: curPage, perPage: curPerPage,
+    orderBy: curOrderBy, order: curOrder,
+  });
+  if (curSearch) params.set('search', curSearch);
+  for (const f of advFilters) {
+    if (f.col && f.op !== undefined && f.val !== '') params.set(`${f.col}${f.op}`, f.val);
   }
 
-  function fieldHtml(f, value = '', pwd = false) {
-    return `<div class="mb-4">
-      <label class="block text-sm text-cs-muted mb-1">${escHtml(f.name)}</label>
-      <input type="${pwd ? 'password' : 'text'}" id="field-${f.name}" value="${escAttr(value)}" placeholder="${escAttr(f.name)}"
-        class="w-full bg-cs-bg border border-cs-border rounded text-cs-text px-3 py-2 text-sm outline-none focus:border-cs-primary" style="transition: border-color 150ms ease;"/>
+  try {
+    const r = await apiFetch('/admin/data?' + params.toString());
+    const result = await r.json();
+    document.getElementById('loading').classList.add('hidden');
+    if (!r.ok) { document.getElementById('table-area').innerHTML = `<div class="text-red-400 text-sm p-4">${escHtml(result.error || 'Error')}</div>`; return; }
+    curLastPage = result.lastPage || 1;
+    curPage = result.currentPage || 1;
+    tableRows = result.data || [];
+    renderTable(tableRows);
+    renderPagination(result);
+  } catch (err) {
+    document.getElementById('loading').classList.add('hidden');
+    document.getElementById('table-area').innerHTML = `<div class="text-red-400 text-sm p-4">${escHtml(err.message)}</div>`;
+  }
+}
+
+function renderTable(rows) {
+  selectedIds.clear(); updateBulkBar();
+  if (!rows.length) {
+    document.getElementById('table-area').innerHTML = `
+      <div class="flex flex-col items-center justify-center py-20 text-center">
+        <div class="text-4xl mb-3" aria-hidden="true">&#128237;</div>
+        <p class="text-sm" style="color:#888;">No records found. Click <span style="color:#e1e1e1;">+ New record</span> to create one.</p>
+      </div>`;
+    return;
+  }
+  const cols = Object.keys(rows[0]);
+  const selectAllTh = `<th class="px-3 py-2.5 w-8"><input type="checkbox" id="select-all" onchange="toggleSelectAll()" style="accent-color:#34b1eb;cursor:pointer;" /></th>`;
+  const actionsTh = `<th class="px-3 py-2.5 text-left text-xs font-medium whitespace-nowrap" style="color:#888;">Actions</th>`;
+  const dataThs = cols.map(c => `<th class="px-3 py-2.5 text-left text-xs font-medium whitespace-nowrap" style="color:#888;">${escHtml(c)}</th>`).join('');
+
+  const trs = rows.map((row, idx) => {
+    const safeJson = JSON.stringify(row).replace(/&/g,'\\u0026').replace(/'/g,'\\u0027').replace(/</g,'\\u003c').replace(/>/g,'\\u003e');
+    const rowId = String(row.id);
+    const actions = `<td class="px-3 py-2.5"><div class="flex gap-1">
+      <button class="text-xs border rounded px-2 py-0.5 cursor-pointer hover:opacity-80" style="border-color:#2a2a2a;color:#e1e1e1;" onclick='openEditModal(${safeJson})'>Edit</button>
+      <button class="text-xs border rounded px-2 py-0.5 cursor-pointer hover:opacity-80" style="border-color:rgba(239,68,68,.4);color:#f87171;" onclick="deleteRecord('${rowId}')">Delete</button>
+    </div></td>`;
+    const tds = cols.map(c => `<td class="px-3 py-2.5 max-w-xs truncate text-sm" style="color:#e1e1e1;" title="${escAttr(String(row[c] ?? ''))}">${escHtml(String(row[c] ?? ''))}</td>`).join('');
+    return `<tr class="border-b" style="border-color:#2a2a2a;" data-idx="${idx}" data-id="${escAttr(rowId)}" onclick="handleRowClick(event,'${rowId}',${idx})">
+      <td class="px-3 py-2.5 w-8"><input type="checkbox" class="row-cb cursor-pointer" value="${escAttr(rowId)}" onchange="toggleRowSel('${rowId}')" onclick="event.stopPropagation()" style="accent-color:#34b1eb;" ${selectedIds.has(rowId) ? 'checked' : ''} /></td>
+      ${actions}${tds}
+    </tr>`;
+  }).join('');
+
+  document.getElementById('table-area').innerHTML = `
+    <div class="overflow-x-auto border rounded" style="border-color:#2a2a2a;">
+      <table class="w-full text-sm" style="color:#e1e1e1;">
+        <thead style="background:#1e1e1e;"><tr class="border-b" style="border-color:#2a2a2a;">${selectAllTh}${actionsTh}${dataThs}</tr></thead>
+        <tbody>${trs}</tbody>
+      </table>
     </div>`;
+  if (hlRowIdx >= 0 && hlRowIdx < rows.length) highlightRow(hlRowIdx);
+}
+
+function handleRowClick(event, id, idx) {
+  if (event.target.type === 'checkbox') return;
+  hlRowIdx = idx;
+  highlightRow(idx);
+}
+
+function highlightRow(idx) {
+  document.querySelectorAll('#table-area tbody tr').forEach((r, i) => r.classList.toggle('row-hl', i === idx));
+}
+
+function renderPagination(result) {
+  const pg = document.getElementById('pagination');
+  pg.classList.remove('hidden');
+  document.getElementById('pg-info').textContent = `${result.from || 0}–${result.to || 0} of ${result.total || 0}`;
+  const btns = document.getElementById('pg-btns');
+  btns.innerHTML = '';
+  const s = Math.max(1, curPage - 2), e = Math.min(curLastPage, curPage + 2);
+  for (let i = s; i <= e; i++) {
+    const b = document.createElement('button');
+    b.textContent = i; b.onclick = () => goPage(i);
+    b.className = 'px-2 py-1 text-xs border rounded cursor-pointer';
+    b.style.cssText = i === curPage ? 'border-color:#34b1eb;color:#34b1eb;background:rgba(52,177,235,.08);' : 'border-color:#2a2a2a;color:#888;';
+    btns.appendChild(b);
+  }
+  document.getElementById('pg-first').disabled = curPage <= 1;
+  document.getElementById('pg-prev').disabled = curPage <= 1;
+  document.getElementById('pg-next').disabled = curPage >= curLastPage;
+  document.getElementById('pg-last').disabled = curPage >= curLastPage;
+}
+
+function goPage(n) {
+  n = Math.max(1, Math.min(curLastPage, parseInt(n, 10) || 1));
+  if (n === curPage) return;
+  curPage = n; loadTableData();
+}
+
+function onSearchInput() {
+  clearTimeout(searchDebounce);
+  searchDebounce = setTimeout(() => {
+    curSearch = document.getElementById('search-input').value;
+    curPage = 1; loadTableData();
+  }, 300);
+}
+
+function onOrderChange() {
+  curOrderBy = document.getElementById('order-by-sel').value;
+  curOrder = document.getElementById('order-dir-sel').value;
+  curPage = 1; loadTableData();
+}
+
+function onPerPageChange() {
+  curPerPage = parseInt(document.getElementById('per-page-sel').value, 10);
+  curPage = 1; loadTableData();
+}
+
+function reloadTable() { if (currentItem) loadTableData(); }
+
+// ── Advanced filters ──────────────────────────────────────────────────────────
+function toggleAdvancedSearch() {
+  const p = document.getElementById('adv-panel');
+  const hidden = p.classList.contains('hidden');
+  p.classList.toggle('hidden', !hidden);
+  if (hidden && !document.getElementById('adv-filter-list').children.length) addAdvFilter();
+}
+
+function getEntityCols() {
+  if (!currentItem) return [];
+  const e = (schema.entities || []).find(e => e.name === currentItem.name);
+  const cols = ['id', 'createdAt', 'updatedAt'];
+  if (e) for (const p of e.properties || []) cols.push(typeof p === 'string' ? p : p.name);
+  return cols;
+}
+
+function addAdvFilter() {
+  const cols = getEntityCols();
+  const ops = [['', '='], ['_eq', '='], ['_neq', '≠'], ['_gt', '>'], ['_gte', '≥'], ['_lt', '<'], ['_lte', '≤'], ['_like', 'like'], ['_in', 'in (a,b,c)']];
+  const colOpts = cols.map(c => `<option value="${escAttr(c)}">${escHtml(c)}</option>`).join('');
+  const opOpts = ops.map(([v, l]) => `<option value="${escAttr(v)}">${escHtml(l)}</option>`).join('');
+  const div = document.createElement('div');
+  div.className = 'flex gap-2 items-center';
+  div.innerHTML = `
+    <select data-role="col" class="bg-cs-bg border border-cs-border rounded text-cs-text px-2 py-1 text-xs outline-none flex-1">${colOpts}</select>
+    <select data-role="op" class="bg-cs-bg border border-cs-border rounded text-cs-text px-2 py-1 text-xs outline-none">${opOpts}</select>
+    <input type="text" data-role="val" placeholder="value" class="bg-cs-bg border border-cs-border rounded text-cs-text px-2 py-1 text-xs outline-none flex-1" />
+    <button onclick="this.parentElement.remove()" class="text-cs-muted hover:text-red-400 text-xs cursor-pointer">✕</button>`;
+  document.getElementById('adv-filter-list').appendChild(div);
+}
+
+function applyAdvFilters() {
+  advFilters = [];
+  for (const row of document.getElementById('adv-filter-list').children) {
+    const col = row.querySelector('[data-role=col]').value;
+    const op = row.querySelector('[data-role=op]').value;
+    const val = row.querySelector('[data-role=val]').value;
+    if (col && val !== '') advFilters.push({ col, op, val });
+  }
+  curPage = 1; loadTableData();
+}
+
+function clearAdvFilters() {
+  advFilters = [];
+  document.getElementById('adv-filter-list').innerHTML = '';
+  curPage = 1; loadTableData();
+}
+
+// ── Bulk actions ──────────────────────────────────────────────────────────────
+function toggleRowSel(id) {
+  if (selectedIds.has(id)) selectedIds.delete(id); else selectedIds.add(id);
+  updateBulkBar();
+}
+
+function toggleSelectAll() {
+  const cb = document.getElementById('select-all');
+  if (cb && cb.checked) tableRows.forEach(r => selectedIds.add(String(r.id)));
+  else selectedIds.clear();
+  document.querySelectorAll('.row-cb').forEach(c => { c.checked = selectedIds.has(c.value); });
+  updateBulkBar();
+}
+
+function clearSelection() {
+  selectedIds.clear();
+  document.querySelectorAll('.row-cb').forEach(c => c.checked = false);
+  const sa = document.getElementById('select-all'); if (sa) sa.checked = false;
+  updateBulkBar();
+}
+
+function updateBulkBar() {
+  const bar = document.getElementById('bulk-bar');
+  const cnt = selectedIds.size;
+  if (cnt > 0) { bar.classList.remove('hidden'); document.getElementById('bulk-count').textContent = `${cnt} selected`; }
+  else bar.classList.add('hidden');
+}
+
+async function bulkDelete() {
+  if (!currentItem || selectedIds.size === 0) return;
+  if (!confirm(`Delete ${selectedIds.size} record(s)?`)) return;
+  const ids = [...selectedIds];
+  let failed = 0;
+  for (const id of ids) {
+    try {
+      const r = await apiFetch(getApiPath(id), { method: 'DELETE' });
+      if (!r.ok) failed++;
+    } catch { failed++; }
+  }
+  toast(failed ? `Deleted ${ids.length - failed}, failed ${failed}` : `Deleted ${ids.length} records`, failed ? 'error' : 'success');
+  selectedIds.clear(); loadTableData();
+}
+
+function getApiPath(id) {
+  if (!currentItem) return '';
+  return `/api/${toKebab(currentItem.name)}s${id ? '/' + id : ''}`;
+}
+
+// ── Export ────────────────────────────────────────────────────────────────────
+async function exportData(format) {
+  if (!currentItem) return;
+  const params = new URLSearchParams({ type: currentItem.type, name: currentItem.name, page: 1, perPage: 10000, orderBy: curOrderBy, order: curOrder });
+  if (curSearch) params.set('search', curSearch);
+  for (const f of advFilters) if (f.col && f.val !== '') params.set(`${f.col}${f.op}`, f.val);
+  try {
+    const r = await apiFetch('/admin/data?' + params.toString());
+    const result = await r.json();
+    const rows = result.data || [];
+    let content, mime, ext;
+    if (format === 'json') {
+      content = JSON.stringify(rows, null, 2); mime = 'application/json'; ext = 'json';
+    } else {
+      const cols = rows.length ? Object.keys(rows[0]) : [];
+      const csvRow = arr => arr.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',');
+      content = [csvRow(cols), ...rows.map(row => csvRow(cols.map(c => row[c] ?? '')))].join('\n');
+      mime = 'text/csv'; ext = 'csv';
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([content], { type: mime }));
+    a.download = `${currentItem.name}_export.${ext}`;
+    a.click();
+  } catch (e) { toast('Export failed: ' + e.message, 'error'); }
+}
+
+// ── Share View ────────────────────────────────────────────────────────────────
+function shareView() {
+  if (!currentItem) return;
+  const url = new URL(location.href);
+  url.search = '';
+  url.searchParams.set('entity', currentItem.name);
+  url.searchParams.set('type', currentItem.type);
+  if (curSearch) url.searchParams.set('search', curSearch);
+  url.searchParams.set('orderBy', curOrderBy);
+  url.searchParams.set('order', curOrder);
+  url.searchParams.set('page', String(curPage));
+  navigator.clipboard.writeText(url.toString())
+    .then(() => toast('Link copied!', 'success'))
+    .catch(() => toast('Copy failed', 'error'));
+}
+
+// ── Developers modal ──────────────────────────────────────────────────────────
+function openDevsModal() {
+  document.getElementById('devs-modal').classList.remove('hidden');
+  devsTab = 'sdk';
+  document.getElementById('devs-sdk-tab').classList.add('active');
+  document.getElementById('devs-rest-tab').classList.remove('active');
+  renderDevsBody();
+}
+function closeDevsModal() { document.getElementById('devs-modal').classList.add('hidden'); }
+function switchDevsTab(t) {
+  devsTab = t;
+  document.getElementById('devs-sdk-tab').classList.toggle('active', t === 'sdk');
+  document.getElementById('devs-rest-tab').classList.toggle('active', t === 'rest');
+  renderDevsBody();
+}
+
+function buildQueryStr() {
+  const parts = [];
+  if (curSearch) parts.push(`search=${encodeURIComponent(curSearch)}`);
+  parts.push(`page=${curPage}`, `perPage=${curPerPage}`, `orderBy=${curOrderBy}`, `order=${curOrder}`);
+  for (const f of advFilters) if (f.col && f.val !== '') parts.push(`${f.col}${f.op}=${encodeURIComponent(f.val)}`);
+  return parts.join('&');
+}
+
+function renderDevsBody() {
+  if (!currentItem) { document.getElementById('devs-body').innerHTML = '<p class="text-cs-muted text-sm">Select an entity first.</p>'; return; }
+  const slug = toSlug(currentItem.name) + 's';
+  const base = location.origin;
+  const qs = buildQueryStr();
+  const qsDisplay = qs ? `?${qs}` : '';
+  const authNote = `// Set your auth token\nconst TOKEN = 'your_jwt_token_here';`;
+
+  const sdkCode = `import ChadStart from '@chadstart/sdk';
+const cs = new ChadStart('${base}');
+// cs.setToken(TOKEN); // if auth required
+
+// List records${qs ? ' (current filters applied)' : ''}
+const list = await cs.from('${slug}').find(${qs ? `{\n  params: { ${qs.replace(/&/g, ', ').replace(/=/g, ': ')} }\n}` : ''});
+
+// Get one by ID
+const item = await cs.from('${slug}').findOne('RECORD_ID');
+
+// Create new
+const created = await cs.from('${slug}').create({ /* fields */ });
+
+// Update
+const updated = await cs.from('${slug}').update('RECORD_ID', { /* fields */ });
+
+// Delete
+await cs.from('${slug}').delete('RECORD_ID');`;
+
+  const curlCode = `# List records${qs ? ' (current filters)' : ''}
+curl "${base}/api/collections/${toSlug(currentItem.name)}${qsDisplay}" \\
+  -H "Authorization: Bearer $TOKEN"
+
+# Get by ID
+curl "${base}/api/collections/${toSlug(currentItem.name)}/RECORD_ID" \\
+  -H "Authorization: Bearer $TOKEN"
+
+# Create
+curl -X POST "${base}/api/collections/${toSlug(currentItem.name)}" \\
+  -H "Authorization: Bearer $TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{"field": "value"}'
+
+# Update
+curl -X PATCH "${base}/api/collections/${toSlug(currentItem.name)}/RECORD_ID" \\
+  -H "Authorization: Bearer $TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{"field": "new_value"}'
+
+# Delete
+curl -X DELETE "${base}/api/collections/${toSlug(currentItem.name)}/RECORD_ID" \\
+  -H "Authorization: Bearer $TOKEN"`;
+
+  const code = devsTab === 'sdk' ? sdkCode : curlCode;
+  document.getElementById('devs-body').innerHTML = `
+    ${qs ? '<div class="text-xs mb-2" style="color:#34b1eb;">⚡ Current filters applied in examples</div>' : ''}
+    <div class="code-block">${escHtml(code)}</div>
+    <button onclick="copyDevCode()" class="mt-2 text-xs border border-cs-border rounded px-2 py-1 text-cs-muted hover:text-cs-text cursor-pointer">Copy</button>`;
+}
+
+function copyDevCode() {
+  const el = document.querySelector('#devs-body .code-block');
+  if (el) navigator.clipboard.writeText(el.textContent).then(() => toast('Copied!', 'success'));
+}
+
+// ── Seed modal ────────────────────────────────────────────────────────────────
+function openSeedModal() {
+  document.getElementById('seed-modal').classList.remove('hidden');
+  document.getElementById('seed-result').classList.add('hidden');
+  const entities = (schema.entities || []).filter(e => !e.single);
+  document.getElementById('seed-list').innerHTML = entities.map(e => `
+    <div class="flex items-center gap-3 py-2 border-b border-cs-border last:border-0">
+      <input type="checkbox" id="seed-cb-${escAttr(e.name)}" value="${escAttr(e.name)}" checked style="accent-color:#34b1eb;cursor:pointer;" />
+      <label for="seed-cb-${escAttr(e.name)}" class="text-sm text-cs-text flex-1 cursor-pointer">${escHtml(e.name)}</label>
+      <input type="number" id="seed-cnt-${escAttr(e.name)}" value="10" min="1" max="500"
+        class="w-20 bg-cs-bg border border-cs-border rounded text-cs-text px-2 py-1 text-sm outline-none focus:border-cs-primary text-right" />
+    </div>`).join('') || '<p class="text-xs text-cs-muted">No entities found.</p>';
+}
+function closeSeedModal() { document.getElementById('seed-modal').classList.add('hidden'); }
+
+async function doSeed() {
+  const entities = (schema.entities || []).filter(e => !e.single);
+  const toSeed = [];
+  for (const e of entities) {
+    const cb = document.getElementById(`seed-cb-${e.name}`);
+    const cnt = document.getElementById(`seed-cnt-${e.name}`);
+    if (cb && cb.checked) toSeed.push({ name: e.name, tableName: e.tableName, count: parseInt(cnt?.value || '10', 10) });
+  }
+  if (!toSeed.length) { toast('Select at least one entity', 'error'); return; }
+  const btn = document.getElementById('seed-btn');
+  btn.disabled = true; btn.textContent = 'Seeding…';
+  try {
+    const r = await apiFetch('/admin/seed', { method: 'POST', body: JSON.stringify({ entities: toSeed }), headers: { 'Content-Type': 'application/json' } });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Seed failed');
+    const msg = (data.results || []).map(r => `${r.name}: +${r.created}`).join(', ');
+    const res = document.getElementById('seed-result');
+    res.textContent = '✓ Seeded: ' + msg; res.classList.remove('hidden');
+    toast('Database seeded!', 'success');
+    if (currentItem) reloadTable();
+  } catch (e) { toast(e.message, 'error'); }
+  btn.disabled = false; btn.textContent = 'Seed';
+}
+
+// ── Shortcuts modal ───────────────────────────────────────────────────────────
+function openShortcutsModal() { document.getElementById('shortcuts-modal').classList.remove('hidden'); }
+function closeShortcutsModal() { document.getElementById('shortcuts-modal').classList.add('hidden'); }
+
+// ── Vim keyboard shortcuts ────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  const inInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName);
+  const anyModal = ['modal-backdrop','devs-modal','seed-modal','shortcuts-modal'].some(id => !document.getElementById(id).classList.contains('hidden'));
+  const loginOpen = !document.getElementById('login-overlay').classList.contains('hidden');
+
+  if (e.key === 'Escape') {
+    if (!document.getElementById('shortcuts-modal').classList.contains('hidden')) { closeShortcutsModal(); return; }
+    if (!document.getElementById('devs-modal').classList.contains('hidden')) { closeDevsModal(); return; }
+    if (!document.getElementById('seed-modal').classList.contains('hidden')) { closeSeedModal(); return; }
+    if (!document.getElementById('modal-backdrop').classList.contains('hidden')) { closeModal(); return; }
+    if (inInput) { document.activeElement.blur(); return; }
+    return;
   }
 
-  function openAddModal() {
-    if (!currentItem) return;
-    editingRecord = null;
-    const isCollection = currentItem.type === 'collection';
-    document.getElementById('modal-title').textContent = `New ${currentItem.name}`;
-    document.getElementById('modal-body').innerHTML = getFields(isCollection).map(f => fieldHtml(f, '', f.name === 'password')).join('');
-    showModal();
-  }
+  if (loginOpen || anyModal || inInput) return;
 
-  function openEditModal(record) {
-    if (!currentItem) return;
-    editingRecord = record;
-    const isCollection = currentItem.type === 'collection';
-    document.getElementById('modal-title').textContent = `Edit ${currentItem.name} #${record.id}`;
-    document.getElementById('modal-body').innerHTML =
-      getFields(isCollection).filter(f => f.name !== 'password').map(f => fieldHtml(f, String(record[f.name] ?? ''))).join('');
-    showModal();
-  }
+  const now = Date.now();
+  if (e.key === 'g' && lastVimKey === 'g' && now - lastVimTime < 600) { goPage(1); lastVimKey = ''; return; }
+  lastVimKey = e.key; lastVimTime = now;
 
-  function showModal() {
-    document.getElementById('modal-backdrop').classList.remove('hidden');
-    const btn = document.getElementById('modal-save-btn');
+  const rows = document.querySelectorAll('#table-area tbody tr');
+  switch (e.key) {
+    case '?': openShortcutsModal(); break;
+    case '/': e.preventDefault(); document.getElementById('search-input')?.focus(); break;
+    case 'n': if (currentItem) openAddModal(); break;
+    case 'G': goPage(curLastPage); break;
+    case 'j':
+      if (!rows.length) break;
+      hlRowIdx = Math.min(rows.length - 1, hlRowIdx + 1);
+      highlightRow(hlRowIdx); rows[hlRowIdx]?.scrollIntoView({ block: 'nearest' }); break;
+    case 'k':
+      if (!rows.length) break;
+      hlRowIdx = Math.max(0, hlRowIdx - 1);
+      highlightRow(hlRowIdx); rows[hlRowIdx]?.scrollIntoView({ block: 'nearest' }); break;
+    case 'e':
+      if (hlRowIdx >= 0 && tableRows[hlRowIdx]) openEditModal(tableRows[hlRowIdx]); break;
+    case 'd':
+      if (hlRowIdx >= 0 && tableRows[hlRowIdx]) deleteRecord(String(tableRows[hlRowIdx].id)); break;
+    case ']': goPage(curPage + 1); break;
+    case '[': goPage(curPage - 1); break;
+  }
+});
+
+// ── Record modal ──────────────────────────────────────────────────────────────
+function getCurrentSchema() {
+  if (!currentItem) return null;
+  return (schema.entities || []).find(e => e.name === currentItem.name) || null;
+}
+
+function getFields(isCollection) {
+  const s = getCurrentSchema();
+  if (!s) return [];
+  const fields = isCollection
+    ? [{ name: 'email', type: 'text' }, { name: 'password', type: 'text' }, ...(s.properties || [])]
+    : [...(s.properties || [])];
+  if (!isCollection && s.belongsTo) {
+    for (const rel of s.belongsTo) {
+      const relName = typeof rel === 'string' ? rel : (rel.entity || rel.name || String(rel));
+      fields.push({ name: `${toSnake(relName)}_id`, type: 'integer' });
+    }
+  }
+  return fields;
+}
+
+function fieldHtml(f, value = '', pwd = false) {
+  return `<div class="mb-4">
+    <label class="block text-sm text-cs-muted mb-1">${escHtml(f.name)}</label>
+    <input type="${pwd ? 'password' : 'text'}" id="field-${escAttr(f.name)}" value="${escAttr(value)}" placeholder="${escAttr(f.name)}"
+      class="w-full bg-cs-bg border border-cs-border rounded text-cs-text px-3 py-2 text-sm outline-none focus:border-cs-primary" style="transition: border-color 150ms ease;"/>
+  </div>`;
+}
+
+function openAddModal() {
+  if (!currentItem) return;
+  editingRecord = null;
+  const isCollection = currentItem.type === 'collection';
+  document.getElementById('modal-title').textContent = `New ${currentItem.name}`;
+  document.getElementById('modal-body').innerHTML = getFields(isCollection).map(f => fieldHtml(f, '', f.name === 'password')).join('');
+  showModal();
+}
+
+function openEditModal(record) {
+  if (!currentItem) return;
+  editingRecord = record;
+  const isCollection = currentItem.type === 'collection';
+  document.getElementById('modal-title').textContent = `Edit ${currentItem.name} #${record.id}`;
+  document.getElementById('modal-body').innerHTML =
+    getFields(isCollection).filter(f => f.name !== 'password').map(f => fieldHtml(f, String(record[f.name] ?? ''))).join('');
+  showModal();
+}
+
+function showModal() {
+  document.getElementById('modal-backdrop').classList.remove('hidden');
+  const btn = document.getElementById('modal-save-btn');
+  btn.disabled = false; btn.querySelector('span').textContent = 'Save';
+}
+
+function closeModal() {
+  document.getElementById('modal-backdrop').classList.add('hidden');
+  editingRecord = null;
+}
+
+async function saveRecord() {
+  if (!currentItem) return;
+  const isCollection = currentItem.type === 'collection';
+  const fields = getFields(isCollection);
+  const editFields = editingRecord ? fields.filter(f => f.name !== 'password') : fields;
+  const body = {};
+  for (const f of editFields) {
+    const el = document.getElementById(`field-${f.name}`);
+    if (el?.value) body[f.name] = el.value;
+  }
+  const btn = document.getElementById('modal-save-btn');
+  btn.disabled = true; btn.querySelector('span').textContent = 'Saving…';
+  try {
+    let r;
+    if (editingRecord) {
+      r = await apiFetch(getApiPath(editingRecord.id), { method: 'PATCH', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } });
+    } else if (isCollection) {
+      r = await apiFetch(`/api/auth/${toSlug(currentItem.name)}/signup`, { method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } });
+    } else {
+      r = await apiFetch(getApiPath(''), { method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } });
+    }
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Save failed');
+    toast(editingRecord ? 'Record updated' : 'Record created', 'success');
+    closeModal(); reloadTable();
+  } catch (err) {
+    toast(err.message, 'error');
     btn.disabled = false; btn.querySelector('span').textContent = 'Save';
   }
+}
 
-  function closeModal() {
-    document.getElementById('modal-backdrop').classList.add('hidden');
-    editingRecord = null;
+async function deleteRecord(id) {
+  if (!currentItem || !confirm(`Delete record #${id}?`)) return;
+  try {
+    const r = await apiFetch(getApiPath(id), { method: 'DELETE' });
+    if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Delete failed'); }
+    toast('Record deleted', 'success'); reloadTable();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function apiFetch(url, opts = {}) {
+  return fetch(url, { ...opts, headers: { ...(opts.headers || {}), ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) } });
+}
+
+function toast(msg, type = 'info') {
+  const el = document.getElementById('toast');
+  const cls = { error: 'border-red-500/60 text-red-400', success: 'border-cs-primary/60 text-cs-primary', info: 'border-cs-border text-cs-text' };
+  el.className = `fixed bottom-5 right-5 z-50 bg-cs-surface border rounded px-4 py-2.5 text-sm max-w-xs ${cls[type] || cls.info}`;
+  el.style.boxShadow = '0 2px 8px rgba(0,0,0,.3)';
+  el.textContent = msg;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = 'hidden'; }, 3000);
+}
+
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escAttr(s) { return String(s).replace(/"/g,'&quot;'); }
+function toKebab(s) { return s.replace(/([A-Z])/g,(m,p,o)=>(o>0?'-':'')+p.toLowerCase()).replace(/^-/,''); }
+function toSlug(s) { return s.replace(/([A-Z])/g,(m,p,o)=>(o>0?'-':'')+p.toLowerCase()).replace(/^-/,'').replace(/[^a-z0-9-]/g,'-'); }
+function toSnake(s) { return s.replace(/([A-Z])/g,(m,p,o)=>(o>0?'_':'')+p.toLowerCase()).replace(/^_/,''); }
+
+// ── Config Editor ─────────────────────────────────────────────────────────────
+const CFG_TABS = {
+  general:   { keys: ['name','port','database','public'], desc: 'Application name, port, database path, and public static folder.' },
+  entities:  { keys: ['entities'], desc: 'Entity definitions — properties, relations, and flags.' },
+  endpoints: { keys: ['endpoints'], desc: 'Custom REST endpoint definitions (path, method, handler).' },
+  files:     { keys: ['files'], desc: 'File bucket definitions for local uploads.', s3: true },
+  settings:  { keys: ['settings','groups'], desc: 'API rate limits and reusable property groups.' },
+  all:       { keys: null, desc: 'Full configuration — all sections combined (raw JSON for advanced use).' },
+};
+const CFG_FORM_TABS = new Set(['general','entities','endpoints','files','settings']);
+const PROP_TYPES = ['string','text','richText','integer','number','float','money','boolean','email','password','date','timestamp','link','file','image','choice','location','json'];
+const _INP    = 'bg-cs-bg border border-cs-border rounded text-cs-text px-2 py-1.5 text-sm outline-none focus:border-cs-primary';
+const _INP_XS = 'bg-cs-bg border border-cs-border rounded text-cs-text px-2 py-1 text-xs outline-none focus:border-cs-primary';
+const _LBL    = 'block text-xs mb-1';
+
+async function loadConfig() {
+  try {
+    const r = await apiFetch('/admin/config');
+    if (!r.ok) throw new Error('Failed to load config');
+    configData = await r.json();
+    showConfigTab('general');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+function showConfigTab(tab) {
+  configActiveTab = tab;
+  document.querySelectorAll('.cfg-tab').forEach(b => b.classList.remove('active'));
+  document.getElementById(`cfg-tab-${tab}`)?.classList.add('active');
+  document.getElementById('cfg-section-desc').textContent = CFG_TABS[tab]?.desc || '';
+  document.getElementById('cfg-s3-note').classList.toggle('hidden', !CFG_TABS[tab]?.s3);
+  const form = document.getElementById('cfg-form');
+  const editor = document.getElementById('cfg-editor');
+  if (tab === 'all') {
+    form.classList.add('hidden'); editor.classList.remove('hidden');
+    editor.value = JSON.stringify(configData || {}, null, 2);
+  } else if (CFG_FORM_TABS.has(tab)) {
+    editor.classList.add('hidden'); form.classList.remove('hidden');
+    form.innerHTML = renderFormTab(tab);
   }
+}
 
-  async function saveRecord() {
-    if (!currentItem) return;
-    const isCollection = currentItem.type === 'collection';
-    const fields = getFields(isCollection);
-    const editFields = editingRecord ? fields.filter(f => f.name !== 'password') : fields;
-    const body = {};
-    for (const f of editFields) {
-      const el = document.getElementById(`field-${f.name}`);
-      if (el?.value) body[f.name] = el.value;
-    }
-    const apiPath = `/api/${toKebab(currentItem.name)}s`;
-    const btn = document.getElementById('modal-save-btn');
-    btn.disabled = true; btn.querySelector('span').textContent = 'Saving…';
-    try {
-      let r;
-      if (editingRecord) {
-        r = await apiFetch(`${apiPath}/${editingRecord.id}`, { method: 'PATCH', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } });
-      } else if (isCollection) {
-        r = await apiFetch(`/api/auth/${toSlug(currentItem.name)}/signup`, { method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } });
-      } else {
-        r = await apiFetch(apiPath, { method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } });
-      }
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error || 'Save failed');
-      toast(editingRecord ? 'Record updated' : 'Record created', 'success');
-      closeModal();
-      reloadTable();
-    } catch (e) {
-      toast(e.message, 'error');
-      btn.disabled = false; btn.querySelector('span').textContent = 'Save';
-    }
-  }
+function renderFormTab(tab) {
+  if (!configData) return '<p class="text-xs text-cs-muted">Loading…</p>';
+  if (tab === 'general')   return renderGeneralForm();
+  if (tab === 'entities')  return renderEntitiesForm();
+  if (tab === 'endpoints') return renderEndpointsForm();
+  if (tab === 'files')     return renderFilesForm();
+  if (tab === 'settings')  return renderSettingsForm();
+  return '';
+}
 
-  async function deleteRecord(id) {
-    if (!currentItem || !confirm(`Delete record #${id}?`)) return;
-    try {
-      const r = await apiFetch(`/api/${toKebab(currentItem.name)}s/${id}`, { method: 'DELETE' });
-      if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Delete failed'); }
-      toast('Record deleted', 'success');
-      reloadTable();
-    } catch (e) { toast(e.message, 'error'); }
-  }
-
-  // ── Helpers ────────────────────────────────────────────────────────────
-  function apiFetch(url, opts = {}) {
-    return fetch(url, { ...opts, headers: { ...(opts.headers || {}), ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) } });
-  }
-
-  function toast(msg, type = 'info') {
-    const el = document.getElementById('toast');
-    const cls = { error: 'border-red-500/60 text-red-400', success: 'border-cs-primary/60 text-cs-primary', info: 'border-cs-border text-cs-text' };
-    el.className = `fixed bottom-5 right-5 z-50 bg-cs-surface border rounded px-4 py-2.5 text-sm max-w-xs ${cls[type] || cls.info}`;
-    el.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)';
-    el.textContent = msg;
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => { el.className = 'hidden'; }, 3000);
-  }
-
-  function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-  function escAttr(s) { return String(s).replace(/"/g,'&quot;'); }
-  function toKebab(s) { return s.replace(/([A-Z])/g,(m,p,o)=>(o>0?'-':'')+p.toLowerCase()).replace(/^-/,''); }
-  function toSlug(s) { return s.replace(/([A-Z])/g,(m,p,o)=>(o>0?'-':'')+p.toLowerCase()).replace(/^-/,'').replace(/[^a-z0-9-]/g,'-'); }
-  function toSnake(s) { return s.replace(/([A-Z])/g,(m,p,o)=>(o>0?'_':'')+p.toLowerCase()).replace(/^_/,''); }
-
-  // ── Config Editor ─────────────────────────────────────────────────────
-  let configMode = false;
-  let configData = null;
-  let configActiveTab = 'general';
-  let _cfgEntityId = 0, _cfgEndpointId = 0, _cfgFileId = 0, _cfgRlId = 0;
-
-  const CFG_TABS = {
-    general:   { keys: ['name', 'port', 'database', 'public'],  desc: 'Application name, port, database path, and public static folder.' },
-    entities:  { keys: ['entities'],  desc: 'Entity definitions — properties, relations, and flags.' },
-    endpoints: { keys: ['endpoints'], desc: 'Custom REST endpoint definitions (path, method, handler).' },
-    files:     { keys: ['files'],     desc: 'File bucket definitions for local uploads.', s3: true },
-    settings:  { keys: ['settings', 'groups'], desc: 'API rate limits and reusable property groups.' },
-    all:       { keys: null,          desc: 'Full configuration — all sections combined (raw JSON for advanced use).' },
-  };
-
-  const CFG_FORM_TABS = new Set(['general', 'entities', 'endpoints', 'files', 'settings']);
-
-  const PROP_TYPES = [
-    'string','text','richText','integer','number','float','money',
-    'boolean','email','password','date','timestamp','link',
-    'file','image','choice','location','json',
-  ];
-
-  // Shared Tailwind class strings for consistent form styling
-  const _INP    = 'bg-cs-bg border border-cs-border rounded text-cs-text px-2 py-1.5 text-sm outline-none focus:border-cs-primary';
-  const _INP_XS = 'bg-cs-bg border border-cs-border rounded text-cs-text px-2 py-1 text-xs outline-none focus:border-cs-primary';
-  const _LBL    = 'block text-xs mb-1';
-
-  // General tab: labeled inputs for name, port, database, public folder
-  function renderGeneralForm() {
-    const d   = configData || {};
-    const pub = d.public || {};
-    function fld(label, id, val, ph, type, hint) {
-      return '<div>'
-        + '<label class="' + _LBL + '" style="color:#888;">' + label + '</label>'
-        + '<input type="' + (type || 'text') + '" id="' + id + '" value="' + escAttr(String(val != null ? val : '')) + '" placeholder="' + escAttr(ph) + '"'
-        + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" />'
-        + (hint ? '<p class="text-xs mt-1" style="color:#666;">' + hint + '</p>' : '')
-        + '</div>';
-    }
-    return '<div class="space-y-4 max-w-lg">'
-      + fld('App Name <span style="color:#f87171;">*</span>', 'cfg-f-name',          d.name || '',                       'My App',           'text')
-      + fld('Port',                                          'cfg-f-port',          d.port !== undefined ? d.port : '', '3000',             'number', 'Default: 3000')
-      + fld('Database path',                                 'cfg-f-database',      d.database || '',                   'data/chadstart.db','text',   'Path relative to the config file. Leave blank for the default.')
-      + fld('Public folder',                                 'cfg-f-public-folder', pub.folder || '',                   'public',           'text',   'Folder for static files served at the root (HTML, CSS, JS, etc.).')
-      + '</div>';
-  }
-
-  function collectGeneralForm() {
-    const name    = document.getElementById('cfg-f-name').value.trim();
-    const portStr = document.getElementById('cfg-f-port').value.trim();
-    const db      = document.getElementById('cfg-f-database').value.trim();
-    const folder  = document.getElementById('cfg-f-public-folder').value.trim();
-    const result  = { name: name || (configData && configData.name) || 'App' };
-    if (portStr) result.port     = parseInt(portStr, 10);
-    if (db)      result.database = db;
-    if (folder)  result.public   = { folder: folder };
-    return result;
-  }
-
-  // Entities tab: card list with name, flags, relations, property rows
-  function renderEntitiesForm() {
-    _cfgEntityId = 0;
-    const entities = (configData && configData.entities) || {};
-    let cards = '';
-    for (const key of Object.keys(entities)) cards += renderEntityCard(key, entities[key]);
-    return '<div id="cfg-entities-list" class="space-y-3">' + cards + '</div>'
-      + '<button type="button" onclick="addEntityCard()"'
-      + ' class="mt-3 text-xs border border-cs-border rounded px-3 py-1.5 text-cs-muted hover:text-cs-text cursor-pointer"'
-      + ' style="transition:color 150ms,background 150ms;">+ Add entity</button>';
-  }
-
-  function _propTypeSelect(cls, sel) {
-    let opts = '';
-    for (const t of PROP_TYPES) opts += '<option value="' + t + '"' + (t === sel ? ' selected' : '') + '>' + t + '</option>';
-    return '<select class="' + cls + '" style="transition:border-color 150ms;">' + opts + '</select>';
-  }
-
-  function renderEntityCard(entityName, def) {
-    const id     = _cfgEntityId++;
-    const props  = def.properties || [];
-    const btArr  = (def.belongsTo     || []).map(function(r) { return typeof r === 'string' ? r : (r.entity || ''); }).filter(Boolean);
-    const btmArr = (def.belongsToMany || []).map(function(r) { return typeof r === 'string' ? r : (r.entity || ''); }).filter(Boolean);
-    let propsHtml = '';
-    for (const p of props) {
-      propsHtml += renderPropRow(
-        typeof p === 'string' ? p : (p.name || ''),
-        typeof p === 'string' ? 'string' : (p.type || 'string')
-      );
-    }
-    return '<div class="entity-card rounded border p-4" style="border-color:#2a2a2a;background:#181818;"'
-      + ' data-entity-id="' + id + '" data-original-name="' + escAttr(entityName) + '">'
-      + '<div class="flex flex-wrap items-end gap-3 mb-3">'
-        + '<div class="flex-1" style="min-width:160px;">'
-          + '<label class="' + _LBL + '" style="color:#888;">Entity name</label>'
-          + '<input type="text" id="cfg-e-name-' + id + '" value="' + escAttr(entityName) + '" placeholder="Post"'
-          + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" />'
-        + '</div>'
-        + '<div class="flex gap-4 items-center" style="padding-bottom:2px;">'
-          + '<label class="flex items-center gap-1.5 text-xs cursor-pointer select-none" style="color:#888;">'
-          + '<input type="checkbox" id="cfg-e-auth-' + id + '"' + (def.authenticable ? ' checked' : '') + ' />'
-          + ' User collection</label>'
-          + '<label class="flex items-center gap-1.5 text-xs cursor-pointer select-none" style="color:#888;">'
-          + '<input type="checkbox" id="cfg-e-single-' + id + '"' + (def.single ? ' checked' : '') + ' />'
-          + ' Single</label>'
-        + '</div>'
-        + '<button type="button" onclick="removeEntityCard(' + id + ')"'
-        + ' class="text-xs px-2 py-1.5 rounded border cursor-pointer"'
-        + ' style="border-color:rgba(239,68,68,0.3);color:#f87171;background:transparent;">Remove</button>'
-      + '</div>'
-      + '<div class="grid gap-3 mb-3" style="grid-template-columns:1fr 1fr;">'
-        + '<div><label class="' + _LBL + '" style="color:#888;">Belongs to <span style="color:#555;">(comma-separated)</span></label>'
-        + '<input type="text" id="cfg-e-bt-' + id + '" value="' + escAttr(btArr.join(', ')) + '" placeholder="User, Category"'
-        + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
-        + '<div><label class="' + _LBL + '" style="color:#888;">Belongs to many <span style="color:#555;">(comma-separated)</span></label>'
-        + '<input type="text" id="cfg-e-btm-' + id + '" value="' + escAttr(btmArr.join(', ')) + '" placeholder="Tag"'
-        + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
-      + '</div>'
-      + '<div>'
-        + '<div class="flex items-center justify-between mb-1.5">'
-          + '<span class="text-xs" style="color:#888;">Properties</span>'
-          + '<button type="button" onclick="addPropRow(' + id + ')"'
-          + ' class="text-xs px-2 py-0.5 rounded border cursor-pointer"'
-          + ' style="border-color:#2a2a2a;color:#888;background:transparent;transition:color 150ms;">+ Add property</button>'
-        + '</div>'
-        + '<div id="cfg-e-props-' + id + '" class="space-y-1.5">' + propsHtml + '</div>'
-      + '</div>'
-      + '</div>';
-  }
-
-  function renderPropRow(name, type) {
-    return '<div class="flex gap-2 items-center prop-row">'
-      + '<input type="text" value="' + escAttr(name) + '" placeholder="property name"'
-      + ' class="flex-1 ' + _INP_XS + ' prop-name" style="transition:border-color 150ms;" />'
-      + _propTypeSelect(_INP_XS + ' prop-type', type)
-      + '<button type="button" onclick="_cfgRmPropRow(this)"'
-      + ' class="text-xs px-1.5 rounded cursor-pointer" style="color:#555;background:transparent;" title="Remove">×</button>'
-      + '</div>';
-  }
-
-  function addPropRow(entityId) {
-    document.getElementById('cfg-e-props-' + entityId).insertAdjacentHTML('beforeend', renderPropRow('', 'string'));
-  }
-
-  function _cfgRmPropRow(btn)         { btn.closest('.prop-row').remove(); }
-  function _cfgRmEndpointCard(btn)    { btn.closest('.endpoint-card').remove(); }
-  function _cfgRmFileBucketCard(btn)  { btn.closest('.file-bucket-card').remove(); }
-  function _cfgRmRateLimitRow(btn)    { btn.closest('.rl-row').remove(); }
-
-  function addEntityCard() {
-    document.getElementById('cfg-entities-list').insertAdjacentHTML('beforeend', renderEntityCard('', {}));
-  }
-
-  function removeEntityCard(id) {
-    const card = document.querySelector('[data-entity-id="' + id + '"]');
-    if (card) card.remove();
-  }
-
-  function collectEntitiesForm() {
-    const entities = {};
-    for (const card of document.querySelectorAll('.entity-card')) {
-      const id       = card.dataset.entityId;
-      const origName = card.dataset.originalName;
-      const nameEl   = document.getElementById('cfg-e-name-' + id);
-      const name     = nameEl ? nameEl.value.trim() : '';
-      if (!name) continue;
-
-      const authEl   = document.getElementById('cfg-e-auth-' + id);
-      const singleEl = document.getElementById('cfg-e-single-' + id);
-      const btEl     = document.getElementById('cfg-e-bt-' + id);
-      const btmEl    = document.getElementById('cfg-e-btm-' + id);
-
-      const authenticable = authEl   ? authEl.checked   : false;
-      const single        = singleEl ? singleEl.checked : false;
-      const btStr         = btEl  ? btEl.value.trim()  : '';
-      const btmStr        = btmEl ? btmEl.value.trim() : '';
-
-      // Preserve advanced entity-level fields (hooks, middlewares, policies, etc.)
-      const existing = (configData && configData.entities && configData.entities[origName]) || {};
-      const def = Object.assign({}, existing);
-
-      if (authenticable) def.authenticable = true; else delete def.authenticable;
-      if (single)        def.single        = true; else delete def.single;
-
-      const bt  = btStr  ? btStr.split(',').map(function(s) { return s.trim(); }).filter(Boolean)  : [];
-      const btm = btmStr ? btmStr.split(',').map(function(s) { return s.trim(); }).filter(Boolean) : [];
-      if (bt.length)  def.belongsTo     = bt;  else delete def.belongsTo;
-      if (btm.length) def.belongsToMany = btm; else delete def.belongsToMany;
-
-      // Build property list, preserving advanced per-property config (validation, hidden, etc.)
-      const origProps  = existing.properties || [];
-      const origByName = {};
-      for (const p of origProps) {
-        const n = typeof p === 'string' ? p : p.name;
-        if (n) origByName[n] = p;
-      }
-      const properties = [];
-      for (const row of card.querySelectorAll('.prop-row')) {
-        const pNameEl = row.querySelector('.prop-name');
-        const pTypeEl = row.querySelector('.prop-type');
-        const pName = pNameEl ? pNameEl.value.trim() : '';
-        const pType = pTypeEl ? pTypeEl.value : 'string';
-        if (!pName) continue;
-        const orig = origByName[pName];
-        if (orig && typeof orig === 'object') {
-          properties.push(Object.assign({}, orig, { type: pType }));
-        } else {
-          properties.push(pType === 'string' ? pName : { name: pName, type: pType });
-        }
-      }
-      if (properties.length) def.properties = properties; else delete def.properties;
-
-      entities[name] = def;
-    }
-    return entities;
-  }
-
-  // Endpoints tab: card list with name, path, method, handler, description
-  function renderEndpointsForm() {
-    _cfgEndpointId = 0;
-    const endpoints = (configData && configData.endpoints) || {};
-    let cards = '';
-    for (const key of Object.keys(endpoints)) cards += renderEndpointCard(key, endpoints[key]);
-    return '<div id="cfg-endpoints-list" class="space-y-3">' + cards + '</div>'
-      + '<button type="button" onclick="addEndpointCard()"'
-      + ' class="mt-3 text-xs border border-cs-border rounded px-3 py-1.5 text-cs-muted hover:text-cs-text cursor-pointer"'
-      + ' style="transition:color 150ms,background 150ms;">+ Add endpoint</button>';
-  }
-
-  function renderEndpointCard(epName, def) {
-    const id      = _cfgEndpointId++;
-    const methods = ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'];
-    let methodOpts = '';
-    for (const m of methods) methodOpts += '<option value="' + m + '"' + (m === (def.method || 'GET') ? ' selected' : '') + '>' + m + '</option>';
-    const methodSel = '<select id="cfg-ep-method-' + id + '" class="w-full ' + _INP + '" style="transition:border-color 150ms;">' + methodOpts + '</select>';
-    return '<div class="endpoint-card rounded border p-4" style="border-color:#2a2a2a;background:#181818;" data-endpoint-id="' + id + '">'
-      + '<div class="grid gap-3 mb-3" style="grid-template-columns:1fr 1fr;">'
-        + '<div><label class="' + _LBL + '" style="color:#888;">Name</label>'
-        + '<input type="text" id="cfg-ep-name-' + id + '" value="' + escAttr(epName) + '" placeholder="sendEmail"'
-        + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
-        + '<div><label class="' + _LBL + '" style="color:#888;">Path</label>'
-        + '<input type="text" id="cfg-ep-path-' + id + '" value="' + escAttr(def.path || '') + '" placeholder="/send-email"'
-        + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
-        + '<div><label class="' + _LBL + '" style="color:#888;">Method</label>' + methodSel + '</div>'
-        + '<div><label class="' + _LBL + '" style="color:#888;">Handler</label>'
-        + '<input type="text" id="cfg-ep-handler-' + id + '" value="' + escAttr(def.handler || '') + '" placeholder="sendEmailHandler"'
-        + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
-      + '</div>'
-      + '<div class="flex items-end gap-3">'
-        + '<div class="flex-1"><label class="' + _LBL + '" style="color:#888;">Description <span style="color:#555;">(optional)</span></label>'
-        + '<input type="text" id="cfg-ep-desc-' + id + '" value="' + escAttr(def.description || '') + '" placeholder="What this endpoint does"'
-        + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
-        + '<button type="button" onclick="_cfgRmEndpointCard(this)"'
-        + ' class="text-xs px-2 py-1.5 rounded border cursor-pointer"'
-        + ' style="border-color:rgba(239,68,68,0.3);color:#f87171;background:transparent;">Remove</button>'
-      + '</div>'
-      + '</div>';
-  }
-
-  function addEndpointCard() {
-    document.getElementById('cfg-endpoints-list').insertAdjacentHTML('beforeend', renderEndpointCard('', {}));
-  }
-
-  function collectEndpointsForm() {
-    const endpoints = {};
-    for (const card of document.querySelectorAll('.endpoint-card')) {
-      const id      = card.dataset.endpointId;
-      const nameEl  = document.getElementById('cfg-ep-name-' + id);
-      const pathEl  = document.getElementById('cfg-ep-path-' + id);
-      const methEl  = document.getElementById('cfg-ep-method-' + id);
-      const handEl  = document.getElementById('cfg-ep-handler-' + id);
-      const descEl  = document.getElementById('cfg-ep-desc-' + id);
-      const name    = nameEl ? nameEl.value.trim() : '';
-      const path    = pathEl ? pathEl.value.trim() : '';
-      const method  = methEl ? methEl.value : 'GET';
-      const handler = handEl ? handEl.value.trim() : '';
-      const desc    = descEl ? descEl.value.trim() : '';
-      if (!name || !path || !handler) continue;
-      const existing = (configData && configData.endpoints && configData.endpoints[name]) || {};
-      const def = Object.assign({}, existing, { path: path, method: method, handler: handler });
-      if (desc) def.description = desc; else delete def.description;
-      endpoints[name] = def;
-    }
-    return endpoints;
-  }
-
-  // Files tab: card list with bucket name, path, public checkbox
-  function renderFilesForm() {
-    _cfgFileId = 0;
-    const files = (configData && configData.files) || {};
-    let cards = '';
-    for (const key of Object.keys(files)) cards += renderFileBucketCard(key, files[key]);
-    return '<div id="cfg-files-list" class="space-y-2">' + cards + '</div>'
-      + '<button type="button" onclick="addFileBucketCard()"'
-      + ' class="mt-3 text-xs border border-cs-border rounded px-3 py-1.5 text-cs-muted hover:text-cs-text cursor-pointer"'
-      + ' style="transition:color 150ms,background 150ms;">+ Add file bucket</button>';
-  }
-
-  function renderFileBucketCard(bucketName, def) {
-    const id = _cfgFileId++;
-    return '<div class="file-bucket-card flex flex-wrap gap-3 items-end rounded border p-3"'
-      + ' style="border-color:#2a2a2a;background:#181818;" data-bucket-id="' + id + '">'
-      + '<div><label class="' + _LBL + '" style="color:#888;">Name</label>'
-      + '<input type="text" id="cfg-fb-name-' + id + '" value="' + escAttr(bucketName) + '" placeholder="images"'
-      + ' class="' + _INP + '" style="transition:border-color 150ms;width:130px;" /></div>'
-      + '<div class="flex-1"><label class="' + _LBL + '" style="color:#888;">Path</label>'
-      + '<input type="text" id="cfg-fb-path-' + id + '" value="' + escAttr(def.path || '') + '" placeholder="uploads/images"'
-      + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
-      + '<label class="flex items-center gap-1.5 text-xs cursor-pointer select-none" style="color:#888;padding-bottom:6px;">'
-      + '<input type="checkbox" id="cfg-fb-public-' + id + '"' + (def.public ? ' checked' : '') + ' /> Public</label>'
-      + '<button type="button" onclick="_cfgRmFileBucketCard(this)"'
-      + ' class="text-xs px-2 py-1.5 rounded border cursor-pointer"'
-      + ' style="border-color:rgba(239,68,68,0.3);color:#f87171;background:transparent;">Remove</button>'
-      + '</div>';
-  }
-
-  function addFileBucketCard() {
-    document.getElementById('cfg-files-list').insertAdjacentHTML('beforeend', renderFileBucketCard('', {}));
-  }
-
-  function collectFilesForm() {
-    const files = {};
-    for (const card of document.querySelectorAll('.file-bucket-card')) {
-      const id     = card.dataset.bucketId;
-      const nameEl = document.getElementById('cfg-fb-name-' + id);
-      const pathEl = document.getElementById('cfg-fb-path-' + id);
-      const pubEl  = document.getElementById('cfg-fb-public-' + id);
-      const name   = nameEl ? nameEl.value.trim() : '';
-      const path   = pathEl ? pathEl.value.trim() : '';
-      const isPublic = pubEl ? pubEl.checked : false;
-      if (!name || !path) continue;
-      const def = { path: path };
-      if (isPublic) def.public = true;
-      files[name] = def;
-    }
-    return files;
-  }
-
-  // Settings tab: rate limit rows
-  function renderSettingsForm() {
-    _cfgRlId = 0;
-    const rls = (configData && configData.settings && configData.settings.rateLimits) || [];
-    let rows = '';
-    for (const rl of rls) rows += renderRateLimitRow(rl);
+function renderGeneralForm() {
+  const d = configData || {}, pub = d.public || {};
+  function fld(label, id, val, ph, type, hint) {
     return '<div>'
-      + '<p class="text-xs mb-3" style="color:#666;">Rate limits cap the number of API requests per time window.</p>'
-      + '<div id="cfg-rl-list" class="space-y-2">' + rows + '</div>'
-      + '<button type="button" onclick="addRateLimitRow()"'
-      + ' class="mt-3 text-xs border border-cs-border rounded px-3 py-1.5 text-cs-muted hover:text-cs-text cursor-pointer"'
-      + ' style="transition:color 150ms,background 150ms;">+ Add rate limit</button>'
+      + '<label class="' + _LBL + '" style="color:#888;">' + label + '</label>'
+      + '<input type="' + (type || 'text') + '" id="' + id + '" value="' + escAttr(String(val != null ? val : '')) + '" placeholder="' + escAttr(ph) + '"'
+      + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" />'
+      + (hint ? '<p class="text-xs mt-1" style="color:#666;">' + hint + '</p>' : '')
       + '</div>';
   }
+  return '<div class="space-y-4 max-w-lg">'
+    + fld('App Name <span style="color:#f87171;">*</span>', 'cfg-f-name', d.name || '', 'My App', 'text')
+    + fld('Port', 'cfg-f-port', d.port !== undefined ? d.port : '', '3000', 'number', 'Default: 3000')
+    + fld('Database path', 'cfg-f-database', d.database || '', 'data/chadstart.db', 'text', 'Path relative to the config file.')
+    + fld('Public folder', 'cfg-f-public-folder', pub.folder || '', 'public', 'text', 'Folder for static files.')
+    + '</div>';
+}
 
-  function renderRateLimitRow(rl) {
-    const id = _cfgRlId++;
-    return '<div class="flex flex-wrap gap-2 items-end rl-row" data-rl-id="' + id + '">'
-      + '<div><label class="' + _LBL + '" style="color:#888;">Name</label>'
-      + '<input type="text" id="cfg-rl-name-' + id + '" value="' + escAttr(rl.name || '') + '" placeholder="api"'
-      + ' class="' + _INP_XS + '" style="transition:border-color 150ms;width:90px;" /></div>'
-      + '<div><label class="' + _LBL + '" style="color:#888;">Max requests</label>'
-      + '<input type="number" id="cfg-rl-limit-' + id + '" value="' + escAttr(rl.limit !== undefined ? String(rl.limit) : '') + '" placeholder="200"'
-      + ' class="' + _INP_XS + '" style="transition:border-color 150ms;width:105px;" /></div>'
-      + '<div><label class="' + _LBL + '" style="color:#888;">Window (ms)</label>'
-      + '<input type="number" id="cfg-rl-ttl-' + id + '" value="' + escAttr(rl.ttl !== undefined ? String(rl.ttl) : '') + '" placeholder="60000"'
-      + ' class="' + _INP_XS + '" style="transition:border-color 150ms;width:105px;" /></div>'
-      + '<button type="button" onclick="_cfgRmRateLimitRow(this)"'
-      + ' class="text-xs px-2 py-1.5 rounded border cursor-pointer"'
-      + ' style="border-color:rgba(239,68,68,0.3);color:#f87171;background:transparent;">Remove</button>'
-      + '</div>';
-  }
+function collectGeneralForm() {
+  const name = document.getElementById('cfg-f-name').value.trim();
+  const portStr = document.getElementById('cfg-f-port').value.trim();
+  const db = document.getElementById('cfg-f-database').value.trim();
+  const folder = document.getElementById('cfg-f-public-folder').value.trim();
+  const result = { name: name || (configData && configData.name) || 'App' };
+  if (portStr) result.port = parseInt(portStr, 10);
+  if (db) result.database = db;
+  if (folder) result.public = { folder };
+  return result;
+}
 
-  function addRateLimitRow() {
-    document.getElementById('cfg-rl-list').insertAdjacentHTML('beforeend', renderRateLimitRow({}));
-  }
+function renderEntitiesForm() {
+  _cfgEntityId = 0;
+  const entities = (configData && configData.entities) || {};
+  let cards = '';
+  for (const key of Object.keys(entities)) cards += renderEntityCard(key, entities[key]);
+  return '<div id="cfg-entities-list" class="space-y-3">' + cards + '</div>'
+    + '<button type="button" onclick="addEntityCard()" class="mt-3 text-xs border border-cs-border rounded px-3 py-1.5 text-cs-muted hover:text-cs-text cursor-pointer" style="transition:color 150ms,background 150ms;">+ Add entity</button>';
+}
 
-  function collectSettingsForm() {
-    const rateLimits = [];
-    for (const row of document.querySelectorAll('.rl-row')) {
-      const id       = row.dataset.rlId;
-      const nameEl   = document.getElementById('cfg-rl-name-' + id);
-      const limitEl  = document.getElementById('cfg-rl-limit-' + id);
-      const ttlEl    = document.getElementById('cfg-rl-ttl-' + id);
-      const name     = nameEl  ? nameEl.value.trim()  : '';
-      const limitStr = limitEl ? limitEl.value.trim() : '';
-      const ttlStr   = ttlEl   ? ttlEl.value.trim()   : '';
-      if (!name || !limitStr || !ttlStr) continue;
-      rateLimits.push({ name: name, limit: parseInt(limitStr, 10), ttl: parseInt(ttlStr, 10) });
+function _propTypeSelect(cls, sel) {
+  let opts = '';
+  for (const t of PROP_TYPES) opts += '<option value="' + t + '"' + (t === sel ? ' selected' : '') + '>' + t + '</option>';
+  return '<select class="' + cls + '" style="transition:border-color 150ms;">' + opts + '</select>';
+}
+
+function renderEntityCard(entityName, def) {
+  const id = _cfgEntityId++;
+  const props = def.properties || [];
+  const btArr  = (def.belongsTo     || []).map(r => typeof r === 'string' ? r : (r.entity || '')).filter(Boolean);
+  const btmArr = (def.belongsToMany || []).map(r => typeof r === 'string' ? r : (r.entity || '')).filter(Boolean);
+  let propsHtml = '';
+  for (const p of props) propsHtml += renderPropRow(typeof p === 'string' ? p : (p.name || ''), typeof p === 'string' ? 'string' : (p.type || 'string'), id);
+  return '<div class="bg-cs-bg border border-cs-border rounded p-3" data-entity-id="' + id + '">'
+    + '<div class="flex items-center gap-2 mb-3">'
+    + '<input type="text" placeholder="EntityName" value="' + escAttr(entityName) + '" data-role="entity-name" class="' + _INP + ' flex-1" style="transition:border-color 150ms;" />'
+    + '<label class="flex items-center gap-1 text-xs text-cs-muted cursor-pointer"><input type="checkbox"' + (def.authenticable ? ' checked' : '') + ' data-role="authenticable" style="accent-color:#34b1eb;" /> Auth</label>'
+    + '<label class="flex items-center gap-1 text-xs text-cs-muted cursor-pointer"><input type="checkbox"' + (def.single ? ' checked' : '') + ' data-role="single" style="accent-color:#34b1eb;" /> Single</label>'
+    + '<button type="button" onclick="removeEntityCard(' + id + ')" class="text-cs-muted hover:text-red-400 text-xs cursor-pointer px-1">✕</button></div>'
+    + '<div class="text-xs text-cs-muted mb-1">Properties</div>'
+    + '<div id="cfg-props-' + id + '" class="space-y-1">' + propsHtml + '</div>'
+    + '<button type="button" onclick="addPropRow(' + id + ')" class="mt-1 text-xs text-cs-muted hover:text-cs-text cursor-pointer">+ Add property</button>'
+    + '<div class="mt-2"><div class="text-xs text-cs-muted mb-1">belongsTo</div>'
+    + '<input type="text" value="' + escAttr(btArr.join(', ')) + '" data-role="belongsTo" class="w-full ' + _INP_XS + '" style="transition:border-color 150ms;" /></div>'
+    + '<div class="mt-2"><div class="text-xs text-cs-muted mb-1">belongsToMany</div>'
+    + '<input type="text" value="' + escAttr(btmArr.join(', ')) + '" data-role="belongsToMany" class="w-full ' + _INP_XS + '" style="transition:border-color 150ms;" /></div>'
+    + '</div>';
+}
+
+function renderPropRow(name, type, entityId) {
+  return '<div class="flex gap-1 items-center"><input type="text" placeholder="name" value="' + escAttr(name) + '" data-role="prop-name" class="' + _INP_XS + ' flex-1" style="transition:border-color 150ms;" />'
+    + _propTypeSelect(_INP_XS + ' w-32', type)
+    + '<button type="button" onclick="this.parentElement.remove()" class="text-cs-muted hover:text-red-400 text-xs cursor-pointer px-0.5">✕</button></div>';
+}
+
+function addPropRow(entityId) {
+  const c = document.getElementById('cfg-props-' + entityId); if (!c) return;
+  const d = document.createElement('div'); d.innerHTML = renderPropRow('', 'string', entityId);
+  c.appendChild(d.firstElementChild);
+}
+
+function addEntityCard() {
+  const l = document.getElementById('cfg-entities-list'); if (!l) return;
+  const d = document.createElement('div'); d.innerHTML = renderEntityCard('', {});
+  l.appendChild(d.firstElementChild);
+}
+
+function removeEntityCard(id) {
+  document.querySelector(`[data-entity-id="${id}"]`)?.remove();
+}
+
+function collectEntitiesForm() {
+  const entities = {};
+  for (const card of document.querySelectorAll('[data-entity-id]')) {
+    const name = card.querySelector('[data-role=entity-name]')?.value.trim();
+    if (!name) continue;
+    const authenticable = card.querySelector('[data-role=authenticable]')?.checked || false;
+    const single = card.querySelector('[data-role=single]')?.checked || false;
+    const props = [];
+    for (const row of card.querySelectorAll('[data-role=prop-name]')) {
+      const pName = row.value.trim(), pType = row.nextElementSibling?.value || 'string';
+      if (pName) props.push(pType === 'string' ? pName : { name: pName, type: pType });
     }
-    const result = {};
-    if (rateLimits.length) result.settings = { rateLimits: rateLimits };
-    if (configData && configData.groups) result.groups = configData.groups;
-    return result;
+    const bt  = (card.querySelector('[data-role=belongsTo]')?.value || '').split(',').map(s => s.trim()).filter(Boolean);
+    const btm = (card.querySelector('[data-role=belongsToMany]')?.value || '').split(',').map(s => s.trim()).filter(Boolean);
+    const def = { properties: props };
+    if (authenticable) def.authenticable = true;
+    if (single) def.single = true;
+    if (bt.length) def.belongsTo = bt;
+    if (btm.length) def.belongsToMany = btm;
+    entities[name] = def;
   }
+  return entities;
+}
 
-  // Form dispatcher
-  function renderConfigForm(tab) {
-    const el = document.getElementById('cfg-form');
-    if (tab === 'general')   { el.innerHTML = renderGeneralForm();   return; }
-    if (tab === 'entities')  { el.innerHTML = renderEntitiesForm();  return; }
-    if (tab === 'endpoints') { el.innerHTML = renderEndpointsForm(); return; }
-    if (tab === 'files')     { el.innerHTML = renderFilesForm();     return; }
-    if (tab === 'settings')  { el.innerHTML = renderSettingsForm();  return; }
-    el.innerHTML = '';
+function renderEndpointsForm() {
+  _cfgEndpointId = 0;
+  const endpoints = (configData && configData.endpoints) || {};
+  let cards = '';
+  for (const [k, ep] of Object.entries(endpoints)) cards += renderEndpointCard(k, ep);
+  return '<div id="cfg-endpoints-list" class="space-y-3">' + cards + '</div>'
+    + '<button type="button" onclick="addEndpointCard()" class="mt-3 text-xs border border-cs-border rounded px-3 py-1.5 text-cs-muted hover:text-cs-text cursor-pointer">+ Add endpoint</button>';
+}
+
+function renderEndpointCard(name, ep) {
+  const id = _cfgEndpointId++;
+  const methods = ['GET','POST','PUT','PATCH','DELETE'];
+  const mOpts = methods.map(m => '<option value="' + m + '"' + (m === (ep.method||'GET') ? ' selected' : '') + '>' + m + '</option>').join('');
+  return '<div class="bg-cs-bg border border-cs-border rounded p-3 space-y-2" data-ep-id="' + id + '">'
+    + '<div class="flex gap-2 items-center"><input type="text" placeholder="Name" value="' + escAttr(name) + '" data-role="ep-name" class="' + _INP_XS + ' flex-1" />'
+    + '<button type="button" onclick="this.closest(\'[data-ep-id]\').remove()" class="text-cs-muted hover:text-red-400 text-xs cursor-pointer">✕</button></div>'
+    + '<div class="flex gap-2"><select data-role="ep-method" class="' + _INP_XS + '">' + mOpts + '</select>'
+    + '<input type="text" placeholder="/path" value="' + escAttr(ep.path||'') + '" data-role="ep-path" class="' + _INP_XS + ' flex-1" /></div>'
+    + '<input type="text" placeholder="handler filename (no .js)" value="' + escAttr(ep.handler||'') + '" data-role="ep-handler" class="w-full ' + _INP_XS + '" /></div>';
+}
+
+function addEndpointCard() {
+  const l = document.getElementById('cfg-endpoints-list'); if (!l) return;
+  const d = document.createElement('div'); d.innerHTML = renderEndpointCard('', {});
+  l.appendChild(d.firstElementChild);
+}
+
+function collectEndpointsForm() {
+  const endpoints = {};
+  for (const card of document.querySelectorAll('[data-ep-id]')) {
+    const name = card.querySelector('[data-role=ep-name]')?.value.trim();
+    const method = card.querySelector('[data-role=ep-method]')?.value || 'GET';
+    const path = card.querySelector('[data-role=ep-path]')?.value.trim();
+    const handler = card.querySelector('[data-role=ep-handler]')?.value.trim();
+    if (name && path && handler) endpoints[name] = { method, path, handler };
   }
+  return endpoints;
+}
 
-  function collectFormData() {
-    if (configActiveTab === 'general')   return collectGeneralForm();
-    if (configActiveTab === 'entities')  return { entities: collectEntitiesForm() };
-    if (configActiveTab === 'endpoints') return { endpoints: collectEndpointsForm() };
-    if (configActiveTab === 'files')     return { files: collectFilesForm() };
-    if (configActiveTab === 'settings')  return collectSettingsForm();
-    return null;
+function renderFilesForm() {
+  _cfgFileId = 0;
+  const files = (configData && configData.files) || {};
+  let cards = '';
+  for (const [k, f] of Object.entries(files)) cards += renderFileCard(k, f);
+  return '<div id="cfg-files-list" class="space-y-3">' + cards + '</div>'
+    + '<button type="button" onclick="addFileCard()" class="mt-3 text-xs border border-cs-border rounded px-3 py-1.5 text-cs-muted hover:text-cs-text cursor-pointer">+ Add bucket</button>';
+}
+
+function renderFileCard(name, f) {
+  const id = _cfgFileId++;
+  return '<div class="bg-cs-bg border border-cs-border rounded p-3 space-y-2" data-file-id="' + id + '">'
+    + '<div class="flex gap-2 items-center"><input type="text" placeholder="Bucket name" value="' + escAttr(name) + '" data-role="file-name" class="' + _INP_XS + ' flex-1" />'
+    + '<button type="button" onclick="this.closest(\'[data-file-id]\').remove()" class="text-cs-muted hover:text-red-400 text-xs cursor-pointer">✕</button></div>'
+    + '<input type="text" placeholder="./uploads" value="' + escAttr(f.path||'') + '" data-role="file-path" class="w-full ' + _INP_XS + '" />'
+    + '<label class="flex items-center gap-1 text-xs text-cs-muted cursor-pointer"><input type="checkbox"' + (f.public ? ' checked' : '') + ' data-role="file-public" style="accent-color:#34b1eb;" /> Public</label>'
+    + '</div>';
+}
+
+function addFileCard() {
+  const l = document.getElementById('cfg-files-list'); if (!l) return;
+  const d = document.createElement('div'); d.innerHTML = renderFileCard('', {});
+  l.appendChild(d.firstElementChild);
+}
+
+function collectFilesForm() {
+  const files = {};
+  for (const card of document.querySelectorAll('[data-file-id]')) {
+    const name = card.querySelector('[data-role=file-name]')?.value.trim();
+    const path = card.querySelector('[data-role=file-path]')?.value.trim();
+    const pub = card.querySelector('[data-role=file-public]')?.checked || false;
+    if (name) files[name] = { path: path || './uploads', public: pub };
   }
+  return files;
+}
 
-  function selectConfig(el) {
-    document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.remove('active'); });
-    el.classList.add('active');
-    configMode = true;
-    document.getElementById('page-title').textContent = 'Config Editor';
-    document.getElementById('btn-add').classList.add('hidden');
-    document.getElementById('table-area').classList.add('hidden');
-    document.getElementById('config-area').classList.remove('hidden');
-    closeSidebar();
-    loadConfig();
+function renderSettingsForm() {
+  _cfgRlId = 0;
+  const settings = (configData && configData.settings) || {};
+  const rls = settings.rateLimits || [];
+  let rlHtml = '';
+  for (const rl of rls) rlHtml += renderRlRow(rl);
+  return '<div class="space-y-3"><div><div class="text-xs text-cs-muted mb-2">Rate Limits</div>'
+    + '<div id="cfg-rl-list" class="space-y-2">' + rlHtml + '</div>'
+    + '<button type="button" onclick="addRlRow()" class="mt-1 text-xs border border-cs-border rounded px-2 py-1 text-cs-muted hover:text-cs-text cursor-pointer">+ Add rule</button></div></div>';
+}
+
+function renderRlRow(rl) {
+  const id = _cfgRlId++;
+  return '<div class="flex gap-2 items-center" data-rl-id="' + id + '">'
+    + '<input type="number" placeholder="TTL ms" value="' + escAttr(String(rl.ttl||60000)) + '" data-role="rl-ttl" class="' + _INP_XS + ' w-28" />'
+    + '<input type="number" placeholder="Max requests" value="' + escAttr(String(rl.limit||100)) + '" data-role="rl-limit" class="' + _INP_XS + ' w-28" />'
+    + '<button type="button" onclick="this.parentElement.remove()" class="text-cs-muted hover:text-red-400 text-xs cursor-pointer">✕</button></div>';
+}
+
+function addRlRow() {
+  const l = document.getElementById('cfg-rl-list'); if (!l) return;
+  const d = document.createElement('div'); d.innerHTML = renderRlRow({});
+  l.appendChild(d.firstElementChild);
+}
+
+function collectSettingsForm() {
+  const rls = [];
+  for (const row of document.querySelectorAll('[data-rl-id]')) {
+    const ttl = parseInt(row.querySelector('[data-role=rl-ttl]')?.value || '60000', 10);
+    const limit = parseInt(row.querySelector('[data-role=rl-limit]')?.value || '100', 10);
+    if (!isNaN(ttl) && !isNaN(limit)) rls.push({ ttl, limit });
   }
+  return rls.length ? { rateLimits: rls } : {};
+}
 
-  async function loadConfig() {
-    document.getElementById('cfg-status').textContent = 'Loading…';
-    try {
-      const r = await apiFetch('/admin/config');
-      if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Failed to load'); }
-      configData = await r.json();
-      showConfigTab(configActiveTab);
-      document.getElementById('cfg-status').textContent = '';
-    } catch (e) {
-      document.getElementById('cfg-status').textContent = 'Error: ' + e.message;
-      toast('Failed to load config: ' + e.message, 'error');
-    }
-  }
+function collectConfigForm() {
+  if (configActiveTab === 'all') return JSON.parse(document.getElementById('cfg-editor').value);
+  const base = { ...(configData || {}) };
+  if (configActiveTab === 'general')   Object.assign(base, collectGeneralForm());
+  if (configActiveTab === 'entities')  base.entities = collectEntitiesForm();
+  if (configActiveTab === 'endpoints') base.endpoints = collectEndpointsForm();
+  if (configActiveTab === 'files')     base.files = collectFilesForm();
+  if (configActiveTab === 'settings')  base.settings = collectSettingsForm();
+  return base;
+}
 
-  function showConfigTab(tab) {
-    configActiveTab = tab;
-    document.querySelectorAll('.cfg-tab').forEach(function(t) { t.classList.remove('active'); });
-    const tabEl = document.getElementById('cfg-tab-' + tab);
-    if (tabEl) tabEl.classList.add('active');
+async function saveConfig() {
+  const btn = document.getElementById('cfg-save-btn');
+  const status = document.getElementById('cfg-status');
+  btn.disabled = true; status.textContent = 'Saving…';
+  try {
+    const newCfg = collectConfigForm();
+    const r = await apiFetch('/admin/config', { method: 'PUT', body: JSON.stringify(newCfg), headers: { 'Content-Type': 'application/json' } });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Save failed');
+    status.textContent = data.message || 'Saved!';
+    configData = newCfg;
+    toast(data.message || 'Config saved', 'success');
+  } catch (e) { status.textContent = e.message; toast(e.message, 'error'); }
+  btn.disabled = false;
+}
 
-    const def = CFG_TABS[tab] || CFG_TABS.all;
-    document.getElementById('cfg-section-desc').textContent = def.desc || '';
+function resetConfigTab() { showConfigTab(configActiveTab); }
 
-    const s3Note = document.getElementById('cfg-s3-note');
-    if (def.s3) s3Note.classList.remove('hidden'); else s3Note.classList.add('hidden');
-
-    const formEl   = document.getElementById('cfg-form');
-    const editorEl = document.getElementById('cfg-editor');
-
-    if (CFG_FORM_TABS.has(tab)) {
-      editorEl.classList.add('hidden');
-      formEl.classList.remove('hidden');
-      renderConfigForm(tab);
-    } else {
-      formEl.classList.add('hidden');
-      editorEl.classList.remove('hidden');
-      editorEl.value = JSON.stringify(configData || {}, null, 2);
-    }
-  }
-
-  async function saveConfig() {
-    let sectionData;
-
-    if (CFG_FORM_TABS.has(configActiveTab)) {
-      sectionData = collectFormData();
-      if (sectionData === null) { toast('Could not read form data', 'error'); return; }
-    } else {
-      const rawText = document.getElementById('cfg-editor').value.trim();
-      try {
-        sectionData = JSON.parse(rawText);
-      } catch (e) {
-        toast('Invalid JSON: ' + e.message, 'error');
-        return;
-      }
-      if (typeof sectionData !== 'object' || Array.isArray(sectionData) || sectionData === null) {
-        toast('Config must be a JSON object', 'error');
-        return;
-      }
-    }
-
-    // Merge section into full config
-    let fullConfig;
-    if (configActiveTab === 'all') {
-      fullConfig = sectionData;
-    } else {
-      fullConfig = Object.assign({}, configData || {});
-      const tabKeys = CFG_TABS[configActiveTab].keys || [];
-      for (const key of tabKeys) delete fullConfig[key];
-      Object.assign(fullConfig, sectionData);
-    }
-
-    const btn = document.getElementById('cfg-save-btn');
-    btn.disabled = true; btn.textContent = 'Saving…';
-    document.getElementById('cfg-status').textContent = '';
-
-    try {
-      const r = await apiFetch('/admin/config', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(fullConfig),
-      });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error || 'Save failed');
-      configData = fullConfig;
-
-      if (data.reloading) {
-        document.getElementById('cfg-status').textContent = 'Reloading…';
-        toast('Config saved — reloading server…', 'info');
-        setTimeout(async function() {
-          try {
-            schema = await fetch('/admin/schema').then(function(r2) { return r2.json(); });
-            document.getElementById('project-name').textContent = schema.name;
-            buildSidebar();
-            document.getElementById('cfg-status').textContent = '✓ Config applied.';
-            toast('Config applied', 'success');
-          } catch (ex) {
-            document.getElementById('cfg-status').textContent = '✓ Saved — reload the page to see changes.';
-          }
-        }, 800);
-      } else {
-        document.getElementById('cfg-status').textContent = '✓ Saved — restart the server to apply changes.';
-        toast('Config saved successfully', 'success');
-      }
-    } catch (e) {
-      toast('Save failed: ' + e.message, 'error');
-    } finally {
-      btn.disabled = false; btn.textContent = 'Save Config';
-    }
-  }
-
-  function resetConfigTab() {
-    if (!configData) return;
-    showConfigTab(configActiveTab);
-    toast('Reset to last saved state', 'info');
-  }
-  init();
+// ── Start ─────────────────────────────────────────────────────────────────────
+init();
 </script>
 </body>
 </html>
