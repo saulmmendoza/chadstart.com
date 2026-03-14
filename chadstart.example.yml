@@ -1,0 +1,364 @@
+# chadstart.example.yml
+# ─────────────────────────────────────────────────────────────────────────────
+# Reference file that lists every available option in a ChadStart YAML config.
+# Copy this file to chadstart.yaml and remove / adjust the sections you need.
+# Secrets (JWT_SECRET, DB passwords, SENTRY_DSN, OTLP auth headers …) must
+# always be stored in .env — never put them in this file.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── App identity ──────────────────────────────────────────────────────────────
+
+# (required) Human-readable name of your application.
+name: My App
+
+# TCP port the HTTP server listens on. Overridable by PORT env var.
+# Default: 3000
+port: 3000
+
+# Path to the SQLite database file (relative to this config file).
+# Overridable by DB_PATH env var.
+# Default: data/chadstart.db
+database: data/chadstart.db
+
+# ── Entities ──────────────────────────────────────────────────────────────────
+# Define every data model here. ChadStart auto-generates REST + SDK CRUD for
+# each entity. Every entity gets id (UUID), createdAt, and updatedAt for free.
+
+entities:
+
+  # ── Authenticable (user-like) entity ────────────────────────────────────────
+  User:
+    # Makes this entity a user: adds email + password fields and enables
+    # login / signup / token-refresh endpoints.
+    authenticable: true
+
+    # Identifier property shown in the admin panel (defaults to first string field).
+    mainProp: name
+
+    # Overrides for the auto-generated singular / plural display names.
+    nameSingular: user
+    namePlural: users
+
+    # Number of records created when running `npm run seed`. Default: 50
+    seedCount: 10
+
+    # Custom kebab-case slug used in API paths (default: pluralised entity name).
+    slug: users
+
+    properties:
+      # Short syntax — type defaults to "string".
+      - name
+
+      # Long syntax — all available property options shown below.
+      - name: bio
+        type: text            # string | text | richText | number | link | money |
+                              # date | timestamp | email | boolean | file | image |
+                              # password | choice | location | group | json |
+                              # integer | float | real
+        hidden: false         # Exclude this field from API responses. Default: false
+        helpText: A short bio # Hint displayed in the admin UI
+        default: ''           # Default value when property is omitted on create
+
+      - name: email
+        type: email
+        validation:
+          required: true
+          isEmail: true
+
+      - name: age
+        type: integer
+        validation:
+          min: 0
+          max: 120
+
+      - name: website
+        type: link
+
+      - name: balance
+        type: money
+        options:
+          currency: USD       # ISO 4217 currency code. Default: USD
+
+      - name: avatar
+        type: image
+        options:
+          sizes:
+            thumbnail:
+              width: 80
+              height: 80
+              fit: cover      # cover | contain | fill | inside | outside (Sharp)
+            medium:
+              width: 400
+
+      - name: resume
+        type: file
+
+      - name: password
+        type: password        # Value is automatically hashed before storage
+
+      - name: role
+        type: choice
+        options:
+          values: [admin, editor, viewer]
+          sequential: false   # true = values follow a logical progression
+
+      - name: coordinates
+        type: location        # Stored as { lat, lng }
+
+      - name: metadata
+        type: json
+
+      - name: publishedAt
+        type: timestamp       # ISO 8601 datetime
+
+      - name: birthDate
+        type: date
+
+      - name: isActive
+        type: boolean
+        default: true
+
+    # ── Access policies ────────────────────────────────────────────────────────
+    # Each CRUD operation can have one or more policy rules evaluated in order.
+    # access values: public | restricted | admin | forbidden
+    # Emoji shortcuts: 🌐 = public | 🔒 = restricted | 👨🏻‍💻 = admin | 🚫 = forbidden
+    policies:
+      create:
+        - access: public                  # Anyone can sign up
+      read:
+        - access: restricted              # Must be authenticated
+          allow: User                     # …and belong to the User entity
+          condition: self                 # …and only read their own record
+      update:
+        - access: restricted
+          allow: User
+          condition: self
+      delete:
+        - access: admin                   # Only admins
+      # signup policy controls who can call the signup endpoint (authenticable only)
+      signup:
+        - access: public
+
+    # ── Entity-level validation ────────────────────────────────────────────────
+    # Validation rules applied per property on create / update requests.
+    # All available validation rules are listed here (use only what you need).
+    validation:
+      name:
+        required: true        # Field must be present in the request
+        isNotEmpty: true      # Value must not be an empty string
+        minLength: 2
+        maxLength: 100
+      email:
+        isDefined: true       # Value must not be undefined
+        isEmail: true
+      age:
+        isOptional: true
+        min: 0
+        max: 120
+      role:
+        isIn: [admin, editor, viewer]
+      bio:
+        isOptional: true
+        maxLength: 500
+        # Additional validators (not all will apply to every type):
+        # equals: someValue
+        # notEquals: someValue
+        # isEmpty: false
+        # isNotIn: [banned, blocked]
+        # contains: '@'
+        # notContains: spam
+        # isAlpha: true
+        # isAlphanumeric: true
+        # isAscii: true
+        # isJSON: false
+        # matches: '^[a-z]+$'
+        # isMimeType: true
+
+    # ── Webhooks (lifecycle hooks) ─────────────────────────────────────────────
+    # Send HTTP requests to external services on entity lifecycle events.
+    hooks:
+      afterCreate:
+        - url: https://hooks.example.com/user-created
+          method: POST          # GET | POST | PUT | PATCH | DELETE. Default: POST
+          headers:
+            X-Api-Key: my-key
+      afterUpdate:
+        - url: https://hooks.example.com/user-updated
+          method: POST
+      beforeDelete:
+        - url: https://hooks.example.com/before-user-deleted
+          method: POST
+      # Other available events: beforeCreate | beforeUpdate | afterDelete
+
+    # ── Middlewares ────────────────────────────────────────────────────────────
+    # Run a custom handler function at specific lifecycle points.
+    # Handler files live in the /functions (or CHADSTART_FUNCTIONS_FOLDER) folder.
+    middlewares:
+      beforeCreate:
+        - handler: hashApiKey
+      afterCreate:
+        - handler: sendWelcomeEmail
+      # Other available events: beforeUpdate | afterUpdate | beforeDelete | afterDelete
+
+  # ── Standard collection entity ────────────────────────────────────────────
+  Post:
+    mainProp: title
+    properties:
+      - title
+      - { name: content, type: richText }
+      - { name: publishedAt, type: timestamp }
+      - { name: coverImage, type: image, options: { sizes: { large: { width: 1200 } } } }
+
+    # ── Relations ───────────────────────────────────────────────────────────
+    # belongsTo  → many-to-one (adds a foreign key on this entity)
+    # belongsToMany → many-to-many (uses a join table)
+
+    # Short syntax: just the related entity name.
+    belongsTo:
+      - User
+
+    # Long syntax: rename the relation and/or add extra options.
+    # belongsTo:
+    #   - name: author
+    #     entity: User
+    #     helpText: The author of this post
+    #     eager: false   # true = automatically load this relation in all queries
+
+    belongsToMany:
+      - Tag
+
+    policies:
+      create:
+        - { access: restricted, allow: User }
+      read:
+        - access: public
+      update:
+        - { access: restricted, allow: User, condition: self }
+      delete:
+        - access: admin
+
+  Tag:
+    properties:
+      - name
+    policies:
+      create:
+        - access: admin
+      read:
+        - access: public
+      update:
+        - access: admin
+      delete:
+        - access: admin
+
+  # ── Single entity ──────────────────────────────────────────────────────────
+  # A single entity has exactly one record — Create and Delete are disabled.
+  # Useful for site settings, homepage content, etc.
+  SiteSettings:
+    single: true
+    slug: site-settings
+    properties:
+      - { name: siteName, type: string }
+      - { name: tagline, type: text }
+      - { name: logo, type: image }
+    validation:
+      siteName: { required: true }
+
+# ── Reusable property groups ──────────────────────────────────────────────────
+# Groups are sets of properties you can embed in multiple entities using
+# type: group. They are stored as JSON in the parent entity's row.
+
+groups:
+  Address:
+    properties:
+      - { name: street, type: string }
+      - { name: city, type: string }
+      - { name: zipCode, type: string }
+      - { name: country, type: string }
+    validation:
+      city: { isNotEmpty: true }
+
+  # Usage in an entity property (multiple items by default):
+  #   - name: addresses
+  #     type: group
+  #     options:
+  #       group: Address      # Name of the group defined above
+  #       multiple: true      # false = single nested object; Default: true
+
+# ── Custom endpoints ──────────────────────────────────────────────────────────
+# Add your own API routes. Each endpoint maps to a handler file in /functions
+# (or the folder set by CHADSTART_FUNCTIONS_FOLDER env var).
+
+endpoints:
+  sendPasswordReset:
+    path: /auth/password-reset
+    method: POST              # GET | POST | PATCH | PUT | DELETE
+    handler: sendPasswordReset
+    description: Sends a password-reset email to the given address.
+    policies:
+      - access: public
+
+  adminStats:
+    path: /admin/stats
+    method: GET
+    handler: adminStats
+    description: Returns usage statistics for the admin dashboard.
+    policies:
+      - access: admin
+
+# ── File buckets ──────────────────────────────────────────────────────────────
+# Named storage locations for uploaded files.
+
+files:
+  uploads:
+    path: ./uploads           # Local directory (relative to this config file)
+    public: true              # Serve files at /files/uploads/*. Default: false
+
+  privateDocuments:
+    path: ./private-docs
+    public: false
+
+# ── Static public folder ──────────────────────────────────────────────────────
+# Serve a folder of static assets (HTML, CSS, images, …) from the root path.
+
+public:
+  folder: ./public
+
+# ── Plugins ───────────────────────────────────────────────────────────────────
+# Extend the server with additional Express routes and logic.
+# ⚠ Remote plugins execute arbitrary code — only load plugins from trusted sources.
+
+plugins:
+  - repo: https://github.com/org/chadstart-plugin-example  # Remote GitHub repo
+  - path: ./my-local-plugin                                 # Local directory
+    name: my-local-plugin                                   # Optional display name
+
+# ── Global settings ───────────────────────────────────────────────────────────
+
+settings:
+  # Rate limiting — protect your API from abuse.
+  rateLimits:
+    - name: default
+      limit: 100              # Max requests allowed in the time window
+      ttl: 60000              # Time window in milliseconds (60 s here)
+    - name: strict
+      limit: 10
+      ttl: 60000
+
+  # OpenTelemetry tracing.
+  # Non-secret values can be set here; secret values (auth headers / API keys)
+  # must be set via environment variables only — see .env.example.
+  telemetry:
+    enabled: false            # Also configurable via OTEL_ENABLED env var
+    serviceName: my-app       # Overridable via OTEL_SERVICE_NAME env var
+    endpoint: http://localhost:4318  # Overridable via OTEL_EXPORTER_OTLP_ENDPOINT env var
+    # Auth headers (e.g., "authorization=Bearer <token>") must be set via
+    # OTEL_EXPORTER_OTLP_HEADERS env var — never place secrets in this file.
+
+# ── Error reporting (Sentry / Bugsink) ────────────────────────────────────────
+# Set SENTRY_DSN in your .env to enable. The DSN is a secret — never put it here.
+# Bugsink (https://www.bugsink.com) is a self-hosted Sentry-compatible alternative.
+
+sentry:
+  environment: production     # Label sent to Sentry. Defaults to NODE_ENV.
+  tracesSampleRate: 1.0       # Fraction of transactions to sample (0.0–1.0)
+  debug: false                # Enable Sentry SDK debug logging
