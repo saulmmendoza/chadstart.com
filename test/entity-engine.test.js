@@ -49,7 +49,7 @@ describe('entity-engine', () => {
     const core = buildCore({
       name: 'App',
       entities: { Home: { single: true, properties: ['t'], validation: { t: { minLength: 3 } }, hooks: { beforeCreate: [{ url: 'https://x.com' }] } } },
-      endpoints: { hi: { path: '/hi', method: 'GET', handler: 'hi' } },
+      endpoints: { hi: { path: '/hi', method: 'GET', function: 'hi' } },
       groups: { G: { properties: [{ name: 'a', type: 'string' }] } },
     });
     assert.ok(core.entities.Home.single);

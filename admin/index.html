@@ -1651,7 +1651,7 @@ function getFields(isCollection) {
     }
   }
 
-  // Endpoints tab: card list with name, path, method, handler, description
+  // Endpoints tab: card list with name, path, method, function, description
   function renderEndpointsForm() {
     _cfgEndpointId = 0;
     const endpoints = (configData && configData.endpoints) || {};
@@ -1678,8 +1678,8 @@ function getFields(isCollection) {
         + '<input type="text" id="cfg-ep-path-' + id + '" value="' + escAttr(def.path || '') + '" placeholder="' + escAttr(t('config.endpoints.path_placeholder')) + '"'
         + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
         + '<div><label class="' + _LBL + '" style="color:#888;">' + t('config.endpoints.method') + '</label>' + methodSel + '</div>'
-        + '<div><label class="' + _LBL + '" style="color:#888;">' + t('config.endpoints.handler') + '</label>'
-        + '<input type="text" id="cfg-ep-handler-' + id + '" value="' + escAttr(def.handler || '') + '" placeholder="' + escAttr(t('config.endpoints.handler_placeholder')) + '"'
+        + '<div><label class="' + _LBL + '" style="color:#888;">' + t('config.endpoints.function') + '</label>'
+        + '<input type="text" id="cfg-ep-function-' + id + '" value="' + escAttr(def.function || '') + '" placeholder="' + escAttr(t('config.endpoints.function_placeholder')) + '"'
         + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
       + '</div>'
       + '<div class="flex items-end gap-3">'
@@ -1832,7 +1832,7 @@ function toSnake(s) { return s.replace(/([A-Z])/g,(m,p,o)=>(o>0?'_':'')+p.toLowe
 const CFG_TABS = {
   general:   { keys: ['name','port','database','public'], desc: 'Application name, port, database path, and public static folder.' },
   entities:  { keys: ['entities'], desc: 'Entity definitions — properties, relations, and flags.' },
-  endpoints: { keys: ['endpoints'], desc: 'Custom REST endpoint definitions (path, method, handler).' },
+  endpoints: { keys: ['endpoints'], desc: 'Custom REST endpoint definitions (path, method, function).' },
   files:     { keys: ['files'], desc: 'File bucket definitions for local uploads.', s3: true },
   settings:  { keys: ['settings','groups'], desc: 'API rate limits and reusable property groups.' },
   all:       { keys: null, desc: 'Full configuration — all sections combined (raw JSON for advanced use).' },
@@ -2011,7 +2011,7 @@ function renderEndpointCard(name, ep) {
     + '<button type="button" onclick="this.closest(\'[data-ep-id]\').remove()" class="text-cs-muted hover:text-red-400 text-xs cursor-pointer">✕</button></div>'
     + '<div class="flex gap-2"><select data-role="ep-method" class="' + _INP_XS + '">' + mOpts + '</select>'
     + '<input type="text" placeholder="/path" value="' + escAttr(ep.path||'') + '" data-role="ep-path" class="' + _INP_XS + ' flex-1" /></div>'
-    + '<input type="text" placeholder="handler filename (no .js)" value="' + escAttr(ep.handler||'') + '" data-role="ep-handler" class="w-full ' + _INP_XS + '" /></div>';
+    + '<input type="text" placeholder="function filename (no .js)" value="' + escAttr(ep.function||'') + '" data-role="ep-function" class="w-full ' + _INP_XS + '" /></div>';
 }
 
 function addEndpointCard() {
@@ -2026,8 +2026,8 @@ function collectEndpointsForm() {
     const name = card.querySelector('[data-role=ep-name]')?.value.trim();
     const method = card.querySelector('[data-role=ep-method]')?.value || 'GET';
     const path = card.querySelector('[data-role=ep-path]')?.value.trim();
-    const handler = card.querySelector('[data-role=ep-handler]')?.value.trim();
-    if (name && path && handler) endpoints[name] = { method, path, handler };
+    const fn = card.querySelector('[data-role=ep-function]')?.value.trim();
+    if (name && path && fn) endpoints[name] = { method, path, function: fn };
   }
   return endpoints;
 }

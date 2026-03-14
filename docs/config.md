@@ -30,7 +30,7 @@ Environment variables related to paths.
 | Variable                 | Default         | Description                                                                                                                 |
 | ------------------------ | --------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | PUBLIC_FOLDER            | `/public`       | The public folder to show [static files](https://expressjs.com/en/starter/static-files.html)                                |
-| CHADSTART_HANDLERS_FOLDER | `/handlers`     | The folder to put your handlers functions for [custom endpoints](./endpoints.md)                                            |
+| CHADSTART_FUNCTIONS_FOLDER | `/functions`    | The folder to put your functions for [custom endpoints](./endpoints.md)                                          |
 | CHADSTART_FILE_PATH       | `/chadstart.yaml` | The relative or absolute path of your ChadStart YAML file                                                                    |
 | TOKEN_SECRET_KEY         | `-`             | The secret key behind the JWT authentication. Required on production, you can [generate one here](https://jwtsecrets.com/). |
 

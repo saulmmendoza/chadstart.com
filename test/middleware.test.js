@@ -12,13 +12,13 @@ const { registerApiRoutes } = require('../core/api-generator');
 const { signToken } = require('../core/auth');
 
 describe('runMiddlewares – SDK injection', () => {
-  let testServer, port, handlersDir, tmp;
+  let testServer, port, functionsDir, tmp;
   const mwCore = buildCore({
     name: 'MwTest',
     entities: {
       Item: {
         properties: ['name'],
-        middlewares: { beforeCreate: [{ handler: 'testMwHandler' }] },
+        middlewares: { beforeCreate: [{ function: 'testMwFunction' }] },
       },
     },
   });
@@ -27,17 +27,17 @@ describe('runMiddlewares – SDK injection', () => {
     tmp = path.join(os.tmpdir(), `chadstart-mw-${Date.now()}.db`);
     dbModule.initDb(mwCore, tmp);
 
-    handlersDir = path.join(os.tmpdir(), `chadstart-handlers-${Date.now()}`);
-    fs.mkdirSync(handlersDir, { recursive: true });
-    const handlerPath = path.join(handlersDir, 'testMwHandler.js');
-    fs.writeFileSync(handlerPath, `
+    functionsDir = path.join(os.tmpdir(), `chadstart-functions-${Date.now()}`);
+    fs.mkdirSync(functionsDir, { recursive: true });
+    const functionPath = path.join(functionsDir, 'testMwFunction.js');
+    fs.writeFileSync(functionPath, `
       module.exports = async (req, res, chadstart) => {
         req.app._lastSdkArg = chadstart;
       };
     `);
 
-    process.env.CHADSTART_HANDLERS_FOLDER = handlersDir;
-    delete require.cache[require.resolve(handlerPath)];
+    process.env.CHADSTART_FUNCTIONS_FOLDER = functionsDir;
+    delete require.cache[require.resolve(functionPath)];
 
     const testApp = express();
     testApp.use(express.json());
@@ -51,12 +51,12 @@ describe('runMiddlewares – SDK injection', () => {
 
   after(async () => {
     await new Promise((resolve) => testServer.close(resolve));
-    delete process.env.CHADSTART_HANDLERS_FOLDER;
-    fs.rmSync(handlersDir, { recursive: true, force: true });
+    delete process.env.CHADSTART_FUNCTIONS_FOLDER;
+    fs.rmSync(functionsDir, { recursive: true, force: true });
     fs.unlinkSync(tmp);
   });
 
-  it('middleware handler receives (req, res, chadstart) – sdk is passed', async () => {
+  it('middleware function receives (req, res, chadstart) – sdk is passed', async () => {
     const res = await fetch(`http://127.0.0.1:${port}/api/collections/item`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${signToken({ id: 'a1', entity: 'Admin' })}` },
@@ -67,19 +67,19 @@ describe('runMiddlewares – SDK injection', () => {
     assert.strictEqual(data.name, 'Widget');
 
     const inspect = await fetch(`http://127.0.0.1:${port}/_inspect`).then((r) => r.json());
-    assert.strictEqual(inspect.hasSdk, true, 'chadstart SDK should be passed to middleware handlers');
+    assert.strictEqual(inspect.hasSdk, true, 'chadstart SDK should be passed to middleware functions');
   });
 
-  it('CHADSTART_HANDLERS_FOLDER env var is used by middleware runner', () => {
-    assert.strictEqual(process.env.CHADSTART_HANDLERS_FOLDER, handlersDir);
+  it('CHADSTART_FUNCTIONS_FOLDER env var is used by middleware runner', () => {
+    assert.strictEqual(process.env.CHADSTART_FUNCTIONS_FOLDER, functionsDir);
   });
 
-  it('CHADSTART_HANDLERS_FOLDER takes precedence over MANIFEST_HANDLERS_FOLDER', () => {
-    const oldManifest = process.env.MANIFEST_HANDLERS_FOLDER;
-    process.env.MANIFEST_HANDLERS_FOLDER = '/some/wrong/path';
-    process.env.CHADSTART_HANDLERS_FOLDER = handlersDir;
-    const resolved = process.env.CHADSTART_HANDLERS_FOLDER || process.env.MANIFEST_HANDLERS_FOLDER || 'handlers';
-    assert.strictEqual(resolved, handlersDir);
-    process.env.MANIFEST_HANDLERS_FOLDER = oldManifest;
+  it('CHADSTART_FUNCTIONS_FOLDER takes precedence over CHADSTART_HANDLERS_FOLDER', () => {
+    const oldHandlers = process.env.CHADSTART_HANDLERS_FOLDER;
+    process.env.CHADSTART_HANDLERS_FOLDER = '/some/wrong/path';
+    process.env.CHADSTART_FUNCTIONS_FOLDER = functionsDir;
+    const resolved = process.env.CHADSTART_FUNCTIONS_FOLDER || process.env.CHADSTART_HANDLERS_FOLDER || 'functions';
+    assert.strictEqual(resolved, functionsDir);
+    process.env.CHADSTART_HANDLERS_FOLDER = oldHandlers;
   });
 });

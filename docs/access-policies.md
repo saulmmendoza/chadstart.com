@@ -149,7 +149,7 @@ endpoints:
     path: /basic
     description: A basic endpoint that returns a simple message.
     method: GET
-    handler: basicEndpoint
+    function: basicEndpoint
     policies:
       - access: public # This endpoint is public.
 ```

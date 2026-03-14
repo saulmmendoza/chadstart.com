@@ -493,23 +493,23 @@ async function createServer(yamlPath) {
 async function registerCustomEndpoints(app, core) {
   const { requireAuth, optionalAuth } = require('../core/auth');
 
-  // Create a simple backend "SDK" object for handlers (mimics the JS SDK interface)
+  // Create a simple backend "SDK" object for functions (mimics the JS SDK interface)
   const manifestSdk = createBackendSdk(core);
 
   for (const [name, ep] of Object.entries(core.endpoints || {})) {
     const epPath = `/endpoints${ep.path}`;
     const method = ep.method.toLowerCase();
-    const handlerFile = path.resolve(process.env.CHADSTART_HANDLERS_FOLDER || process.env.MANIFEST_HANDLERS_FOLDER || 'handlers', `${ep.handler}.js`);
+    const fnFile = path.resolve(process.env.CHADSTART_FUNCTIONS_FOLDER || process.env.CHADSTART_HANDLERS_FOLDER || 'functions', `${ep.function}.js`);
 
     // Build middleware chain from endpoint policies (default: public)
     const middlewares = buildEndpointPolicyMiddleware(ep);
 
-    if (fs.existsSync(handlerFile)) {
-      const handler = require(handlerFile);
-      app[method](epPath, ...middlewares, (req, res) => handler(req, res, manifestSdk));
+    if (fs.existsSync(fnFile)) {
+      const fn = require(fnFile);
+      app[method](epPath, ...middlewares, (req, res) => fn(req, res, manifestSdk));
       logger.info(`  Registered endpoint: ${ep.method} ${epPath}`);
     } else {
-      logger.warn(`  Handler not found for "${name}": ${handlerFile}`);
+      logger.warn(`  Function not found for "${name}": ${fnFile}`);
     }
   }
 }
