@@ -489,86 +489,44 @@
   </div>
 </div>
 
+<!-- ── AI Chat Panel ──────────────────────────────────────────────────── -->
+<div id="ai-panel"
+  class="fixed inset-y-0 right-0 z-50 w-full max-w-sm bg-cs-surface border-l border-cs-border flex flex-col"
+  style="translate: 100%; transition: translate 200ms ease; box-shadow: -2px 0 12px rgba(0,0,0,0.3);">
+
+  <!-- Panel header -->
+  <div class="flex items-center justify-between px-4 py-3 border-b border-cs-border shrink-0">
+    <div class="flex items-center gap-2">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:#bb86fc;">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+          d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+      </svg>
+      <span class="font-medium text-sm text-cs-text">AI Assistant</span>
+    </div>
+    <div class="flex items-center gap-2">
+      <button onclick="clearAiChat()" class="text-xs text-cs-muted hover:text-cs-text" style="transition: color 150ms ease; background: none; border: none; cursor: pointer;" title="Clear chat">Clear</button>
+      <button onclick="closeAiPanel()" class="text-cs-muted hover:text-cs-text text-xl leading-none" style="transition: color 150ms ease; background: none; border: none; cursor: pointer;" aria-label="Close">×</button>
+    </div>
+  </div>
+
+  <!-- Messages area -->
+  <div id="ai-messages" class="flex-1 overflow-y-auto p-4 space-y-3" style="scrollbar-width: thin; scrollbar-color: #2a2a2a transparent;"></div>
+
+  <!-- Input area -->
+  <div class="shrink-0 border-t border-cs-border p-3">
+    <div class="flex gap-2">
+      <textarea id="ai-input" rows="2" placeholder="Ask anything about your data, API, or config…"
+        class="flex-1 bg-cs-bg border border-cs-border rounded text-cs-text px-3 py-2 text-sm outline-none focus:border-cs-primary resize-none"
+        style="transition: border-color 150ms ease; line-height: 1.4;"
+        onkeydown="aiInputKeydown(event)"></textarea>
+      <button id="ai-send-btn" onclick="sendAiMessage()"
+        class="py-2 px-3 rounded text-sm cursor-pointer bg-cs-primary text-cs-bg font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+        style="transition: opacity 150ms ease; align-self: flex-end;">Send</button>
+    </div>
+    <p class="text-xs mt-1.5 text-cs-muted">Shift+Enter for new line · Enter to send</p>
+  </div>
+</div>
 <script>
-// ── Global state ─────────────────────────────────────────────────────────────
-let schema = null, currentItem = null, editingRecord = null, toastTimer;
-let authToken = localStorage.getItem('cs_token') || null;
-let authUser = null, authCollection = null;
-
-// Table state
-let curPage = 1, curLastPage = 1, curPerPage = 20;
-let curSearch = '', curOrderBy = 'createdAt', curOrder = 'DESC';
-let advFilters = [];
-let selectedIds = new Set();
-let tableRows = [];
-let hlRowIdx = -1;
-let searchDebounce = null;
-
-// Config editor
-let configMode = false, configData = null, configActiveTab = 'general';
-let _cfgEntityId = 0, _cfgEndpointId = 0, _cfgFileId = 0, _cfgRlId = 0;
-
-// Devs modal
-let devsTab = 'sdk';
-
-// Realtime
-let rtWs = null;
-let activityLog = [];
-
-// Vim key chording
-let lastVimKey = '', lastVimTime = 0;
-
-// ── Bootstrap ─────────────────────────────────────────────────────────────────
-async function init() {
-  try {
-    schema = await fetch('/admin/schema').then(r => r.json());
-  } catch { toast('Failed to load schema', 'error'); return; }
-
-  document.getElementById('project-name').textContent = schema.name;
-  document.getElementById('login-project-name').textContent = schema.name;
-  document.title = schema.name + ' Admin';
-  populateLoginCollections();
-  buildSidebar();
-
-  // Restore from URL params (share view)
-  const qp = new URLSearchParams(location.search);
-  if (qp.get('entity')) {
-    curSearch = qp.get('search') || '';
-    curOrderBy = qp.get('orderBy') || 'createdAt';
-    curOrder = qp.get('order') || 'DESC';
-    curPage = parseInt(qp.get('page') || '1', 10);
-  }
-
-  if (authToken) {
-    try {
-      const col = getAdminCollections()[0];
-      if (col) {
-        const r = await apiFetch(`/api/auth/${toSlug(col.name)}/me`);
-        if (r.ok) { authUser = await r.json(); authCollection = col.name; showApp(); return; }
-      }
-    } catch { /* fall through */ }
-    authToken = null;
-    localStorage.removeItem('cs_token');
-  }
-  showLogin();
-}
-
-// ── Auth ──────────────────────────────────────────────────────────────────────
-function getAdminCollections() {
-  return (schema.entities || []).filter(e => e.authenticable && e.admin !== false);
-}
-
-function populateLoginCollections() {
-  const cols = getAdminCollections();
-  const input = document.getElementById('login-collection');
-  if (cols.length) {
-    input.value = cols[0].name;
-  } else {
-    input.value = '';
-    const errEl = document.getElementById('login-error');
-    errEl.textContent = 'No admin collections configured'; errEl.classList.remove('hidden');
-    document.getElementById('login-btn').disabled = true;
-  }
 
   // ── i18n ───────────────────────────────────────────────────────────────
   let i18n = {}, currentLang = 'en';
@@ -811,7 +769,6 @@ function populateLoginCollections() {
     closeSidebar();
     loadTable(type, name);
   }
-}
 
 function toggleCollectionField() {
   const s = document.getElementById('login-collection-section');
@@ -1753,7 +1710,6 @@ function getFields(isCollection) {
       const relName = typeof rel === 'string' ? rel : (rel.entity || rel.name || String(rel));
       fields.push({ name: `${toSnake(relName)}_id`, type: 'integer' });
     }
-    return entities;
   }
 
   // Endpoints tab: card list with name, path, method, handler, description
@@ -1866,7 +1822,6 @@ async function saveRecord() {
   } catch (err) {
     toast(err.message, 'error');
     btn.disabled = false; btn.querySelector('span').textContent = 'Save';
-    return endpoints;
   }
 
   // Files tab: card list with bucket name, path, public checkbox
