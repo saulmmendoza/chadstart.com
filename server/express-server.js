@@ -131,7 +131,7 @@ async function buildApp(yamlPath, reloadFn) {
   registerUploadRoutes(app, core);
 
   app.use('/api/auth', authLimiter);
-  registerAuthRoutes(app, core);
+  registerAuthRoutes(app, core, emit);
   registerApiKeyRoutes(app, core);
 
   const apiLimiters = buildApiLimiters(core);
@@ -375,7 +375,7 @@ async function buildApp(yamlPath, reloadFn) {
             default: record[pName] = `Sample ${pName} ${i}`;
           }
         }
-        try { dbCreate(tableName, record); created++; } catch { /* skip */ }
+        try { const row = dbCreate(tableName, record); emit(`${name}.created`, row); created++; } catch (e) { logger.warn(`Seed: failed to create record for ${name}:`, e.message); }
       }
       results.push({ name, created });
     }

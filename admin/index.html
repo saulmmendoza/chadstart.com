@@ -1502,7 +1502,7 @@ async function bulkDelete() {
 
 function getApiPath(id) {
   if (!currentItem) return '';
-  return `/api/${toKebab(currentItem.name)}s${id ? '/' + id : ''}`;
+  return `/api/collections/${toSlug(currentItem.name)}${id ? '/' + id : ''}`;
 }
 
 // ── Export ────────────────────────────────────────────────────────────────────
