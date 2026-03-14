@@ -50,11 +50,8 @@ You can pass arguments using the long syntax:
 
 Available HTTP Methods are `GET`, `POST`, `PUT`, `PATCH`, and `DELETE`.
 
-:::note
-
-ChadStart does not enforce HTTP request success or failure; the lifecycle process continues regardless.
-
-:::
+!!! note
+    ChadStart does not enforce HTTP request success or failure; the lifecycle process continues regardless.
 
 ## Webhook body
 

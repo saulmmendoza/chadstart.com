@@ -4,9 +4,6 @@ title: ChadStart Configuration
 description: Configure ChadStart Database (PostgreSQL, MySQL or SQLite), Port, OpenAPI and environments with a simple config.
 ---
 
-import Tabs from '@theme/Tabs';
-import TabItem from '@theme/TabItem';
-
 # Configuration
 
 ## Introduction
@@ -58,32 +55,29 @@ We recommend switching to [PostgreSQL](https://www.postgresql.org/) or [MySQL](h
 
 Here are examples of `.env` files for different database connections:
 
-<Tabs>
-  <TabItem value="sqlite" label="SQLite" default>
-   ```env
+=== "SQLite"
+    ```env
 
-    DB_CONNECTION=sqlite
+     DB_CONNECTION=sqlite
 
-    DB_PATH=/.chadstart/db.sqlite
+     DB_PATH=/.chadstart/db.sqlite
 
-    ```
+     ```
 
-  </TabItem>
-  <TabItem value="postgresql" label="PostgreSQL" default>
-   ```env
+=== "PostgreSQL"
+    ```env
 
-    DB_CONNECTION=postgres
+     DB_CONNECTION=postgres
 
-    DB_HOST=my-host.com
-    DB_USERNAME=owner
-    DB_PASSWORD=xxxxx
-    DB_DATABASE=my_app
-    DB_SSL=true # Required for remote managed DBs, remove if local
+     DB_HOST=my-host.com
+     DB_USERNAME=owner
+     DB_PASSWORD=xxxxx
+     DB_DATABASE=my_app
+     DB_SSL=true # Required for remote managed DBs, remove if local
 
-    ```
+     ```
 
-  </TabItem>
-   <TabItem value="mysql" label="MySQL / MariaDB" default>
+=== "MySQL / MariaDB"
     ```env
 
     DB_CONNECTION=mysql
@@ -97,8 +91,28 @@ Here are examples of `.env` files for different database connections:
 
     ```
 
-  </TabItem>
-</Tabs>
+## Error Reporting
+
+ChadStart integrates with [Sentry](https://sentry.io) for automatic exception tracking in production.
+
+To enable, set **only** the `SENTRY_DSN` environment variable — the DSN is a secret and must never be placed in the YAML file.
+
+```env
+SENTRY_DSN=https://xxxxx@oXXXXX.ingest.sentry.io/XXXXXXX
+```
+
+Non-sensitive settings can be placed in `chadstart.yaml`:
+
+```yaml
+sentry:
+  environment: production   # optional — defaults to NODE_ENV
+  tracesSampleRate: 0.2     # optional — fraction 0.0–1.0, defaults to 1.0
+  debug: false              # optional — enable Sentry SDK debug logging
+```
+
+:::tip Self-hosted alternative: Bugsink
+[Bugsink](https://www.bugsink.com) is a lightweight, privacy-first, self-hosted alternative to Sentry that is **fully compatible with the Sentry SDK**. To use it, simply set `SENTRY_DSN` to your Bugsink ingest URL — no other code changes are needed.
+:::
 
 ## Integrating ChadStart
 

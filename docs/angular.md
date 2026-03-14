@@ -8,11 +8,8 @@ description: Quick start guide to create a full-stack app using Angular as a fro
 
 Give a proper backend to your Angular app.
 
-:::warning
-
-This quick start guide focuses exclusively on the **frontend**. To ensure the functionality of this code, your ChadStart backend must be [up and running](./index.md#install-chadstart) at `http://localhost:3000`.
-
-:::
+!!! warning
+    This quick start guide focuses exclusively on the **frontend**. To ensure the functionality of this code, your ChadStart backend must be [up and running](./index.md#install-chadstart) at `http://localhost:3000`.
 
 ## 1. Create a Angular app
 

@@ -4,9 +4,6 @@ title: Authentication
 description: Implement Authentication quickly with ChadStart built-in Auth component. Manage log in, sign up and admin roles.
 ---
 
-import Tabs from '@theme/Tabs';
-import TabItem from '@theme/TabItem';
-
 # Authentication
 
 ## Introduction
@@ -15,11 +12,8 @@ Authentication is the process of proving that people are who they say they are.
 
 ChadStart uses **JSON Web Tokens (JWT)** to do that. When you log in, you basically create a new **token** that you use in your next requests to prove your identity. This allows us to use [Policies](./access-policies.md) to grant or deny the access to some resources based on the user characteristics.
 
-:::info
-
-Notice the `TOKEN_SECRET_KEY` variable in your `.env` file ? This is the key that will encrypt your tokens, you can [generate one here](https://jwtsecrets.com/).
-
-:::
+!!! info
+    Notice the `TOKEN_SECRET_KEY` variable in your `.env` file ? This is the key that will encrypt your tokens, you can [generate one here](https://jwtsecrets.com/).
 
 ## Admins
 
@@ -29,13 +23,10 @@ Even though they are the most powerful users of your application, you can still 
 
 The [seed command](./entities.md#collections) will create an admin with the email `admin@chadstart.com` and the password `admin`. You can create more admins from the admin panel.
 
-:::tip
+!!! tip
+    In ChadStart, the admin panel is **non-technical** 😺.
 
-In ChadStart, the admin panel is **non-technical** 😺.
-
-It means that you can give credentials to the administrators of your app without worrying that they will end up breaking the system!
-
-:::
+    It means that you can give credentials to the administrators of your app without worrying that they will end up breaking the system!
 
 ## Authenticable entities
 
@@ -57,9 +48,7 @@ Authenticable entities have 2 extra properties that are used as credentials to l
 
 Log in your credentials as an **admin** or an **authenticable entity**.
 
-<Tabs>
-
-  <TabItem value="rest" label="REST API" default>
+=== "REST API"
     ```http title="Example HTTP Request"
     POST /api/auth/admins/login
     Content-Type: application/json
@@ -82,8 +71,7 @@ Log in your credentials as an **admin** or an **authenticable entity**.
     Authorization: Bearer your-token-here
     ```
 
-  </TabItem>
-    <TabItem value="sdk" label="JS SDK" default>
+=== "JS SDK"
     ```js
     // Login as Admin.
     await chadstart.login('admins', 'admin@chadstart.com', 'password')
@@ -95,16 +83,11 @@ Log in your credentials as an **admin** or an **authenticable entity**.
     const example = await chadstart.from('restricted-resource').find()
     ```
 
-  </TabItem>
-</Tabs>
-
 ### Sign up
 
 Any authenticable entity allows new users to sign up if the [policies](./access-policies.md) permit it.
 
-<Tabs>
-
-  <TabItem value="rest" label="REST API" default>
+=== "REST API"
     ```http title="Example HTTP Request"
     POST /api/auth/users/signup
     Content-Type: application/json
@@ -127,8 +110,7 @@ Any authenticable entity allows new users to sign up if the [policies](./access-
     Authorization: Bearer your-token-here
     ```
 
-  </TabItem>
-    <TabItem value="sdk" label="JS SDK" default>
+=== "JS SDK"
     ```js
     // Sign up as a new user.
     await chadstart.signup('users', 'user@example.com', 'password')
@@ -137,22 +119,14 @@ Any authenticable entity allows new users to sign up if the [policies](./access-
     const example = await chadstart.from('restricted-resource').find()
     ```
 
-  </TabItem>
-</Tabs>
-
-:::info
-
-It is not possible to sign up as an **admin**. If you want to create more admins, do it from the admin panel.
-
-:::
+!!! info
+    It is not possible to sign up as an **admin**. If you want to create more admins, do it from the admin panel.
 
 ### Get current user
 
 Get the current logged-in user.
 
-<Tabs>
-
-  <TabItem value="rest" label="REST API" default>
+=== "REST API"
     ```http title="Example HTTP Request"
     GET /api/auth/contributors/me
     Content-Type: application/json
@@ -166,30 +140,21 @@ Get the current logged-in user.
     }
     ```
 
-  </TabItem>
-    <TabItem value="sdk" label="JS SDK" default>
+=== "JS SDK"
     ```js
     // Get the current user (logged as Contributor entity).
     const me = await chadstart.from('contributors').me()
     ```
 
-  </TabItem>
-</Tabs>
-
 ### Logout
 
 Logout removes the token from future request headers.
 
-<Tabs>
-
-  <TabItem value="rest" label="REST API" default>
+=== "REST API"
     Reset the `Authorization` header as you usually do, and you are good to go!
-  </TabItem>
-    <TabItem value="sdk" label="JS SDK" default>
+
+=== "JS SDK"
     ```js
     // Resets the "Authorization" header for all future calls.
     await chadstart.logout()
     ```
-
-  </TabItem>
-</Tabs>

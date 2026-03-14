@@ -40,11 +40,8 @@ ChadStart handlers are basically [ExpressJS middlewares](https://expressjs.com/e
 
 Place the handler file in the `/handlers` folder. For example, if the handler is `helloWorld`, the file should be `helloWorld.js`.
 
-:::tip
-
-You can choose to set a different folder for handlers adding the `CHADSTART_HANDLERS_FOLDER` variable in your `.env` file.
-
-:::
+!!! tip
+    You can choose to set a different folder for handlers adding the `CHADSTART_HANDLERS_FOLDER` variable in your `.env` file.
 
 ## Endpoint params
 

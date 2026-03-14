@@ -37,11 +37,8 @@ All popular hosting providers have their managed PostgreSQL solutions and there 
 | **StackGres**       | [StackGres](https://stackgres.io/)                                                                    |
 | **Render.com**      | [Render PostgreSQL Database](https://render.com/docs/postgresql-creating-connecting)                  |
 
-:::tip
-
-While you could technically create a [Docker volume](https://docs.docker.com/engine/storage/volumes/) to ensure data persistence for your SQLite database, we found it easier to use any managed PostgreSQL service **even if you never used PostgreSQL**.
-
-:::
+!!! tip
+    While you could technically create a [Docker volume](https://docs.docker.com/engine/storage/volumes/) to ensure data persistence for your SQLite database, we found it easier to use any managed PostgreSQL service **even if you never used PostgreSQL**.
 
 ### Storage
 
@@ -111,19 +108,6 @@ CMD ["npm", "run", "start:prod"]
 
 Here are some quick guides to launch your app in a few minutes:
 
-<div class="card-container">
-  <a href="https://chadstart.com/integrations/digital-ocean" class="card">
-    <p>Deploy ChadStart on DigitalOcean App Platform</p>
-    <span>➡️</span>
-  </a>
-    
-  <a href="https://chadstart.com/integrations/render" class="card">
-    <p>Deploy ChadStart on Render.com</p>
-    <span>➡️</span>
-  </a>
-  
-  <a href="https://chadstart.com/integrations/heroku" class="card">
-    <p>Deploy ChadStart on Heroku</p>
-    <span>➡️</span>
-  </a>
-</div>
+- [Deploy ChadStart on DigitalOcean App Platform](https://chadstart.com/integrations/digital-ocean)
+- [Deploy ChadStart on Render.com](https://chadstart.com/integrations/render)
+- [Deploy ChadStart on Heroku](https://chadstart.com/integrations/heroku)

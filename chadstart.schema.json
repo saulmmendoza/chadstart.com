@@ -64,6 +64,49 @@
           "type": "array",
           "description": "Rate limit definitions applied to API routes.",
           "items": { "$ref": "#/$defs/rateLimit" }
+        },
+        "telemetry": {
+          "type": "object",
+          "description": "OpenTelemetry tracing configuration. Secret values (auth headers / API keys) must be supplied via environment variables only — never put secrets in this file.",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false,
+              "description": "Enable OpenTelemetry tracing. Also configurable via OTEL_ENABLED=true env var."
+            },
+            "serviceName": {
+              "type": "string",
+              "description": "Service name reported to the OTLP collector. Overridable via OTEL_SERVICE_NAME env var."
+            },
+            "endpoint": {
+              "type": "string",
+              "description": "OTLP collector base URL (e.g. http://localhost:4318). Overridable via OTEL_EXPORTER_OTLP_ENDPOINT env var."
+            }
+          }
+        }
+      }
+    },
+    "sentry": {
+      "type": "object",
+      "description": "Sentry (or Bugsink) error-reporting configuration. The DSN is a secret and must be provided via the SENTRY_DSN environment variable — do NOT put it here.",
+      "additionalProperties": false,
+      "properties": {
+        "environment": {
+          "type": "string",
+          "description": "The environment label sent to Sentry (e.g. production, staging). Defaults to NODE_ENV."
+        },
+        "tracesSampleRate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 1.0,
+          "description": "Fraction of transactions to sample for performance monitoring (0.0–1.0)."
+        },
+        "debug": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable Sentry SDK debug logging."
         }
       }
     }

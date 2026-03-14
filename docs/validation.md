@@ -27,11 +27,10 @@ entities:
       age: { min: 1, max: 30 } # Age should be a number between 1 and 30.
 ```
 
-:::tip Tip
-**Type validation** is natively implemented with [property types](./entities.md#property-types). You do not need to set it.
+!!! tip "Tip"
+    **Type validation** is natively implemented with [property types](./entities.md#property-types). You do not need to set it.
 
-Ex: sending a _string_ value for a [boolean](./entities.md#boolean) property type will throw an error.
-:::
+    Ex: sending a _string_ value for a [boolean](./entities.md#boolean) property type will throw an error.
 
 ## Inline syntax
 
