@@ -105,6 +105,8 @@ async function buildApp(yamlPath, reloadFn) {
 
   initErrorReporter(core);
 
+  initErrorReporter(core);
+
   const app = express();
   app.use(express.json());
 
