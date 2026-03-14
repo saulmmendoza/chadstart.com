@@ -137,12 +137,28 @@ async function runDev() {
 
   try {
     const chokidar = require('chokidar');
+    // Watch YAML config
     const watcher = chokidar.watch(yamlPath, { ignoreInitial: true });
     watcher.on('change', async () => {
       console.log(`\n[dev] ${path.basename(yamlPath)} changed — restarting...\n`);
       await boot();
     });
     console.log(`[dev] Watching ${yamlPath} for changes...\n`);
+
+    // Watch the functions folder for hot reload of function files
+    const functionsDir = path.resolve(process.env.CHADSTART_FUNCTIONS_FOLDER || 'functions');
+    if (fs.existsSync(functionsDir)) {
+      const fnWatcher = chokidar.watch(functionsDir, { ignoreInitial: true, ignorePermissionErrors: true });
+      fnWatcher.on('change', (filePath) => {
+        console.log(`\n[dev] Function file changed: ${path.relative(process.cwd(), filePath)}`);
+        // Clear from require cache so next invocation picks up the new version
+        try { delete require.cache[require.resolve(filePath)]; } catch { /* */ }
+        // Validate that the module can be loaded; restart server if not
+        try { require(filePath); console.log(`[dev] ✔ ${path.basename(filePath)} reloaded`); }
+        catch (e) { console.error(`[dev] ✖ ${path.basename(filePath)} has errors — restarting server:`, e.message); boot(); }
+      });
+      console.log(`[dev] Watching ${functionsDir} for function file changes...\n`);
+    }
   } catch {
     console.warn('[dev] chokidar not available — hot reload disabled');
   }

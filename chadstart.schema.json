@@ -281,14 +281,28 @@
       },
       "additionalProperties": false
     },
+    "trigger": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type":     { "type": "string", "enum": ["http", "cron", "event"] },
+        "method":   { "type": "string", "enum": ["GET", "POST", "PATCH", "PUT", "DELETE"] },
+        "path":     { "type": "string", "description": "URL path for http triggers (supports :param syntax)." },
+        "schedule": { "type": "string", "description": "Cron expression or predefined alias (@daily, @hourly…)." },
+        "name":     { "type": "string", "description": "Event name for event triggers." }
+      },
+      "additionalProperties": false
+    },
     "endpoint": {
       "type": "object",
-      "required": ["path", "method", "function"],
+      "required": ["function"],
       "properties": {
-        "path":        { "type": "string", "description": "URL path (supports :param syntax)." },
-        "method":      { "type": "string", "enum": ["GET", "POST", "PATCH", "PUT", "DELETE"] },
-        "function":    { "type": "string", "description": "Name of the function in /functions." },
+        "function":    { "type": "string", "description": "Name of the function file in /functions." },
+        "runtime":     { "type": "string", "enum": ["js", "bash", "python", "go", "c++", "ruby", "php"], "default": "js" },
         "description": { "type": "string" },
+        "triggers":    { "type": "array", "items": { "$ref": "#/$defs/trigger" }, "description": "List of triggers (http, cron, event)." },
+        "path":        { "type": "string", "description": "URL path for legacy single-HTTP-trigger format." },
+        "method":      { "type": "string", "enum": ["GET", "POST", "PATCH", "PUT", "DELETE"], "description": "HTTP method for legacy single-HTTP-trigger format." },
         "policies":    { "type": "array", "items": { "$ref": "#/$defs/policy" } }
       },
       "additionalProperties": false

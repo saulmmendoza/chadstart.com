@@ -62,6 +62,7 @@
     /* ── Row highlight (vim nav) ──────────────────────────────────── */
     tr.row-hl td { background: rgba(52,177,235,.06) !important; }
   </style>
+  <script src="/admin/vendor/cronstrue.min.js"></script>
 </head>
 <body class="bg-cs-bg text-cs-text min-h-screen flex" style="font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;">
 
@@ -2002,16 +2003,41 @@ function renderEndpointsForm() {
     + '<button type="button" onclick="addEndpointCard()" class="mt-3 text-xs border border-cs-border rounded px-3 py-1.5 text-cs-muted hover:text-cs-text cursor-pointer">+ Add endpoint</button>';
 }
 
+function cronHuman(schedule) {
+  try { return (typeof cronstrue !== 'undefined') ? cronstrue.toString(schedule) : schedule; }
+  catch { return schedule; }
+}
+
+function renderTriggerBadges(ep) {
+  const triggers = ep.triggers && ep.triggers.length ? ep.triggers
+    : (ep.path && ep.method ? [{ type: 'http', method: ep.method, path: ep.path }] : []);
+  return triggers.map(t => {
+    if (t.type === 'http') return '<span class="px-1.5 py-0.5 rounded text-xs" style="background:rgba(52,177,235,.15);color:#34b1eb;">'
+      + escAttr(t.method || 'GET') + ' ' + escAttr(t.path || '') + '</span>';
+    if (t.type === 'cron') return '<span class="px-1.5 py-0.5 rounded text-xs" title="' + escAttr(cronHuman(t.schedule||'')) + '" style="background:rgba(3,218,198,.15);color:#03dac6;">cron: '
+      + escAttr(t.schedule || '') + '</span>';
+    if (t.type === 'event') return '<span class="px-1.5 py-0.5 rounded text-xs" style="background:rgba(187,134,252,.15);color:#bb86fc;">event: '
+      + escAttr(t.name || '') + '</span>';
+    return '';
+  }).join(' ');
+}
+
 function renderEndpointCard(name, ep) {
   const id = _cfgEndpointId++;
+  const runtimes = ['js','bash','python','go','c++','ruby','php'];
+  const rOpts = runtimes.map(r => '<option value="' + r + '"' + (r === (ep.runtime||'js') ? ' selected' : '') + '>' + r + '</option>').join('');
   const methods = ['GET','POST','PUT','PATCH','DELETE'];
   const mOpts = methods.map(m => '<option value="' + m + '"' + (m === (ep.method||'GET') ? ' selected' : '') + '>' + m + '</option>').join('');
+  const triggerBadges = renderTriggerBadges(ep);
   return '<div class="bg-cs-bg border border-cs-border rounded p-3 space-y-2" data-ep-id="' + id + '">'
     + '<div class="flex gap-2 items-center"><input type="text" placeholder="Name" value="' + escAttr(name) + '" data-role="ep-name" class="' + _INP_XS + ' flex-1" />'
+    + '<select data-role="ep-runtime" class="' + _INP_XS + '" title="Runtime">' + rOpts + '</select>'
     + '<button type="button" onclick="this.closest(\'[data-ep-id]\').remove()" class="text-cs-muted hover:text-red-400 text-xs cursor-pointer">✕</button></div>'
     + '<div class="flex gap-2"><select data-role="ep-method" class="' + _INP_XS + '">' + mOpts + '</select>'
     + '<input type="text" placeholder="/path" value="' + escAttr(ep.path||'') + '" data-role="ep-path" class="' + _INP_XS + ' flex-1" /></div>'
-    + '<input type="text" placeholder="function.js" value="' + escAttr(ep.function||'') + '" data-role="ep-function" class="w-full ' + _INP_XS + '" /></div>';
+    + '<input type="text" placeholder="function.js" value="' + escAttr(ep.function||'') + '" data-role="ep-function" class="w-full ' + _INP_XS + '" />'
+    + (triggerBadges ? '<div class="flex flex-wrap gap-1 pt-1">' + triggerBadges + '</div>' : '')
+    + '</div>';
 }
 
 function addEndpointCard() {
@@ -2023,11 +2049,12 @@ function addEndpointCard() {
 function collectEndpointsForm() {
   const endpoints = {};
   for (const card of document.querySelectorAll('[data-ep-id]')) {
-    const name = card.querySelector('[data-role=ep-name]')?.value.trim();
-    const method = card.querySelector('[data-role=ep-method]')?.value || 'GET';
-    const path = card.querySelector('[data-role=ep-path]')?.value.trim();
-    const fn = card.querySelector('[data-role=ep-function]')?.value.trim();
-    if (name && path && fn) endpoints[name] = { method, path, function: fn };
+    const name    = card.querySelector('[data-role=ep-name]')?.value.trim();
+    const method  = card.querySelector('[data-role=ep-method]')?.value || 'GET';
+    const path    = card.querySelector('[data-role=ep-path]')?.value.trim();
+    const fn      = card.querySelector('[data-role=ep-function]')?.value.trim();
+    const runtime = card.querySelector('[data-role=ep-runtime]')?.value || 'js';
+    if (name && path && fn) endpoints[name] = { runtime, method, path, function: fn };
   }
   return endpoints;
 }

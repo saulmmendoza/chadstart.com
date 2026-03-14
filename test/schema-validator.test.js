@@ -27,6 +27,11 @@ describe('schema-validator', () => {
   it('accepts functions', () => assert.strictEqual(validateSchema({ name: 'App', functions: { hello: { path: '/hello', method: 'GET', function: 'hello.js' } } }), true));
   it('rejects function missing function field', () => assert.throws(() => validateSchema({ name: 'App', functions: { bad: { path: '/bad', method: 'GET' } } })));
   it('rejects deprecated endpoints key', () => assert.throws(() => validateSchema({ name: 'App', endpoints: { hello: { path: '/hello', method: 'GET', function: 'hello.js' } } })));
+  it('accepts new-format function with triggers', () => assert.strictEqual(validateSchema({ name: 'App', functions: { hello: { runtime: 'js', function: 'hello.js', triggers: [{ type: 'http', method: 'GET', path: '/hello' }] } } }), true));
+  it('accepts function with cron trigger and predefined schedule', () => assert.strictEqual(validateSchema({ name: 'App', functions: { daily: { function: 'daily.js', triggers: [{ type: 'cron', schedule: '@daily' }] } } }), true));
+  it('accepts function with event trigger', () => assert.strictEqual(validateSchema({ name: 'App', functions: { onEvt: { function: 'onEvt.js', triggers: [{ type: 'event', name: 'user.created' }] } } }), true));
+  it('accepts python runtime function', () => assert.strictEqual(validateSchema({ name: 'App', functions: { fn: { runtime: 'python', function: 'fn.py', triggers: [{ type: 'http', method: 'POST', path: '/fn' }] } } }), true));
+  it('rejects unknown runtime', () => assert.throws(() => validateSchema({ name: 'App', functions: { fn: { runtime: 'deno', function: 'fn.js', triggers: [{ type: 'http', method: 'GET', path: '/fn' }] } } })));
   it('accepts groups', () => assert.strictEqual(validateSchema({ name: 'App', groups: { T: { properties: [{ name: 'author', type: 'string' }] } } }), true));
   it('rejects invalid file bucket', () => assert.throws(() => validateSchema({ name: 'App', files: { uploads: {} } }), /path/i));
   it('rejects invalid plugin', () => assert.throws(() => validateSchema({ name: 'App', plugins: [{ name: 'bad' }] })));
