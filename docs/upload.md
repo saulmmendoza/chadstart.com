@@ -4,9 +4,6 @@ title: File and Image Uploads
 description: Upload files and images with ChadStart built-in storage system to upload assets in the file storage or any S3-compatible storage.
 ---
 
-import Tabs from '@theme/Tabs';
-import TabItem from '@theme/TabItem';
-
 # Uploads
 
 ## Introduction
@@ -17,11 +14,8 @@ A `public/storage` folder is automatically created when needed. Uploaded files a
 
 Example: _public/storage/project/contract/Nov24/8dab3936m1p54a66-contract.pdf_
 
-:::warning
-
-If you want to set this file as an item's property, you need to upload the file first and then add the new uploaded file path as the property value creating or updating a record.
-
-:::
+!!! warning
+    If you want to set this file as an item's property, you need to upload the file first and then add the new uploaded file path as the property value creating or updating a record.
 
 ## Add a BASE_URL variable
 
@@ -31,18 +25,14 @@ By default the base url is set to `http://localhost:${port}` but you can change 
 
 Example: `BASE_URL=https://example.com`.
 
-:::warning
-
-Changing the `BASE_URL` will not change the path of images and files that are already stored but it will impact the new ones.
-
-:::
+!!! warning
+    Changing the `BASE_URL` will not change the path of images and files that are already stored but it will impact the new ones.
 
 ## Upload a file
 
 A file should be related to a property with the [file property type](./entities.md#file).
 
-<Tabs>
-  <TabItem value="sdk" label="JS SDK" default>
+=== "JS SDK"
     ```js
 
     // Create a Blob, adapt this step to your use case.
@@ -56,7 +46,6 @@ A file should be related to a property with the [file property type](./entities.
     console.log(file)
     // Output: {"path":"http://localhost:3000/invoices/contract/Oct2024/8dabo9qm1q3swvu-my-contract.pdf"}
 
-
     // Then you can store the path in the database.
     const invoice = await chadstart.from('invoices').create({
       name: 'Invoice ACME',
@@ -64,8 +53,7 @@ A file should be related to a property with the [file property type](./entities.
     })
     ```
 
-  </TabItem>
-  <TabItem value="rest" label="REST API" default>
+=== "REST API"
     ```http
     // Upload file.
     POST /api/upload/file
@@ -81,9 +69,6 @@ A file should be related to a property with the [file property type](./entities.
         "path":"http://localhost:3000/invoices/contract/Oct2024/8dabo9qm1q3swvu-my-contract.pdf"
     }
     ```
-
-  </TabItem>
-</Tabs>
 
 ## Upload an image
 
@@ -132,8 +117,7 @@ entities:
 
 When sizes are configured, compression also applies to each resized variant (set `compress: false` to use lossless quality instead).
 
-<Tabs>
-  <TabItem value="sdk" label="JS SDK" default>
+=== "JS SDK"
     ```js
     // Create a Blob from an image, adapt this step to your use case.
     const base64Image =
@@ -160,8 +144,7 @@ When sizes are configured, compression also applies to each resized variant (set
     })
     ```
 
-  </TabItem>
-  <TabItem value="rest" label="REST API" default>
+=== "REST API"
     ```http
     // Upload image.
     POST /api/upload/image
@@ -183,6 +166,3 @@ When sizes are configured, compression also applies to each resized variant (set
       "thumbnail": "http://localhost:3000/cats/avatar/Oct2024/8dabo9qm1q4n1nk-thumbnail.jpg"
     }
     ```
-
-  </TabItem>
-</Tabs>

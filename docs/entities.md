@@ -4,9 +4,6 @@ title: Entities
 descriptions: Entities are the foundation of ChadStart. Define your data structure in few lines and use 15+ real-world types for your properties.
 ---
 
-import Tabs from '@theme/Tabs';
-import TabItem from '@theme/TabItem';
-
 # Entities
 
 ## Introduction
@@ -43,11 +40,8 @@ To generate dummy data for all your entities, run the simple command:
 npm run seed
 ```
 
-:::warning
-
-The seed replaces the previous data by the new one and thus should never be used in production.
-
-:::
+!!! warning
+    The seed replaces the previous data by the new one and thus should never be used in production.
 
 ### Entity params
 
@@ -121,12 +115,6 @@ entities:
 | **properties**   | `[]`                       | Array    | The [properties](./entities.md#properties) of your entity                   |
 | **slug**         | _plural dasherized name_   | string   | The kebab-case slug of the entity that will define API endpoints.           |
 
----
-
-id: properties
-title: Properties
-
----
 
 ## Properties
 
@@ -271,10 +259,8 @@ A file upload. Read more in the [file upload doc](./upload.md#upload-a-file).
 - { name: document, type: file }
 ```
 
-:::note
-
-ChadStart stores the **absolute paths** of uploaded files. Use the [`BASE_URL`](./upload.md#add-a-base_url-variable) environment variable to adapt it to your domain.
-:::
+!!! note
+    ChadStart stores the **absolute paths** of uploaded files. Use the [`BASE_URL`](./upload.md#add-a-base_url-variable) environment variable to adapt it to your domain.
 
 #### Image
 
@@ -289,11 +275,8 @@ An image upload. The different sizes should be provided to generate several size
   }
 ```
 
-:::note
-
-ChadStart stores the **absolute paths** of uploaded images. Use the [`BASE_URL`](./upload.md#add-a-base_url-variable) environment variable to adapt it to your domain.
-
-:::
+!!! note
+    ChadStart stores the **absolute paths** of uploaded images. Use the [`BASE_URL`](./upload.md#add-a-base_url-variable) environment variable to adapt it to your domain.
 
 ###### Parameters
 
@@ -309,9 +292,8 @@ Password field. Most of the time you do not need to implement passwords manually
 - { name: password, type: password }
 ```
 
-:::warning
-When setting the type as `password`, ChadStart hashes automatically the value before storing it. Passwords should never be stored as clear text.
-:::
+!!! warning
+    When setting the type as `password`, ChadStart hashes automatically the value before storing it. Passwords should never be stored as clear text.
 
 #### Choice
 
@@ -386,12 +368,10 @@ In other words:
 - The **belongsToMany** keyword creates a **many-to-many** bi-directional relationship
 - The **long syntax** (as in _Fixture.belongsTo_) is useful when we want to edit the name of the relationships
 
-:::tip
+!!! tip
+    All relationships are **bi-directional**, which means that you just have to specify them **in one side only** to work with them in both directions.
 
-All relationships are **bi-directional**, which means that you just have to specify them **in one side only** to work with them in both directions.
-
-When you define a **belongsTo** relationship, it implicitly set the opposite _hasMany_ relationship and allow [querying relations](./crud.md#work-with-relations) in both directions.
-:::
+    When you define a **belongsTo** relationship, it implicitly set the opposite _hasMany_ relationship and allow [querying relations](./crud.md#work-with-relations) in both directions.
 
 ### Relation params
 

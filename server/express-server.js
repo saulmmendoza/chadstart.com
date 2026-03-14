@@ -19,10 +19,49 @@ const { generateOpenApiSpec } = require('../core/openapi');
 const { registerFileRoutes } = require('../core/file-storage');
 const { registerUploadRoutes } = require('../core/upload');
 const { loadPlugins } = require('../core/plugin-loader');
+const { initErrorReporter, getRequestHandler, attachErrorHandler } = require('../core/error-reporter');
+const { getTelemetryConfig, initTelemetry } = require('../core/telemetry');
 const logger = require('../utils/logger');
 
 function limiter(windowMs, max) {
   return rateLimit({ windowMs, max, standardHeaders: true, legacyHeaders: false, message: { error: 'Too many requests, please try again later.' } });
+}
+
+/** Locale cache: maps lang code → parsed JSON object (or null on failure). */
+const _localeCache = {};
+
+/**
+ * Load and cache a locale file from `locales/<lang>/admin.json`.
+ * Falls back to English if the requested language is unavailable.
+ * Returns null only when even the English fallback is missing.
+ *
+ * @param {string} lang  BCP 47 primary language subtag (e.g. "en", "es").
+ * @returns {object|null}
+ */
+function loadLocale(lang) {
+  if (!/^[a-z]{2,3}$/.test(lang)) lang = 'en';
+  if (_localeCache[lang] !== undefined) return _localeCache[lang];
+  const filePath = path.join(__dirname, '..', 'locales', lang, 'admin.json');
+  if (fs.existsSync(filePath)) {
+    try {
+      _localeCache[lang] = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      return _localeCache[lang];
+    } catch { /* fall through */ }
+  }
+  _localeCache[lang] = null;
+  if (lang !== 'en') return loadLocale('en');
+  return null;
+}
+
+/**
+ * Extract the primary language subtag from an Accept-Language header value.
+ *
+ * @param {string} header  Value of the Accept-Language HTTP header.
+ * @returns {string}       Lowercase primary subtag, e.g. "en" or "es".
+ */
+function parseLang(header) {
+  if (!header) return 'en';
+  return (header.split(/[,;]/)[0].trim().split('-')[0] || 'en').toLowerCase();
 }
 const authLimiter  = limiter(15 * 60 * 1000, 30);
 const adminRateLimiter = limiter(60 * 1000, 100);
@@ -54,14 +93,24 @@ async function buildApp(yamlPath, reloadFn) {
   const core = buildCore(config);
   logger.info(`Loading "${core.name}"...`);
 
+  // Initialize OpenTelemetry (singleton — no-op on hot reload)
+  const telConfig = getTelemetryConfig(core.settings);
+  await initTelemetry(telConfig);
+
   const dbPath = core.database
     ? path.resolve(path.dirname(yamlPath), core.database)
     : undefined;
   initDb(core, dbPath);
   initApiKeys();
 
+  initErrorReporter(core);
+
   const app = express();
   app.use(express.json());
+
+  // Sentry request handler must be the first middleware (captures req info)
+  const sentryRequestHandler = getRequestHandler();
+  if (sentryRequestHandler) app.use(sentryRequestHandler);
 
   // Public static files
   if (core.public && core.public.folder) {
@@ -116,6 +165,14 @@ async function buildApp(yamlPath, reloadFn) {
     } else {
       res.status(404).send('Admin UI not found');
     }
+  });
+  // Serve locale translation files for the Admin UI i18n
+  app.get('/admin/i18n/:lang', adminRateLimiter, (req, res) => {
+    // Normalize the route param (simple language code, e.g. "en") to a safe subtag
+    const lang = parseLang(req.params.lang);
+    const locale = loadLocale(lang);
+    if (locale) return res.json(locale);
+    res.status(404).json({ error: 'Locale not found' });
   });
   app.get('/admin/schema', (_req, res) => {
     const allEntities = Object.values(core.entities).map((e) => ({
@@ -197,10 +254,12 @@ async function buildApp(yamlPath, reloadFn) {
       ? Object.values(core.entities).find((e) => e.name === name)
       : Object.values(core.authenticableEntities).find((uc) => uc.name === name);
     if (!item) return res.status(404).send('<p class="text-red-400 p-4">Not found</p>');
+    const lang = parseLang(req.headers['accept-language']);
+    const locale = loadLocale(lang);
     try {
       let rows = findAllSimple(item.tableName);
       if (type === 'collection') rows = rows.map(omitPassword);
-      res.send(renderAdminTable(rows, name, type === 'collection', item.name));
+      res.send(renderAdminTable(rows, name, type === 'collection', item.name, locale));
     } catch (err) {
       res.status(500).send(`<p class="text-red-400 p-4">Error: ${escAdminHtml(err.message)}</p>`);
     }
@@ -265,7 +324,12 @@ async function buildApp(yamlPath, reloadFn) {
   });
 
   await loadPlugins(app, core);
+
   app.get('/health', (_req, res) => res.json({ status: 'ok', name: core.name }));
+
+  // Sentry error handler must be after all routes/middleware but before any
+  // other error handlers so it can capture unhandled errors.
+  attachErrorHandler(app);
 
   return { app, core };
 }
@@ -379,19 +443,27 @@ function escAdminHtml(s) {
 /**
  * Render an HTML table fragment for the Admin UI HTMX partial.
  * Uses Tailwind utility classes that the Play CDN will process client-side.
+ *
+ * @param {Array}       rows              Record rows from the database.
+ * @param {string}      name              Entity/collection display name.
+ * @param {boolean}     isUserCollection  True when the table is for an authenticable entity.
+ * @param {string}      entityName        Entity name used for impersonation (when isUserCollection).
+ * @param {object|null} locale            Parsed locale JSON (locales/{lang}/admin.json), or null.
  */
-function renderAdminTable(rows, name, isUserCollection, entityName) {
+function renderAdminTable(rows, name, isUserCollection, entityName, locale) {
   const esc = escAdminHtml;
+  const tbl = (locale && locale.table) || {};
+  const tr = (key, fallback) => tbl[key] || fallback;
   if (!rows.length) {
     return `<div class="flex flex-col items-center justify-center py-20 text-center">
       <div class="text-4xl mb-3" aria-hidden="true">&#128237;</div>
-      <p class="text-sm" style="color:#888;">No records yet. Click <span style="color:#e1e1e1;">+ New record</span> to create one.</p>
+      <p class="text-sm" style="color:#888;">${esc(tr('no_records', 'No records yet. Click + New record to create one.'))}</p>
     </div>`;
   }
   const cols = Object.keys(rows[0]);
   const ths = cols.map((c) =>
     `<th class="px-4 py-2.5 text-left text-xs font-medium whitespace-nowrap" style="color:#888;">${esc(c)}</th>`
-  ).join('') + '<th class="px-4 py-2.5 text-left text-xs font-medium" style="color:#888;">Actions</th>';
+  ).join('') + `<th class="px-4 py-2.5 text-left text-xs font-medium" style="color:#888;">${esc(tr('actions', 'Actions'))}</th>`;
 
   const trs = rows.map((row) => {
     const tds = cols.map((c) =>
@@ -407,9 +479,9 @@ function renderAdminTable(rows, name, isUserCollection, entityName) {
       : '';
     const actions = `<td class="px-4 py-2.5"><div class="flex gap-2">
       <button class="text-xs border rounded px-2 py-1 hover:opacity-80" style="border-color:#2a2a2a;color:#e1e1e1;background:transparent;transition:opacity 150ms ease;"
-        onclick='openEditModal(${safeJson})'>Edit</button>
+        onclick='openEditModal(${safeJson})'>${esc(tr('edit', 'Edit'))}</button>
       <button class="text-xs border rounded px-2 py-1 hover:opacity-80" style="border-color:rgba(239,68,68,0.4);color:#f87171;background:transparent;transition:opacity 150ms ease;"
-        onclick="deleteRecord('${safeId}')">Delete</button>
+        onclick="deleteRecord('${safeId}')">${esc(tr('delete', 'Delete'))}</button>
       ${impersonateBtn}
     </div></td>`;
     return `<tr class="border-b" style="border-color:#2a2a2a;">${tds}${actions}</tr>`;

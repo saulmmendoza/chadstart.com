@@ -59,14 +59,13 @@ npm run start
 ```
 
 You can now:
-<br/> - See your **Admin panel** at http://localhost:3000 using the email `admin@chadstart.com` and the password `admin`
-<br/> - Use your **REST API** at http://localhost:3000/api
 
-:::tip
+- See your **Admin panel** at http://localhost:3000 using the email `admin@chadstart.com` and the password `admin`
 
-If you already have a frontend app, we recommend that you use a **monorepo** structure with one folder for the backend and one folder for the frontend. For example you can run `npx chadstart server` at root level to add your ChadStart to a `server` folder that you put next to the `client` folder that will contain your frontend.
+- Use your **REST API** at http://localhost:3000/api
 
-:::
+!!! tip
+    If you already have a frontend app, we recommend that you use a **monorepo** structure with one folder for the backend and one folder for the frontend. For example you can run `npx chadstart server` at root level to add your ChadStart to a `server` folder that you put next to the `client` folder that will contain your frontend.
 
 #### Note with PNMP
 
