@@ -1587,7 +1587,6 @@ document.addEventListener('keydown', e => {
     if (!document.getElementById('seed-modal').classList.contains('hidden')) { closeSeedModal(); return; }
     if (!document.getElementById('modal-backdrop').classList.contains('hidden')) { closeModal(); return; }
     if (inInput) { document.activeElement.blur(); return; }
-    return;
     return '<div class="entity-card rounded border p-4" style="border-color:#2a2a2a;background:#181818;"'
       + ' data-entity-id="' + id + '" data-original-name="' + escAttr(entityName) + '">'
       + '<div class="flex flex-wrap items-end gap-3 mb-3">'
