@@ -86,6 +86,10 @@
     "saving_btn": "Saving…",
     "reset_btn": "Reset",
     "editor_title": "Config Editor",
+    "json_label": "Full Configuration JSON",
+    "json_hint": "(read-only reference — switch to the All tab to edit directly)",
+    "json_label_edit": "Full Configuration JSON",
+    "json_hint_edit": "(edit directly — changes are saved on Save)",
     "status": {
       "loading": "Loading…",
       "reloading": "Reloading…",
