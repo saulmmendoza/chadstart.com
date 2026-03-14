@@ -213,8 +213,8 @@
 
 <!-- ── AI Chat Panel ──────────────────────────────────────────────────── -->
 <div id="ai-panel"
-  class="fixed inset-y-0 right-0 z-50 w-full max-w-sm bg-cs-surface border-l border-cs-border flex flex-col translate-x-full"
-  style="transition: transform 200ms ease; box-shadow: -2px 0 12px rgba(0,0,0,0.3);">
+  class="fixed inset-y-0 right-0 z-50 w-full max-w-sm bg-cs-surface border-l border-cs-border flex flex-col"
+  style="translate: 100%; transition: translate 200ms ease; box-shadow: -2px 0 12px rgba(0,0,0,0.3);">
 
   <!-- Panel header -->
   <div class="flex items-center justify-between px-4 py-3 border-b border-cs-border shrink-0">
@@ -1128,14 +1128,14 @@
 
   function openAiPanel() {
     aiPanelOpen = true;
-    document.getElementById('ai-panel').style.transform = 'translateX(0)';
+    document.getElementById('ai-panel').style.translate = '0';
     if (aiMessages.length === 0) renderAiWelcome();
     setTimeout(() => document.getElementById('ai-input').focus(), 220);
   }
 
   function closeAiPanel() {
     aiPanelOpen = false;
-    document.getElementById('ai-panel').style.transform = 'translateX(100%)';
+    document.getElementById('ai-panel').style.translate = '100%';
   }
 
   function clearAiChat() {
