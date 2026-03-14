@@ -45,7 +45,7 @@ nav:
     - S3 Storage: s3-storage.md
     - Realtime: realtime.md
     - Webhooks: webhooks.md
-    - Custom Endpoints: endpoints.md
+    - Custom Endpoints: functions.md
     - Middlewares: middlewares.md
     - Groups: groups.md
     - Security: security.md

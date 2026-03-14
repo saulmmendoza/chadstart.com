@@ -29,16 +29,16 @@ entities:
       - { name: date, type: date }
     middlewares:
       beforeCreate:
-        - handler: setDate
+        - function: setDate.js
       afterCreate:
-        - handler: sendEmail
+        - function: sendEmail.js
 ```
 
-This example triggers the handler located at `/handlers/setDate.js` before the item is created and stored in the database, and triggers `/handlers/sendEmail.js` after.
+This example triggers the function located at `/functions/setDate.js` before the item is created and stored in the database, and triggers `/functions/sendEmail.js` after.
 
-```js title="/handlers/setDate.js"
+```js title="/functions/setDate.js"
 module.exports = async (req, res) => {
-  console.log('Hello from the handler!')
+  console.log('Hello from the function!')
 
   req.body['date'] = new Date()
 }
@@ -49,9 +49,9 @@ module.exports = async (req, res) => {
 
 ## Use your data with the ChadStart backend SDK
 
-ChadStart passes the [JS SDK](./crud.md#using-the-javascript-sdk) to handler functions as third argument. You can use it to fetch or write data.
+ChadStart passes the [JS SDK](./crud.md#using-the-javascript-sdk) to middleware functions as third argument. You can use it to fetch or write data.
 
-```js title="/handlers/patchDocumentNameIfEmpty.js"
+```js title="/functions/patchDocumentNameIfEmpty.js"
 module.exports = async (req, res, chadstart) => {
   // If the 'name' property of the item is empty.
   if (!req.body['name']) {

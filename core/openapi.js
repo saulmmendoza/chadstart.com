@@ -100,7 +100,7 @@ function generateOpenApiSpec(core) {
   }
 
   // Custom endpoints
-  for (const [name, ep] of Object.entries(core.endpoints || {})) {
+  for (const [name, ep] of Object.entries(core.functions || {})) {
     const p = `/endpoints${ep.path}`;
     spec.paths[p] = spec.paths[p] || {};
     spec.paths[p][ep.method.toLowerCase()] = { tags: ['Endpoints'], summary: ep.description || name, responses: { 200: desc('OK') } };

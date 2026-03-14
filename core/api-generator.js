@@ -10,7 +10,7 @@ const { requireAuth, optionalAuth, omitPassword, JWT_SECRET, resolveAuthHeader }
 const logger = require('../utils/logger');
 
 /**
- * Create a backend SDK for use in middleware and custom endpoint handlers.
+ * Create a backend SDK for use in middleware and custom endpoint functions.
  * Provides a `from(slug)` interface for CRUD and a `single(slug)` interface
  * for single-record entities — the same API as the front-end JS SDK.
  */
@@ -372,28 +372,29 @@ function enforceSelfCondition(rule, entity, req, core) {
 /**
  * Run entity middlewares for a lifecycle event.
  * Returns false if a middleware sent a response (halting the pipeline).
- * The ChadStart backend SDK is passed to handlers as the third argument.
+ * The ChadStart backend SDK is passed to functions as the third argument.
  */
 async function runMiddlewares(event, entity, req, res, sdk) {
   const mws = (entity.middlewares || {})[event];
   if (!mws || !mws.length) return true;
 
   for (const mw of mws) {
-    if (!mw.handler) continue;
-    const handlerFile = path.resolve(
-      process.env.CHADSTART_HANDLERS_FOLDER || process.env.MANIFEST_HANDLERS_FOLDER || 'handlers',
-      `${mw.handler}.js`
+    if (!mw.function) continue;
+    const fnName = mw.function.endsWith('.js') ? mw.function : `${mw.function}.js`;
+    const fnFile = path.resolve(
+      process.env.CHADSTART_FUNCTIONS_FOLDER || 'functions',
+      fnName
     );
-    if (!fs.existsSync(handlerFile)) {
-      logger.warn(`Middleware handler not found: ${handlerFile}`);
+    if (!fs.existsSync(fnFile)) {
+      logger.warn(`Middleware function not found: ${fnFile}`);
       continue;
     }
     try {
-      const handler = require(handlerFile);
-      await handler(req, res, sdk);
+      const fn = require(fnFile);
+      await fn(req, res, sdk);
       if (res.headersSent) return false;
     } catch (e) {
-      logger.error(`Middleware ${event}/${mw.handler} error: ${e.message}`);
+      logger.error(`Middleware ${event}/${mw.function} error: ${e.message}`);
     }
   }
   return true;
