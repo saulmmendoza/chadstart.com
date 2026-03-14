@@ -99,7 +99,7 @@ function buildCore(config) {
     database: config.database || null,
     entities,
     authenticableEntities: getAuthenticableEntities(entities),
-    endpoints: config.endpoints || {},
+    functions: config.functions || {},
     groups: config.groups || {},
     plugins: config.plugins || [],
     files: config.files || {},

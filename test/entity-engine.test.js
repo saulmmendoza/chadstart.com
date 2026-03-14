@@ -45,17 +45,17 @@ describe('entity-engine', () => {
     assert.strictEqual(core.entities.Player.belongsToMany[0].entity, 'Skill');
   });
 
-  it('buildCore handles singles, validation, hooks, endpoints, groups', () => {
+  it('buildCore handles singles, validation, hooks, functions, groups', () => {
     const core = buildCore({
       name: 'App',
       entities: { Home: { single: true, properties: ['t'], validation: { t: { minLength: 3 } }, hooks: { beforeCreate: [{ url: 'https://x.com' }] } } },
-      endpoints: { hi: { path: '/hi', method: 'GET', function: 'hi' } },
+      functions: { hi: { path: '/hi', method: 'GET', function: 'hi.js' } },
       groups: { G: { properties: [{ name: 'a', type: 'string' }] } },
     });
     assert.ok(core.entities.Home.single);
     assert.strictEqual(core.entities.Home.validation.t.minLength, 3);
     assert.strictEqual(core.entities.Home.hooks.beforeCreate[0].url, 'https://x.com');
-    assert.ok(core.endpoints.hi);
+    assert.ok(core.functions.hi);
     assert.ok(core.groups.G);
   });
 

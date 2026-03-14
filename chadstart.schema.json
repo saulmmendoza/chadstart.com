@@ -25,9 +25,9 @@
       "description": "Map of entity names to their definitions.",
       "additionalProperties": { "$ref": "#/$defs/entity" }
     },
-    "endpoints": {
+    "functions": {
       "type": "object",
-      "description": "Map of custom endpoint names to their definitions.",
+      "description": "Map of custom function-based endpoint names to their definitions.",
       "additionalProperties": { "$ref": "#/$defs/endpoint" }
     },
     "groups": {

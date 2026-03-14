@@ -73,13 +73,4 @@ describe('runMiddlewares – SDK injection', () => {
   it('CHADSTART_FUNCTIONS_FOLDER env var is used by middleware runner', () => {
     assert.strictEqual(process.env.CHADSTART_FUNCTIONS_FOLDER, functionsDir);
   });
-
-  it('CHADSTART_FUNCTIONS_FOLDER takes precedence over CHADSTART_HANDLERS_FOLDER', () => {
-    const oldHandlers = process.env.CHADSTART_HANDLERS_FOLDER;
-    process.env.CHADSTART_HANDLERS_FOLDER = '/some/wrong/path';
-    process.env.CHADSTART_FUNCTIONS_FOLDER = functionsDir;
-    const resolved = process.env.CHADSTART_FUNCTIONS_FOLDER || process.env.CHADSTART_HANDLERS_FOLDER || 'functions';
-    assert.strictEqual(resolved, functionsDir);
-    process.env.CHADSTART_HANDLERS_FOLDER = oldHandlers;
-  });
 });

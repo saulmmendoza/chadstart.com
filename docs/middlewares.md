@@ -29,9 +29,9 @@ entities:
       - { name: date, type: date }
     middlewares:
       beforeCreate:
-        - function: setDate
+        - function: setDate.js
       afterCreate:
-        - function: sendEmail
+        - function: sendEmail.js
 ```
 
 This example triggers the function located at `/functions/setDate.js` before the item is created and stored in the database, and triggers `/functions/sendEmail.js` after.

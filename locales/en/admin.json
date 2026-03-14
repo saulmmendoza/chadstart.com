@@ -69,7 +69,7 @@
     "tabs": {
       "general": "General",
       "entities": "Entities",
-      "endpoints": "Endpoints",
+      "functions": "Functions",
       "files": "Files & Uploads",
       "settings": "Settings",
       "all": "All"
@@ -77,7 +77,7 @@
     "descriptions": {
       "general": "Application name, port, database path, and public static folder.",
       "entities": "Entity definitions — properties, relations, and flags.",
-      "endpoints": "Custom REST endpoint definitions (path, method, function).",
+      "functions": "Custom function-based HTTP endpoint definitions (path, method, function).",
       "files": "File bucket definitions for local uploads.",
       "settings": "API rate limits and reusable property groups.",
       "all": "Full configuration — all sections combined (raw JSON for advanced use)."
@@ -131,14 +131,14 @@
       "add_entity": "+ Add entity",
       "property_placeholder": "property name"
     },
-    "endpoints": {
+    "functions": {
       "name": "Name",
       "name_placeholder": "sendEmail",
       "path_label": "Path",
       "path_placeholder": "/send-email",
       "method": "Method",
       "function": "Function",
-      "function_placeholder": "sendEmailFunction",
+      "function_placeholder": "sendEmail.js",
       "description": "Description",
       "description_hint": "(optional)",
       "description_placeholder": "What this endpoint does",

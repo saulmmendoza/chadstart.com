@@ -23,11 +23,11 @@ Custom endpoints in ChadStart follow a simple structure where you define:
 This is an example of a simple endpoint that returns a "Hello world from my new endpoint !" message when requesting `GET /endpoints/hello-world`.
 
 ```yaml title="chadstart.yaml"
-endpoints:
+functions:
   helloWorld:
     path: /hello-world
     method: GET
-    function: helloWorld
+    function: helloWorld.js
 ```
 
 ```js title="functions/helloWorld.js"
@@ -70,12 +70,12 @@ entities:
       - name
       - { name: score, type: number }
 
-endpoints:
+functions:
   increaseScore:
     description: Adds 1 to the competitor score.
     path: /competitors/:id/increase
     method: POST
-    function: increaseScore
+    function: increaseScore.js
 ```
 
 We can now add the function in the `/functions` folder:

@@ -144,12 +144,12 @@ entities:
       delete:
         - { access: 🔒, allow: Manager } # Managers can create contributors.
 
-endpoints:
+functions:
   basicEndpoint:
     path: /basic
     description: A basic endpoint that returns a simple message.
     method: GET
-    function: basicEndpoint
+    function: basicEndpoint.js
     policies:
       - access: public # This endpoint is public.
 ```

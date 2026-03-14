@@ -282,7 +282,7 @@
       <div class="flex gap-1 flex-wrap mb-4 border-b border-cs-border pb-3">
         <button onclick="showConfigTab('general')"   id="cfg-tab-general"   class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;" data-i18n="config.tabs.general">General</button>
         <button onclick="showConfigTab('entities')"  id="cfg-tab-entities"  class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;" data-i18n="config.tabs.entities">Entities</button>
-        <button onclick="showConfigTab('endpoints')" id="cfg-tab-endpoints" class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;" data-i18n="config.tabs.endpoints">Endpoints</button>
+        <button onclick="showConfigTab('functions')" id="cfg-tab-functions" class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;" data-i18n="config.tabs.functions">Functions</button>
         <button onclick="showConfigTab('files')"     id="cfg-tab-files"     class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;" data-i18n="config.tabs.files">Files &amp; Uploads</button>
         <button onclick="showConfigTab('settings')"  id="cfg-tab-settings"  class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;" data-i18n="config.tabs.settings">Settings</button>
         <button onclick="showConfigTab('all')"       id="cfg-tab-all"       class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;" data-i18n="config.tabs.all">All</button>
@@ -1654,13 +1654,13 @@ function getFields(isCollection) {
   // Endpoints tab: card list with name, path, method, function, description
   function renderEndpointsForm() {
     _cfgEndpointId = 0;
-    const endpoints = (configData && configData.endpoints) || {};
+    const endpoints = (configData && configData.functions) || {};
     let cards = '';
     for (const key of Object.keys(endpoints)) cards += renderEndpointCard(key, endpoints[key]);
     return '<div id="cfg-endpoints-list" class="space-y-3">' + cards + '</div>'
       + '<button type="button" onclick="addEndpointCard()"'
       + ' class="mt-3 text-xs border border-cs-border rounded px-3 py-1.5 text-cs-muted hover:text-cs-text cursor-pointer"'
-      + ' style="transition:color 150ms,background 150ms;">' + t('config.endpoints.add_endpoint') + '</button>';
+      + ' style="transition:color 150ms,background 150ms;">' + t('config.functions.add_endpoint') + '</button>';
   }
 
   function renderEndpointCard(epName, def) {
@@ -1671,24 +1671,24 @@ function getFields(isCollection) {
     const methodSel = '<select id="cfg-ep-method-' + id + '" class="w-full ' + _INP + '" style="transition:border-color 150ms;">' + methodOpts + '</select>';
     return '<div class="endpoint-card rounded border p-4" style="border-color:#2a2a2a;background:#181818;" data-endpoint-id="' + id + '">'
       + '<div class="grid gap-3 mb-3" style="grid-template-columns:1fr 1fr;">'
-        + '<div><label class="' + _LBL + '" style="color:#888;">' + t('config.endpoints.name') + '</label>'
-        + '<input type="text" id="cfg-ep-name-' + id + '" value="' + escAttr(epName) + '" placeholder="' + escAttr(t('config.endpoints.name_placeholder')) + '"'
+        + '<div><label class="' + _LBL + '" style="color:#888;">' + t('config.functions.name') + '</label>'
+        + '<input type="text" id="cfg-ep-name-' + id + '" value="' + escAttr(epName) + '" placeholder="' + escAttr(t('config.functions.name_placeholder')) + '"'
         + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
-        + '<div><label class="' + _LBL + '" style="color:#888;">' + t('config.endpoints.path_label') + '</label>'
-        + '<input type="text" id="cfg-ep-path-' + id + '" value="' + escAttr(def.path || '') + '" placeholder="' + escAttr(t('config.endpoints.path_placeholder')) + '"'
+        + '<div><label class="' + _LBL + '" style="color:#888;">' + t('config.functions.path_label') + '</label>'
+        + '<input type="text" id="cfg-ep-path-' + id + '" value="' + escAttr(def.path || '') + '" placeholder="' + escAttr(t('config.functions.path_placeholder')) + '"'
         + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
-        + '<div><label class="' + _LBL + '" style="color:#888;">' + t('config.endpoints.method') + '</label>' + methodSel + '</div>'
-        + '<div><label class="' + _LBL + '" style="color:#888;">' + t('config.endpoints.function') + '</label>'
-        + '<input type="text" id="cfg-ep-function-' + id + '" value="' + escAttr(def.function || '') + '" placeholder="' + escAttr(t('config.endpoints.function_placeholder')) + '"'
+        + '<div><label class="' + _LBL + '" style="color:#888;">' + t('config.functions.method') + '</label>' + methodSel + '</div>'
+        + '<div><label class="' + _LBL + '" style="color:#888;">' + t('config.functions.function') + '</label>'
+        + '<input type="text" id="cfg-ep-function-' + id + '" value="' + escAttr(def.function || '') + '" placeholder="' + escAttr(t('config.functions.function_placeholder')) + '"'
         + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
       + '</div>'
       + '<div class="flex items-end gap-3">'
-        + '<div class="flex-1"><label class="' + _LBL + '" style="color:#888;">' + t('config.endpoints.description') + ' <span style="color:#555;">' + t('config.endpoints.description_hint') + '</span></label>'
-        + '<input type="text" id="cfg-ep-desc-' + id + '" value="' + escAttr(def.description || '') + '" placeholder="' + escAttr(t('config.endpoints.description_placeholder')) + '"'
+        + '<div class="flex-1"><label class="' + _LBL + '" style="color:#888;">' + t('config.functions.description') + ' <span style="color:#555;">' + t('config.functions.description_hint') + '</span></label>'
+        + '<input type="text" id="cfg-ep-desc-' + id + '" value="' + escAttr(def.description || '') + '" placeholder="' + escAttr(t('config.functions.description_placeholder')) + '"'
         + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
         + '<button type="button" onclick="_cfgRmEndpointCard(this)"'
         + ' class="text-xs px-2 py-1.5 rounded border cursor-pointer"'
-        + ' style="border-color:rgba(239,68,68,0.3);color:#f87171;background:transparent;">' + t('config.endpoints.remove') + '</button>'
+        + ' style="border-color:rgba(239,68,68,0.3);color:#f87171;background:transparent;">' + t('config.functions.remove') + '</button>'
       + '</div>'
       + '</div>';
   }
@@ -1832,12 +1832,12 @@ function toSnake(s) { return s.replace(/([A-Z])/g,(m,p,o)=>(o>0?'_':'')+p.toLowe
 const CFG_TABS = {
   general:   { keys: ['name','port','database','public'], desc: 'Application name, port, database path, and public static folder.' },
   entities:  { keys: ['entities'], desc: 'Entity definitions — properties, relations, and flags.' },
-  endpoints: { keys: ['endpoints'], desc: 'Custom REST endpoint definitions (path, method, function).' },
+  functions: { keys: ['functions'], desc: 'Custom function-based HTTP endpoint definitions (path, method, function).' },
   files:     { keys: ['files'], desc: 'File bucket definitions for local uploads.', s3: true },
   settings:  { keys: ['settings','groups'], desc: 'API rate limits and reusable property groups.' },
   all:       { keys: null, desc: 'Full configuration — all sections combined (raw JSON for advanced use).' },
 };
-const CFG_FORM_TABS = new Set(['general','entities','endpoints','files','settings']);
+const CFG_FORM_TABS = new Set(['general','entities','functions','files','settings']);
 const PROP_TYPES = ['string','text','richText','integer','number','float','money','boolean','email','password','date','timestamp','link','file','image','choice','location','json'];
 const _INP    = 'bg-cs-bg border border-cs-border rounded text-cs-text px-2 py-1.5 text-sm outline-none focus:border-cs-primary';
 const _INP_XS = 'bg-cs-bg border border-cs-border rounded text-cs-text px-2 py-1 text-xs outline-none focus:border-cs-primary';
@@ -1873,7 +1873,7 @@ function renderFormTab(tab) {
   if (!configData) return '<p class="text-xs text-cs-muted">Loading…</p>';
   if (tab === 'general')   return renderGeneralForm();
   if (tab === 'entities')  return renderEntitiesForm();
-  if (tab === 'endpoints') return renderEndpointsForm();
+  if (tab === 'functions') return renderEndpointsForm();
   if (tab === 'files')     return renderFilesForm();
   if (tab === 'settings')  return renderSettingsForm();
   return '';
@@ -1995,7 +1995,7 @@ function collectEntitiesForm() {
 
 function renderEndpointsForm() {
   _cfgEndpointId = 0;
-  const endpoints = (configData && configData.endpoints) || {};
+  const endpoints = (configData && configData.functions) || {};
   let cards = '';
   for (const [k, ep] of Object.entries(endpoints)) cards += renderEndpointCard(k, ep);
   return '<div id="cfg-endpoints-list" class="space-y-3">' + cards + '</div>'
@@ -2011,7 +2011,7 @@ function renderEndpointCard(name, ep) {
     + '<button type="button" onclick="this.closest(\'[data-ep-id]\').remove()" class="text-cs-muted hover:text-red-400 text-xs cursor-pointer">✕</button></div>'
     + '<div class="flex gap-2"><select data-role="ep-method" class="' + _INP_XS + '">' + mOpts + '</select>'
     + '<input type="text" placeholder="/path" value="' + escAttr(ep.path||'') + '" data-role="ep-path" class="' + _INP_XS + ' flex-1" /></div>'
-    + '<input type="text" placeholder="function filename (no .js)" value="' + escAttr(ep.function||'') + '" data-role="ep-function" class="w-full ' + _INP_XS + '" /></div>';
+    + '<input type="text" placeholder="function.js" value="' + escAttr(ep.function||'') + '" data-role="ep-function" class="w-full ' + _INP_XS + '" /></div>';
 }
 
 function addEndpointCard() {
@@ -2108,7 +2108,7 @@ function collectConfigForm() {
   const base = { ...(configData || {}) };
   if (configActiveTab === 'general')   Object.assign(base, collectGeneralForm());
   if (configActiveTab === 'entities')  base.entities = collectEntitiesForm();
-  if (configActiveTab === 'endpoints') base.endpoints = collectEndpointsForm();
+  if (configActiveTab === 'functions') base.functions = collectEndpointsForm();
   if (configActiveTab === 'files')     base.files = collectFilesForm();
   if (configActiveTab === 'settings')  base.settings = collectSettingsForm();
   return base;
@@ -2138,7 +2138,7 @@ init();
   function collectFormData() {
     if (configActiveTab === 'general')   return collectGeneralForm();
     if (configActiveTab === 'entities')  return { entities: collectEntitiesForm() };
-    if (configActiveTab === 'endpoints') return { endpoints: collectEndpointsForm() };
+    if (configActiveTab === 'functions') return { functions: collectEndpointsForm() };
     if (configActiveTab === 'files')     return { files: collectFilesForm() };
     if (configActiveTab === 'settings')  return collectSettingsForm();
     return null;

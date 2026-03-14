@@ -380,9 +380,10 @@ async function runMiddlewares(event, entity, req, res, sdk) {
 
   for (const mw of mws) {
     if (!mw.function) continue;
+    const fnName = mw.function.endsWith('.js') ? mw.function : `${mw.function}.js`;
     const fnFile = path.resolve(
-      process.env.CHADSTART_FUNCTIONS_FOLDER || process.env.CHADSTART_HANDLERS_FOLDER || 'functions',
-      `${mw.function}.js`
+      process.env.CHADSTART_FUNCTIONS_FOLDER || 'functions',
+      fnName
     );
     if (!fs.existsSync(fnFile)) {
       logger.warn(`Middleware function not found: ${fnFile}`);

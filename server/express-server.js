@@ -496,10 +496,11 @@ async function registerCustomEndpoints(app, core) {
   // Create a simple backend "SDK" object for functions (mimics the JS SDK interface)
   const manifestSdk = createBackendSdk(core);
 
-  for (const [name, ep] of Object.entries(core.endpoints || {})) {
+  for (const [name, ep] of Object.entries(core.functions || {})) {
     const epPath = `/endpoints${ep.path}`;
     const method = ep.method.toLowerCase();
-    const fnFile = path.resolve(process.env.CHADSTART_FUNCTIONS_FOLDER || process.env.CHADSTART_HANDLERS_FOLDER || 'functions', `${ep.function}.js`);
+    const fnName = ep.function.endsWith('.js') ? ep.function : `${ep.function}.js`;
+    const fnFile = path.resolve(process.env.CHADSTART_FUNCTIONS_FOLDER || 'functions', fnName);
 
     // Build middleware chain from endpoint policies (default: public)
     const middlewares = buildEndpointPolicyMiddleware(ep);
