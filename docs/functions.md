@@ -1,5 +1,5 @@
 ---
-id: endpoints
+id: functions
 title: Custom Endpoints
 description: Add your own endpoints for your custom logic with ChadStart. Each endpoint triggers a function file that has access to ChadStart logic and data.
 ---

@@ -10,7 +10,7 @@ Access Policies ensure that we provide specific access to resources for users. Y
 
 Access policies are a way to implement **Authorization** following the RBAC (Role-Based Access Control) method. Indeed it is possible to create different entities (ex: User, Manager...) with different access to resources. You also can limit access to a user own's records using [ownership-based access](#ownership-based-access).
 
-Policies can be added to [entities](./entities.md) and [endpoints](./endpoints.md).
+Policies can be added to [entities](./entities.md) and [endpoints](./functions.md).
 
 !!! info
     By default, all CRUD rules access are set to **admin** and thus only available for logged-in admins. Custom endpoints are **public** by default.
