@@ -222,3 +222,57 @@ describe('seeder – property types', () => {
     fs.unlinkSync(singleTmp);
   });
 });
+
+describe('seeder – authenticable entities with explicit email/password properties', () => {
+  let tmp;
+  const core = buildCore({
+    name: 'AuthPropTest',
+    entities: {
+      Customer: {
+        authenticable: true,
+        // email and password explicitly listed — seeder should handle these correctly
+        properties: [
+          { name: 'email', type: 'email' },
+          { name: 'password', type: 'password' },
+          { name: 'name', type: 'string' },
+        ],
+        seedCount: 3,
+      },
+    },
+  });
+
+  before(() => {
+    tmp = path.join(os.tmpdir(), `chadstart-authprop-${Date.now()}.db`);
+    dbModule.initDb(core, tmp);
+  });
+
+  after(() => { fs.unlinkSync(tmp); });
+
+  it('initDb does not fail with duplicate email/password columns', () => {
+    // The DB was already initialised in before() — if we get here, no duplicate column error
+    const cols = dbModule.getDb().pragma('table_info("customer")').map((r) => r.name);
+    assert.ok(cols.includes('email'));
+    assert.ok(cols.includes('password'));
+    assert.ok(cols.includes('name'));
+    // email should appear exactly once
+    assert.strictEqual(cols.filter((c) => c === 'email').length, 1);
+    assert.strictEqual(cols.filter((c) => c === 'password').length, 1);
+  });
+
+  it('seedAll succeeds and creates records with valid email addresses', async () => {
+    const result = await seedAll(core);
+    assert.strictEqual(result.summary.Customer, 3);
+    const rows = dbModule.findAll('customer', {}, { perPage: 100 });
+    assert.ok(rows.total >= 3);
+    for (const r of rows.data) {
+      assert.ok(typeof r.email === 'string' && r.email.includes('@'), `email should contain @, got: ${r.email}`);
+      assert.ok(typeof r.password === 'string' && r.password.length > 0);
+    }
+  });
+
+  it('seedAll creates admin user with correct email when entity has explicit email property', async () => {
+    const admins = dbModule.findAllSimple('customer', { email: ADMIN_EMAIL });
+    assert.strictEqual(admins.length, 1);
+    assert.strictEqual(admins[0].email, ADMIN_EMAIL);
+  });
+});

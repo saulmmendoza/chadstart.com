@@ -8,6 +8,7 @@
 
 const bcrypt = require('bcryptjs');
 const { create, findAllSimple } = require('./db');
+const logger = require('../utils/logger');
 
 const ADMIN_EMAIL = 'admin@chadstart.com';
 const ADMIN_PASSWORD = 'admin';
@@ -169,8 +170,9 @@ async function seedAll(core) {
         record.password = bcrypt.hashSync(`password${n}`, 10);
       }
 
-      // Regular properties
+      // Regular properties (skip email/password for authenticable entities — handled above)
       for (const prop of entity.properties) {
+        if (entity.authenticable && (prop.name === 'email' || prop.name === 'password')) continue;
         if (prop.type === 'password') {
           record[prop.name] = bcrypt.hashSync(fakeValueForProp(prop, i, core.groups), 10);
         } else {
@@ -189,8 +191,12 @@ async function seedAll(core) {
         }
       }
 
-      const created = create(entity.tableName, record);
-      ids.push(created.id);
+      try {
+        const created = create(entity.tableName, record);
+        ids.push(created.id);
+      } catch (err) {
+        logger.warn(`Seed: failed to create record for ${entityName}:`, err.message);
+      }
     }
 
     seededIds[entityName] = ids;
@@ -203,6 +209,8 @@ async function seedAll(core) {
     const existing = findAllSimple(entity.tableName, { email: ADMIN_EMAIL });
     if (existing.length === 0) {
       const extraProps = entity.properties.reduce((acc, prop) => {
+        // Skip email and password — they are handled separately for authenticable entities
+        if (prop.name === 'email' || prop.name === 'password') return acc;
         if (prop.type !== 'password') {
           acc[prop.name] = fakeValueForProp(prop, 0, core.groups);
         }
