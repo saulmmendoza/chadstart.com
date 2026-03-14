@@ -4,7 +4,7 @@ Reads newline-delimited JSON requests from stdin, invokes the function, writes J
 Protocol: {"id": N, "entry": "/path/to/fn.py", "event": {...}, "ctx": {...}}
 Response: {"id": N, "result": ...} or {"id": N, "error": "message"}
 """
-import sys, json, importlib.util, asyncio, os, traceback
+import sys, json, importlib.util, asyncio, os
 
 def load_module(entry):
     spec = importlib.util.spec_from_file_location("fn", entry)
@@ -30,4 +30,4 @@ for line in sys.stdin:
         result = run(mod, req.get("event", {}), req.get("ctx", {}))
         print(json.dumps({"id": req["id"], "result": result}), flush=True)
     except Exception as e:
-        print(json.dumps({"id": req.get("id"), "error": traceback.format_exc()}), flush=True)
+        print(json.dumps({"id": req.get("id"), "error": str(e)}), flush=True)

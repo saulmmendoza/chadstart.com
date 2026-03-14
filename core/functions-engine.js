@@ -27,6 +27,8 @@ const PREDEFINED = {
   '@hourly':   '0 * * * *',
 };
 
+const SUPPORTED_RUNTIMES = new Set(['js', 'bash', 'python', 'go', 'c++', 'ruby', 'php']);
+
 function resolveSchedule(s) {
   return PREDEFINED[s] || s;
 }
@@ -192,13 +194,15 @@ async function runExternal(runtime, entry, event, ctx) {
 
   // Per-invocation for other runtimes
   const input = JSON.stringify({ event, ctx });
+  const ts = Date.now();
   const cmds = {
     bash: ['bash', [entry]],
     go:   ['go', ['run', entry]],
-    'c++': ['sh', ['-c', `g++ -o /tmp/cs_fn "${entry}" && /tmp/cs_fn`]],
+    'c++': ['sh', ['-c', `g++ -o /tmp/cs_fn_${ts} "${entry}" && /tmp/cs_fn_${ts}`]],
   };
 
-  const [cmd, args] = cmds[runtime] || [runtime, [entry]];
+  if (!cmds[runtime]) throw new Error(`No command mapping for runtime: "${runtime}"`);
+  const [cmd, args] = cmds[runtime];
   try {
     const { stdout } = await execa(cmd, args, { input, reject: false });
     return JSON.parse(stdout);
@@ -216,6 +220,7 @@ function resolveFnEntry(fnFile) {
 
 async function runFunction(fn, event, ctx) {
   const runtime = fn.runtime || 'js';
+  if (!SUPPORTED_RUNTIMES.has(runtime)) throw new Error(`Unsupported runtime: "${runtime}"`);
   const entry   = resolveFnEntry(fn.function);
   if (!entry) {
     logger.warn(`Function file not found: ${fn.function}`);

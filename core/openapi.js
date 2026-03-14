@@ -99,11 +99,17 @@ function generateOpenApiSpec(core) {
     }
   }
 
-  // Custom endpoints
+  // Custom endpoints/functions
   for (const [name, ep] of Object.entries(core.functions || {})) {
-    const p = `/endpoints${ep.path}`;
-    spec.paths[p] = spec.paths[p] || {};
-    spec.paths[p][ep.method.toLowerCase()] = { tags: ['Endpoints'], summary: ep.description || name, responses: { 200: desc('OK') } };
+    const triggers = (ep.triggers && ep.triggers.length)
+      ? ep.triggers.filter((t) => t.type === 'http' || !t.type)
+      : (ep.path && ep.method ? [{ type: 'http', method: ep.method, path: ep.path }] : []);
+    for (const trigger of triggers) {
+      const method = (trigger.method || 'GET').toLowerCase();
+      const epPath = ep.triggers ? trigger.path : `/endpoints${trigger.path}`;
+      spec.paths[epPath] = spec.paths[epPath] || {};
+      spec.paths[epPath][method] = { tags: ['Functions'], summary: ep.description || name, responses: { 200: desc('OK') } };
+    }
   }
 
   // File storage
