@@ -11,7 +11,7 @@ const rateLimit = require('express-rate-limit');
 const { loadYaml, saveYaml } = require('../core/yaml-loader');
 const { validateSchema } = require('../core/schema-validator');
 const { buildCore } = require('../core/entity-engine');
-const { initDb, findAll, findAllSimple } = require('../core/db');
+const { initDb, findAll, findAllSimple, create: dbCreate } = require('../core/db');
 const { registerApiRoutes, createBackendSdk } = require('../core/api-generator');
 const { registerAuthRoutes, registerApiKeyRoutes, initApiKeys, verifyToken, omitPassword,
         createApiKey, listAllApiKeys, deleteApiKey } = require('../core/auth');
@@ -131,7 +131,7 @@ async function buildApp(yamlPath, reloadFn) {
   registerUploadRoutes(app, core);
 
   app.use('/api/auth', authLimiter);
-  registerAuthRoutes(app, core);
+  registerAuthRoutes(app, core, emit);
   registerApiKeyRoutes(app, core);
 
   const apiLimiters = buildApiLimiters(core);
@@ -306,6 +306,113 @@ async function buildApp(yamlPath, reloadFn) {
       res.status(500).send(`<p class="text-red-400 p-4">Error: ${escAdminHtml(err.message)}</p>`);
     }
   });
+  // ── Admin stats endpoint ────────────────────────────────────────────
+  app.get('/admin/stats', adminRateLimiter, (req, res) => {
+    const header = req.headers.authorization;
+    if (!header || !header.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorized' });
+    try { verifyToken(header.slice(7)); } catch { return res.status(401).json({ error: 'Invalid token' }); }
+    try {
+      const now = new Date();
+      const oneWeekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
+      const oneMonthAgo = new Date(now - 30 * 24 * 60 * 60 * 1000);
+      const allEntities = Object.values(core.entities);
+      const entityStats = [];
+      const allRecords = [];
+      for (const entity of allEntities) {
+        try {
+          const rows = findAllSimple(entity.tableName);
+          const total = rows.length;
+          const lastWeek = rows.filter((r) => r.createdAt && new Date(r.createdAt) >= oneWeekAgo).length;
+          const lastMonth = rows.filter((r) => r.createdAt && new Date(r.createdAt) >= oneMonthAgo).length;
+          entityStats.push({ name: entity.name, tableName: entity.tableName, total, lastWeek, lastMonth });
+          const sorted = rows
+            .filter((r) => r.createdAt)
+            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+            .slice(0, 5);
+          for (const r of sorted) {
+            allRecords.push({
+              entityName: entity.name,
+              id: r.id,
+              action: 'created',
+              createdAt: r.createdAt,
+              label: r.name || r.title || r.email || `${entity.name} #${r.id ? String(r.id).slice(0, 8) : '?'}`,
+            });
+          }
+        } catch { /* skip table errors */ }
+      }
+      const recentActivity = allRecords
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .slice(0, 20);
+      res.json({ entities: entityStats, recentActivity });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Admin seed endpoint ─────────────────────────────────────────────
+  app.post('/admin/seed', adminRateLimiter, (req, res) => {
+    const header = req.headers.authorization;
+    if (!header || !header.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorized' });
+    try { verifyToken(header.slice(7)); } catch { return res.status(401).json({ error: 'Invalid token' }); }
+    const { entities: toSeed = [] } = req.body || {};
+    const results = [];
+    for (const { name, tableName, count = 10 } of toSeed) {
+      const entityDef = Object.values(core.entities).find((e) => e.name === name);
+      if (!entityDef || !tableName) continue;
+      let created = 0;
+      for (let i = 1; i <= Math.min(count, 500); i++) {
+        const record = {};
+        for (const prop of (entityDef.properties || [])) {
+          const pName = typeof prop === 'string' ? prop : prop.name;
+          const pType = typeof prop === 'string' ? 'string' : (prop.type || 'string');
+          if (!pName || pName === 'password') continue;
+          switch (pType) {
+            case 'email': record[pName] = `user${Date.now()}_${i}@example.com`; break;
+            case 'integer': case 'number': case 'float': case 'money':
+              record[pName] = Math.floor(Math.random() * 1000); break;
+            case 'boolean': record[pName] = Math.random() > 0.5 ? 1 : 0; break;
+            case 'date': case 'timestamp': record[pName] = new Date().toISOString(); break;
+            default: record[pName] = `Sample ${pName} ${i}`;
+          }
+        }
+        try { const row = dbCreate(tableName, record); emit(`${name}.created`, row); created++; } catch (e) { logger.warn(`Seed: failed to create record for ${name}:`, e.message); }
+      }
+      results.push({ name, created });
+    }
+    res.json({ success: true, results });
+  });
+
+  // ── Admin data endpoint (unified, auth-bypassing) ───────────────────
+  app.get('/admin/data', adminRateLimiter, (req, res) => {
+    const header = req.headers.authorization;
+    if (!header || !header.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorized' });
+    try { verifyToken(header.slice(7)); } catch { return res.status(401).json({ error: 'Invalid token' }); }
+    const { type, name, page = 1, perPage = 20, orderBy = 'createdAt', order = 'DESC', search, ...filters } = req.query;
+    if (!type || !name) return res.status(400).json({ error: 'Missing type or name' });
+    const item = type === 'collection'
+      ? (Object.values(core.authenticableEntities || {}).find((e) => e.name === name) || Object.values(core.entities).find((e) => e.name === name))
+      : Object.values(core.entities).find((e) => e.name === name);
+    if (!item) return res.status(404).json({ error: 'Not found' });
+    try {
+      const query = { ...filters };
+      if (search) {
+        const textCols = (item.properties || []).filter((p) => {
+          const t = typeof p === 'string' ? 'string' : (p.type || 'string');
+          return ['string', 'text', 'richText', 'email'].includes(t);
+        });
+        if (textCols.length) {
+          const colName = typeof textCols[0] === 'string' ? textCols[0] : textCols[0].name;
+          query[`${colName}_like`] = `%${search}%`;
+        }
+      }
+      const result = findAll(item.tableName, query, { page, perPage, orderBy, order });
+      if (type === 'collection') result.data = result.data.map(omitPassword);
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   logger.info('  Admin UI available at /admin');
 
   // ── Admin API key management ─────────────────────────────────────────────

@@ -219,7 +219,8 @@ function registerApiKeyRoutes(app, core) {
   }
 }
 
-function registerAuthRoutes(app, core) {
+function registerAuthRoutes(app, core, emit) {
+  const _emit = typeof emit === 'function' ? emit : () => {};
   for (const entity of Object.values(core.authenticableEntities || {})) {
     const slug = entity.slug;
     const table = entity.tableName;
@@ -238,6 +239,7 @@ function registerAuthRoutes(app, core) {
         if (!email || !password) return res.status(400).json({ error: 'email and password are required' });
         if (db.findAllSimple(table, { email }).length) return res.status(409).json({ error: 'Email already registered' });
         const user = db.create(table, { email, password: await bcrypt.hash(password, BCRYPT_ROUNDS), ...sanitize(rest) });
+        _emit(`${entity.name}.created`, omitPassword(user));
         res.status(201).json({ token: signToken({ id: user.id, entity: entity.name }), user: omitPassword(user) });
       } catch (e) { logger.error('signup error', e.message); res.status(500).json({ error: e.message }); }
     });

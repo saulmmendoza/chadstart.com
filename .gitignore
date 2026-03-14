@@ -8,3 +8,5 @@ uploads/
 site/
 sdk/dist/
 coverage/
+test-results/
+playwright-report/
