@@ -587,6 +587,25 @@
   let authToken = localStorage.getItem('cs_token') || null; // NOTE: httpOnly cookie preferred in production
   let authUser = null, authCollection = null;
 
+  // Table state
+  let curPage = 1, curLastPage = 1, curPerPage = 20;
+  let curSearch = '', curOrderBy = 'createdAt', curOrder = 'DESC';
+  let advFilters = [];
+  let selectedIds = new Set();
+  let tableRows = [];
+  let hlRowIdx = -1;
+  let searchDebounce = null;
+
+  // Vim key chording
+  let lastVimKey = '', lastVimTime = 0;
+
+  // Realtime
+  let activityLog = [];
+  let rtWs = null;
+
+  // Devs modal
+  let devsTab = 'sdk';
+
   // ── HTMX: inject Bearer token and language on every request ───────────
   document.body.addEventListener('htmx:configRequest', e => {
     if (authToken) e.detail.headers['Authorization'] = 'Bearer ' + authToken;
