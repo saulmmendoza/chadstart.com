@@ -1,6 +1,7 @@
 'use strict';
 
 const http = require('http');
+const https = require('https');
 const path = require('path');
 const fs = require('fs');
 const express = require('express');
@@ -241,6 +242,45 @@ async function buildApp(yamlPath, reloadFn) {
     }
   });
 
+  // ── Admin AI assistant endpoints ──────────────────────────────────────
+  // GET /admin/ai/status — tell the UI whether AI chat is available
+  app.get('/admin/ai/status', adminRateLimiter, (_req, res) => {
+    res.json({ configured: isAiConfigured() || process.env.NODE_ENV !== 'production' });
+  });
+
+  // POST /admin/ai/chat — proxy messages to the configured AI provider (auth required)
+  app.post('/admin/ai/chat', adminRateLimiter, async (req, res) => {
+    const header = req.headers.authorization;
+    if (!header || !header.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    try { verifyToken(header.slice(7)); } catch {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const { messages } = req.body || {};
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      return res.status(400).json({ error: 'messages array required' });
+    }
+
+    const provider = getAiProvider();
+    if (!provider) {
+      if (process.env.NODE_ENV === 'production') {
+        return res.status(503).json({ error: 'AI assistant is not configured. Set OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_API_KEY, or OPENROUTER_API_KEY.' });
+      }
+      // Dev/test mode without API key — return a helpful placeholder
+      return res.json({ message: 'AI assistant is not configured. Add an API key via environment variables: OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_API_KEY (Gemini), or OPENROUTER_API_KEY.' });
+    }
+
+    try {
+      const message = await callAiProvider(provider, messages);
+      res.json({ message });
+    } catch (e) {
+      logger.error('AI chat error:', e.message);
+      res.status(502).json({ error: e.message });
+    }
+  });
+
   // HTMX table partial – returns an HTML fragment used by the Admin UI
   app.get('/admin/partials/table', adminRateLimiter, (req, res) => {
     const header = req.headers.authorization;
@@ -434,7 +474,7 @@ async function startServer(yamlPath) {
   return { server, core };
 }
 
-module.exports = { createServer, startServer, buildApiLimiters, buildApp };
+module.exports = { createServer, startServer, buildApiLimiters, buildApp, getAiProvider, isAiConfigured };
 
 // ─── Admin UI helpers ─────────────────────────────────────────────────────────
 
@@ -495,4 +535,136 @@ function renderAdminTable(rows, name, isUserCollection, entityName, locale) {
       <tbody>${trs}</tbody>
     </table>
   </div>`;
+}
+
+// ─── AI provider helpers ──────────────────────────────────────────────────────
+
+/**
+ * Returns the first configured AI provider, or null if none is set.
+ * Priority: openai → anthropic → google → openrouter
+ */
+function getAiProvider() {
+  if (process.env.OPENAI_API_KEY)    return 'openai';
+  if (process.env.ANTHROPIC_API_KEY) return 'anthropic';
+  if (process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY) return 'google';
+  if (process.env.OPENROUTER_API_KEY) return 'openrouter';
+  return null;
+}
+
+function isAiConfigured() {
+  return getAiProvider() !== null;
+}
+
+/**
+ * Minimal HTTPS POST helper (avoids adding dependencies for AI provider calls).
+ */
+function httpsPost(url, extraHeaders, body) {
+  return new Promise((resolve, reject) => {
+    const urlObj  = new URL(url);
+    const data    = JSON.stringify(body);
+    const options = {
+      hostname: urlObj.hostname,
+      port:     urlObj.port || 443,
+      path:     urlObj.pathname + urlObj.search,
+      method:   'POST',
+      headers:  {
+        'Content-Type':   'application/json',
+        'Content-Length': Buffer.byteLength(data),
+        ...extraHeaders,
+      },
+    };
+    const req = https.request(options, (r) => {
+      let raw = '';
+      r.on('data', (c) => { raw += c; });
+      r.on('end', () => {
+        try { resolve({ status: r.statusCode, body: JSON.parse(raw) }); }
+        // Non-JSON responses (e.g. HTML error pages) are returned as raw strings
+        catch { resolve({ status: r.statusCode, body: raw }); }
+      });
+    });
+    req.on('error', reject);
+    req.write(data);
+    req.end();
+  });
+}
+
+const AI_SYSTEM_PROMPT =
+  'You are a helpful AI assistant embedded in the ChadStart Admin UI. ' +
+  'ChadStart is a YAML-first Backend as a Service that lets developers define ' +
+  'their entire backend (entities, auth, API routes, file storage) in a single ' +
+  'YAML file. Help admin users manage their data, understand the API, configure ' +
+  'entities and endpoints, and troubleshoot issues. Be concise and practical.';
+
+/**
+ * Send a messages array to the configured AI provider and return the reply text.
+ * @param {'openai'|'anthropic'|'google'|'openrouter'} provider
+ * @param {{ role: string, content: string }[]} messages
+ * @returns {Promise<string>}
+ */
+/**
+ * Extract a human-readable error message from an AI provider API response body.
+ * @param {{ error?: { message?: string } } | string} body
+ * @param {number} status
+ * @returns {string}
+ */
+function getApiErrorMessage(body, status) {
+  return (body && typeof body === 'object' && body.error && body.error.message) || `AI API error (${status})`;
+}
+
+async function callAiProvider(provider, messages) {
+  if (provider === 'openai' || provider === 'openrouter') {
+    const apiKey = provider === 'openai'
+      ? process.env.OPENAI_API_KEY
+      : process.env.OPENROUTER_API_KEY;
+    const baseUrl = provider === 'openai'
+      ? 'https://api.openai.com'
+      : 'https://openrouter.ai';
+    const model = provider === 'openai' ? 'gpt-4o-mini' : 'openai/gpt-4o-mini';
+
+    const result = await httpsPost(
+      `${baseUrl}/v1/chat/completions`,
+      { Authorization: `Bearer ${apiKey}` },
+      { model, messages: [{ role: 'system', content: AI_SYSTEM_PROMPT }, ...messages], max_tokens: 1024 }
+    );
+    if (result.status !== 200) {
+      throw new Error(getApiErrorMessage(result.body, result.status));
+    }
+    return result.body.choices[0].message.content;
+  }
+
+  if (provider === 'anthropic') {
+    const result = await httpsPost(
+      'https://api.anthropic.com/v1/messages',
+      { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+      { model: 'claude-3-haiku-20240307', system: AI_SYSTEM_PROMPT, messages, max_tokens: 1024 }
+    );
+    if (result.status !== 200) {
+      throw new Error(getApiErrorMessage(result.body, result.status));
+    }
+    return result.body.content[0].text;
+  }
+
+  if (provider === 'google') {
+    const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+    // Convert OpenAI-style messages to Google Gemini format
+    const googleContents = messages.map((m) => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }],
+    }));
+    const result = await httpsPost(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
+      {},
+      {
+        system_instruction: { parts: [{ text: AI_SYSTEM_PROMPT }] },
+        contents: googleContents,
+        generationConfig: { maxOutputTokens: 1024 },
+      }
+    );
+    if (result.status !== 200) {
+      throw new Error(getApiErrorMessage(result.body, result.status));
+    }
+    return result.body.candidates[0].content.parts[0].text;
+  }
+
+  throw new Error('Unsupported AI provider: ' + provider);
 }
