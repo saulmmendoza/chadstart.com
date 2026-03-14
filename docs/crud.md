@@ -418,7 +418,6 @@ DELETE api/collections/cats/550e8400-e29b-41d4-a716-446655440000
  <TabItem value="sdk" label="JS SDK" default>
    ```js title="Example SDK usage"
     // Delete the cat with ID 550e8400-e29b-41d4-a716-446655440000
-.
     const deletedCat = await chadstart.from('cats').delete('550e8400-e29b-41d4-a716-446655440000')
 
     console.log(deletedCat);
