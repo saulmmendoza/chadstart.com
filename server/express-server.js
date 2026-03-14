@@ -505,6 +505,7 @@ function httpsPost(url, extraHeaders, body) {
       r.on('data', (c) => { raw += c; });
       r.on('end', () => {
         try { resolve({ status: r.statusCode, body: JSON.parse(raw) }); }
+        // Non-JSON responses (e.g. HTML error pages) are returned as raw strings
         catch { resolve({ status: r.statusCode, body: raw }); }
       });
     });
@@ -527,6 +528,16 @@ const AI_SYSTEM_PROMPT =
  * @param {{ role: string, content: string }[]} messages
  * @returns {Promise<string>}
  */
+/**
+ * Extract a human-readable error message from an AI provider API response body.
+ * @param {{ error?: { message?: string } } | string} body
+ * @param {number} status
+ * @returns {string}
+ */
+function getApiErrorMessage(body, status) {
+  return (body && typeof body === 'object' && body.error && body.error.message) || `AI API error (${status})`;
+}
+
 async function callAiProvider(provider, messages) {
   if (provider === 'openai' || provider === 'openrouter') {
     const apiKey = provider === 'openai'
@@ -543,7 +554,7 @@ async function callAiProvider(provider, messages) {
       { model, messages: [{ role: 'system', content: AI_SYSTEM_PROMPT }, ...messages], max_tokens: 1024 }
     );
     if (result.status !== 200) {
-      throw new Error((result.body && result.body.error && result.body.error.message) || `AI API error (${result.status})`);
+      throw new Error(getApiErrorMessage(result.body, result.status));
     }
     return result.body.choices[0].message.content;
   }
@@ -555,7 +566,7 @@ async function callAiProvider(provider, messages) {
       { model: 'claude-3-haiku-20240307', system: AI_SYSTEM_PROMPT, messages, max_tokens: 1024 }
     );
     if (result.status !== 200) {
-      throw new Error((result.body && result.body.error && result.body.error.message) || `AI API error (${result.status})`);
+      throw new Error(getApiErrorMessage(result.body, result.status));
     }
     return result.body.content[0].text;
   }
@@ -577,8 +588,7 @@ async function callAiProvider(provider, messages) {
       }
     );
     if (result.status !== 200) {
-      const msg = result.body && result.body.error && result.body.error.message;
-      throw new Error(msg || `AI API error (${result.status})`);
+      throw new Error(getApiErrorMessage(result.body, result.status));
     }
     return result.body.candidates[0].content.parts[0].text;
   }

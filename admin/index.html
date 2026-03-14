@@ -250,7 +250,7 @@
         class="py-2 px-3 rounded text-sm cursor-pointer bg-cs-primary text-cs-bg font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
         style="transition: opacity 150ms ease; align-self: flex-end;">Send</button>
     </div>
-    <p class="text-xs mt-1.5" style="color:#555;">Shift+Enter for new line · Enter to send</p>
+    <p class="text-xs mt-1.5 text-cs-muted">Shift+Enter for new line · Enter to send</p>
   </div>
 </div>
 
@@ -1184,7 +1184,7 @@
         btn.classList.remove('hidden');
         btn.classList.add('flex');
       }
-    } catch { /* AI status check failed silently */ }
+    } catch (e) { console.warn('AI status check failed:', e); }
   }
 
   function toggleAiPanel() {
