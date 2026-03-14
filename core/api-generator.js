@@ -6,7 +6,7 @@ const fs = require('fs');
 const jwt = require('jsonwebtoken');
 const db = require('./db');
 const { toSnakeCase } = require('./entity-engine');
-const { requireAuth, optionalAuth, omitPassword, JWT_SECRET } = require('./auth');
+const { requireAuth, optionalAuth, omitPassword, JWT_SECRET, resolveAuthHeader } = require('./auth');
 const logger = require('../utils/logger');
 
 /**
@@ -253,44 +253,71 @@ function registerApiRoutes(app, core, emit) {
 
 function policyMiddleware(rule, entity, core) {
   const list = (entity.policies || {})[rule];
-  if (!list || !list.length) return [requireAuth()]; // default: admin
+  if (!list || !list.length) return [requireAuth(), _apiKeyPermGuard(rule, entity)]; // default: admin
 
   const p = list[0];
+  let middlewares;
   switch (p.access) {
     case 'public':
-      return [optionalAuth, (_req, _res, next) => next()];
+      middlewares = [optionalAuth, (_req, _res, next) => next()];
+      break;
     case 'restricted': {
-      if (!p.allow) return [requireAuth()];
+      if (!p.allow) {
+        middlewares = [requireAuth()];
+        break;
+      }
       const allowed = Array.isArray(p.allow) ? p.allow : [p.allow];
-      return [(req, res, next) => {
-        const header = req.headers.authorization;
-        if (!header || !header.startsWith('Bearer ')) return res.status(401).json({ error: 'Authorization required' });
+      middlewares = [(req, res, next) => {
+        const { user, apiKeyPermissions, error } = resolveAuthHeader(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: 'Authorization required' });
+        if (error === 'invalid_token') return res.status(401).json({ error: 'Invalid or expired token' });
+        if (!allowed.includes(user.entity)) return res.status(403).json({ error: 'Access denied' });
+        req.user = user;
+        if (apiKeyPermissions) req._apiKeyPermissions = apiKeyPermissions;
         try {
-          req.user = jwt.verify(
-            header.slice(7),
-            JWT_SECRET
-          );
-          if (!allowed.includes(req.user.entity)) return res.status(403).json({ error: 'Access denied' });
-
           // Ownership-based access: condition: self
           if (p.condition === 'self') {
             enforceSelfCondition(rule, entity, req, core);
           }
-
           next();
         } catch (e) {
           if (e.status) return res.status(e.status).json({ error: e.message });
           return res.status(401).json({ error: 'Invalid or expired token' });
         }
       }];
+      break;
     }
     case 'admin':
-      return [requireAuth()];
+      middlewares = [requireAuth()];
+      break;
     case 'forbidden':
-      return [(_req, res) => res.status(403).json({ error: 'Access forbidden' })];
+      middlewares = [(_req, res) => res.status(403).json({ error: 'Access forbidden' })];
+      break;
     default:
-      return [(_req, _res, next) => next()];
+      middlewares = [(_req, _res, next) => next()];
   }
+
+  // Append API key entity/operation permission guard (no-op when not using an API key)
+  middlewares.push(_apiKeyPermGuard(rule, entity));
+  return middlewares;
+}
+
+/**
+ * Middleware that enforces API key entity and operation restrictions.
+ * Only active when req._apiKeyPermissions is set (i.e. request uses an API key).
+ */
+function _apiKeyPermGuard(operation, entity) {
+  return (req, res, next) => {
+    if (!req._apiKeyPermissions) return next();
+    const { operations, entities: keyEntities } = req._apiKeyPermissions;
+    if (operations && operations.length > 0 && !operations.includes(operation)) {
+      return res.status(403).json({ error: 'API key does not have permission for this operation' });
+    }
+    if (keyEntities && keyEntities.length > 0 && !keyEntities.includes(entity.slug)) {
+      return res.status(403).json({ error: 'API key does not have access to this entity' });
+    }
+    next();
+  };
 }
 
 /**

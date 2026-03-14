@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" id="html-root">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -72,14 +72,15 @@
     <div class="text-[11px] text-cs-muted mb-6">Powered by ChadStart.com</div>
     <div id="login-error" class="text-red-400 text-sm mb-4 hidden"></div>
     <div id="login-collection-section" class="hidden mb-4">
-      <label class="block text-sm text-cs-muted mb-1">Collection</label>
+      <label class="block text-sm text-cs-muted mb-1" data-i18n="login.collection_label">Collection</label>
       <input type="text" id="login-collection"
         class="w-full bg-cs-bg border border-cs-border rounded text-cs-text px-3 py-2 text-sm outline-none focus:border-cs-primary" style="transition: border-color 150ms ease;"
-        placeholder="Admin collection name" autocomplete="off" />
+        data-i18n-ph="login.collection_placeholder" placeholder="Admin collection name" autocomplete="off" />
     </div>
     <div class="mb-4 text-right">
       <button type="button" id="toggle-collection-btn" onclick="toggleCollectionField()"
-        class="text-xs text-cs-muted hover:text-cs-primary cursor-pointer" style="transition: color 150ms ease; background: none; border: none; padding: 0;">
+        class="text-xs text-cs-muted hover:text-cs-primary cursor-pointer" style="transition: color 150ms ease; background: none; border: none; padding: 0;"
+        data-i18n="login.change_collection">
         Change collection
       </button>
     </div>
@@ -117,7 +118,8 @@
     <div id="nav-entities"></div>
     <div class="px-4 pt-3 pb-1 text-xs text-cs-muted border-t border-cs-border mt-2">Admin</div>
     <div id="nav-admin">
-      <div class="nav-item" id="nav-config-item" onclick="selectConfig(this)">⚙ Config Editor</div>
+      <div class="nav-item" id="nav-config-item" onclick="selectConfig(this)" data-i18n="sidebar.config_editor">⚙ Config Editor</div>
+      <div class="nav-item" id="nav-apikeys-item" onclick="selectApiKeys(this)" data-i18n="sidebar.api_keys">🔑 API Keys</div>
     </div>
   </nav>
   <div class="border-t border-cs-border px-4 py-3">
@@ -131,7 +133,8 @@
     </div>
     <button onclick="logout()"
       class="w-full text-sm text-cs-muted border border-cs-border rounded py-1.5 px-3
-             hover:border-red-500/50 hover:text-red-400" style="transition: color 150ms ease, border-color 150ms ease;">Log out</button>
+             hover:border-red-500/50 hover:text-red-400" style="transition: color 150ms ease, border-color 150ms ease;"
+      data-i18n="sidebar.log_out">Log out</button>
   </div>
 </aside>
 
@@ -158,6 +161,16 @@
         class="py-1.5 px-2 rounded text-sm cursor-pointer border border-cs-border text-cs-muted hover:text-cs-text" style="transition: color 150ms,background 150ms;">?</button>
       <button id="btn-add" onclick="openAddModal()"
         class="btn-glow hidden py-1.5 px-3 rounded text-sm cursor-pointer">+ New record</button>
+      <!-- AI chat button — hidden until /admin/ai/status says configured -->
+      <button id="btn-ai" onclick="toggleAiPanel()"
+        class="hidden items-center gap-1.5 py-1.5 px-3 rounded text-sm cursor-pointer border border-cs-border text-cs-muted hover:text-cs-text hover:bg-cs-border"
+        style="transition: background 150ms ease, color 150ms ease;" title="Ask AI assistant">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+            d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+        </svg>
+        Ask AI
+      </button>
     </div>
   </header>
 
@@ -252,15 +265,27 @@
       </div>
     </div>
 
-    <!-- ── Config Editor ─────────────────────────────────────────────── -->
+    <!-- ── API Keys Panel ────────────────────────────────────────── -->
+    <div id="api-keys-area" class="hidden">
+      <div class="flex items-center justify-between mb-4">
+        <p class="text-xs" style="color:#888;">Manage API keys for programmatic access. Keys are shown only at creation time.</p>
+        <button onclick="openCreateApiKeyModal()"
+          class="text-xs border border-cs-border rounded px-3 py-1.5 text-cs-muted hover:text-cs-text cursor-pointer" style="transition:color 150ms,background 150ms;">+ Create API Key</button>
+      </div>
+      <div id="api-keys-list">
+        <div class="flex justify-center py-8"><div class="w-5 h-5 border-2 border-cs-border border-t-cs-primary rounded-full animate-spin"></div></div>
+      </div>
+    </div>
+
+    <!-- ── Config Editor ─────────────────────────────────────────── -->
     <div id="config-area" class="hidden">
       <div class="flex gap-1 flex-wrap mb-4 border-b border-cs-border pb-3">
-        <button onclick="showConfigTab('general')"   id="cfg-tab-general"   class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;">General</button>
-        <button onclick="showConfigTab('entities')"  id="cfg-tab-entities"  class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;">Entities</button>
-        <button onclick="showConfigTab('endpoints')" id="cfg-tab-endpoints" class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;">Endpoints</button>
-        <button onclick="showConfigTab('files')"     id="cfg-tab-files"     class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;">Files &amp; Uploads</button>
-        <button onclick="showConfigTab('settings')"  id="cfg-tab-settings"  class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;">Settings</button>
-        <button onclick="showConfigTab('all')"       id="cfg-tab-all"       class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;">All</button>
+        <button onclick="showConfigTab('general')"   id="cfg-tab-general"   class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;" data-i18n="config.tabs.general">General</button>
+        <button onclick="showConfigTab('entities')"  id="cfg-tab-entities"  class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;" data-i18n="config.tabs.entities">Entities</button>
+        <button onclick="showConfigTab('endpoints')" id="cfg-tab-endpoints" class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;" data-i18n="config.tabs.endpoints">Endpoints</button>
+        <button onclick="showConfigTab('files')"     id="cfg-tab-files"     class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;" data-i18n="config.tabs.files">Files &amp; Uploads</button>
+        <button onclick="showConfigTab('settings')"  id="cfg-tab-settings"  class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;" data-i18n="config.tabs.settings">Settings</button>
+        <button onclick="showConfigTab('all')"       id="cfg-tab-all"       class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;" data-i18n="config.tabs.all">All</button>
       </div>
       <p id="cfg-section-desc" class="text-xs mb-3" style="color:#888;"></p>
       <div id="cfg-form" class="hidden"></div>
@@ -273,7 +298,8 @@
           class="py-1.5 px-4 rounded text-sm cursor-pointer font-medium hover:opacity-90 disabled:opacity-50"
           style="background:#34b1eb;color:#121212;transition:opacity 150ms;">Save Config</button>
         <button onclick="resetConfigTab()"
-          class="text-sm border border-cs-border rounded py-1.5 px-4 text-cs-muted hover:text-cs-text hover:bg-cs-border" style="transition:color 150ms,background 150ms;">Reset</button>
+          class="text-sm border border-cs-border rounded py-1.5 px-4 text-cs-muted hover:text-cs-text hover:bg-cs-border" style="transition:color 150ms,background 150ms;"
+          data-i18n="config.reset_btn">Reset</button>
         <span id="cfg-status" class="text-xs" style="color:#888;"></span>
       </div>
       <div id="cfg-s3-note" class="hidden mt-4 p-3 rounded border text-xs" style="border-color:#2a2a2a;color:#888;">
@@ -290,7 +316,101 @@
 <!-- ── Toast ──────────────────────────────────────────────────────────────── -->
 <div id="toast" class="hidden fixed bottom-6 right-6 z-50"></div>
 
-<!-- ── Record modal ───────────────────────────────────────────────────────── -->
+<!-- ── Impersonate modal ──────────────────────────────────────────────── -->
+<div id="impersonate-modal-backdrop" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden">
+  <div class="bg-cs-surface border border-cs-border rounded w-full max-w-md" style="box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
+    <div class="flex items-center justify-between px-5 py-3 border-b border-cs-border">
+      <span class="font-medium text-sm">Impersonate User</span>
+      <button onclick="closeImpersonateModal()" class="text-cs-muted hover:text-cs-text text-xl leading-none" style="transition: color 150ms ease;">×</button>
+    </div>
+    <div class="p-5">
+      <p class="text-xs mb-3" style="color:#888;">A short-lived token (1 hour) has been generated for this user. Use it to test API requests as this user.</p>
+      <div id="impersonate-user-info" class="mb-3 text-xs" style="color:#888;"></div>
+      <label class="block text-xs mb-1" style="color:#888;">Token</label>
+      <textarea id="impersonate-token" readonly
+        class="w-full bg-cs-bg border border-cs-border rounded text-cs-text px-3 py-2 text-xs font-mono outline-none resize-none"
+        style="height:80px;line-height:1.5;" spellcheck="false"></textarea>
+      <div class="flex gap-2 mt-3">
+        <button onclick="copyImpersonateToken()"
+          class="text-xs border border-cs-border rounded px-3 py-1.5 text-cs-muted hover:text-cs-text cursor-pointer" style="transition:color 150ms,background 150ms;">Copy Token</button>
+        <button onclick="closeImpersonateModal()"
+          class="text-xs border border-cs-border rounded px-3 py-1.5 text-cs-muted hover:text-cs-text cursor-pointer" style="transition:color 150ms,background 150ms;">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Create API Key modal ───────────────────────────────────────────── -->
+<div id="apikey-modal-backdrop" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden">
+  <div class="bg-cs-surface border border-cs-border rounded w-full max-w-lg" style="box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
+    <div class="flex items-center justify-between px-5 py-3 border-b border-cs-border">
+      <span class="font-medium text-sm" id="apikey-modal-title">Create API Key</span>
+      <button onclick="closeApiKeyModal()" class="text-cs-muted hover:text-cs-text text-xl leading-none" style="transition: color 150ms ease;">×</button>
+    </div>
+    <div class="p-5 space-y-4">
+      <!-- Result (shown after creation) -->
+      <div id="apikey-result" class="hidden">
+        <p class="text-xs mb-2" style="color:#03dac6;">✓ API key created. Copy it now — it will not be shown again.</p>
+        <label class="block text-xs mb-1" style="color:#888;">Your API Key</label>
+        <div class="flex gap-2">
+          <input type="text" id="apikey-result-value" readonly
+            class="flex-1 bg-cs-bg border border-cs-border rounded text-cs-text px-2 py-1.5 text-xs font-mono outline-none" />
+          <button onclick="copyApiKey()"
+            class="text-xs border border-cs-border rounded px-3 py-1.5 text-cs-muted hover:text-cs-text cursor-pointer whitespace-nowrap" style="transition:color 150ms,background 150ms;">Copy</button>
+        </div>
+        <button onclick="closeApiKeyModal()" class="mt-3 text-xs border border-cs-border rounded px-3 py-1.5 text-cs-muted hover:text-cs-text cursor-pointer" style="transition:color 150ms,background 150ms;">Close</button>
+      </div>
+      <!-- Form (shown before creation) -->
+      <div id="apikey-form">
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs mb-1" style="color:#888;">Name</label>
+            <input type="text" id="apikey-name" placeholder="My API Key"
+              class="w-full bg-cs-bg border border-cs-border rounded text-cs-text px-2 py-1.5 text-sm outline-none focus:border-cs-primary" style="transition:border-color 150ms;" />
+          </div>
+          <div>
+            <label class="block text-xs mb-1" style="color:#888;">User (for admin creation)</label>
+            <select id="apikey-user-entity" class="w-full bg-cs-bg border border-cs-border rounded text-cs-text px-2 py-1.5 text-sm outline-none focus:border-cs-primary" style="transition:border-color 150ms;">
+              <option value="">— Create for myself —</option>
+            </select>
+          </div>
+          <div id="apikey-user-id-row" class="hidden">
+            <label class="block text-xs mb-1" style="color:#888;">User ID</label>
+            <input type="text" id="apikey-user-id" placeholder="user-uuid"
+              class="w-full bg-cs-bg border border-cs-border rounded text-cs-text px-2 py-1.5 text-sm outline-none focus:border-cs-primary" style="transition:border-color 150ms;" />
+          </div>
+          <div>
+            <label class="block text-xs mb-1" style="color:#888;">Permissions <span style="color:#555;">(leave empty for full access)</span></label>
+            <div class="flex flex-wrap gap-3">
+              <label class="flex items-center gap-1.5 text-xs cursor-pointer select-none" style="color:#888;"><input type="checkbox" class="apikey-perm" value="create" /> create</label>
+              <label class="flex items-center gap-1.5 text-xs cursor-pointer select-none" style="color:#888;"><input type="checkbox" class="apikey-perm" value="read" /> read</label>
+              <label class="flex items-center gap-1.5 text-xs cursor-pointer select-none" style="color:#888;"><input type="checkbox" class="apikey-perm" value="update" /> update</label>
+              <label class="flex items-center gap-1.5 text-xs cursor-pointer select-none" style="color:#888;"><input type="checkbox" class="apikey-perm" value="delete" /> delete</label>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs mb-1" style="color:#888;">Entity access <span style="color:#555;">(leave empty for all entities)</span></label>
+            <div id="apikey-entities-list" class="flex flex-wrap gap-2"></div>
+          </div>
+          <div>
+            <label class="block text-xs mb-1" style="color:#888;">Expiration date <span style="color:#555;">(optional)</span></label>
+            <input type="datetime-local" id="apikey-expires"
+              class="bg-cs-bg border border-cs-border rounded text-cs-text px-2 py-1.5 text-sm outline-none focus:border-cs-primary" style="transition:border-color 150ms;" />
+          </div>
+        </div>
+        <div id="apikey-form-error" class="hidden text-red-400 text-xs mt-2"></div>
+        <div class="flex gap-2 mt-4">
+          <button onclick="submitCreateApiKey()"
+            class="text-sm py-1.5 px-4 rounded cursor-pointer bg-cs-primary text-cs-bg font-medium hover:opacity-90 disabled:opacity-50" id="apikey-submit-btn" style="transition:opacity 150ms;">Create Key</button>
+          <button onclick="closeApiKeyModal()"
+            class="text-sm border border-cs-border rounded py-1.5 px-4 text-cs-muted hover:text-cs-text hover:bg-cs-border cursor-pointer" style="transition:color 150ms,background 150ms;">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Record modal ───────────────────────────────────────────────────── -->
 <div id="modal-backdrop" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden">
   <div class="bg-cs-surface border border-cs-border rounded w-full max-w-lg max-h-[90vh] flex flex-col" style="box-shadow: 0 2px 8px rgba(0,0,0,.3);">
     <div class="flex items-center justify-between px-5 py-3 border-b border-cs-border">
@@ -300,7 +420,8 @@
     <div id="modal-body" class="p-5 overflow-y-auto flex-1"></div>
     <div class="flex justify-end gap-2 px-5 py-3 border-t border-cs-border">
       <button onclick="closeModal()"
-        class="text-sm border border-cs-border rounded py-1.5 px-4 text-cs-muted hover:text-cs-text hover:bg-cs-border" style="transition: color 150ms ease, background 150ms ease;">Cancel</button>
+        class="text-sm border border-cs-border rounded py-1.5 px-4 text-cs-muted hover:text-cs-text hover:bg-cs-border" style="transition: color 150ms ease, background 150ms ease;"
+        data-i18n="modal.cancel">Cancel</button>
       <button id="modal-save-btn" onclick="saveRecord()"
         class="py-1.5 px-4 rounded text-sm cursor-pointer font-medium hover:opacity-90 disabled:opacity-50"
         style="background:#34b1eb;color:#121212;transition:opacity 150ms;"><span>Save</span></button>
@@ -447,6 +568,288 @@ function populateLoginCollections() {
     const errEl = document.getElementById('login-error');
     errEl.textContent = 'No admin collections configured'; errEl.classList.remove('hidden');
     document.getElementById('login-btn').disabled = true;
+<!-- ── Toast ──────────────────────────────────────────────────────────── -->
+<div id="toast" class="hidden fixed bottom-6 right-6 z-50"></div>
+
+<!-- ── AI Chat Panel ──────────────────────────────────────────────────── -->
+<div id="ai-panel"
+  class="fixed inset-y-0 right-0 z-50 w-full max-w-sm bg-cs-surface border-l border-cs-border flex flex-col"
+  style="translate: 100%; transition: translate 200ms ease; box-shadow: -2px 0 12px rgba(0,0,0,0.3);">
+
+  <!-- Panel header -->
+  <div class="flex items-center justify-between px-4 py-3 border-b border-cs-border shrink-0">
+    <div class="flex items-center gap-2">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:#bb86fc;">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+          d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+      </svg>
+      <span class="font-medium text-sm text-cs-text">AI Assistant</span>
+    </div>
+    <div class="flex items-center gap-2">
+      <button onclick="clearAiChat()" class="text-xs text-cs-muted hover:text-cs-text" style="transition: color 150ms ease; background: none; border: none; cursor: pointer;" title="Clear chat">Clear</button>
+      <button onclick="closeAiPanel()" class="text-cs-muted hover:text-cs-text text-xl leading-none" style="transition: color 150ms ease; background: none; border: none; cursor: pointer;" aria-label="Close">×</button>
+    </div>
+  </div>
+
+  <!-- Messages area -->
+  <div id="ai-messages" class="flex-1 overflow-y-auto p-4 space-y-3" style="scrollbar-width: thin; scrollbar-color: #2a2a2a transparent;"></div>
+
+  <!-- Input area -->
+  <div class="shrink-0 border-t border-cs-border p-3">
+    <div class="flex gap-2">
+      <textarea id="ai-input" rows="2" placeholder="Ask anything about your data, API, or config…"
+        class="flex-1 bg-cs-bg border border-cs-border rounded text-cs-text px-3 py-2 text-sm outline-none focus:border-cs-primary resize-none"
+        style="transition: border-color 150ms ease; line-height: 1.4;"
+        onkeydown="aiInputKeydown(event)"></textarea>
+      <button id="ai-send-btn" onclick="sendAiMessage()"
+        class="py-2 px-3 rounded text-sm cursor-pointer bg-cs-primary text-cs-bg font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+        style="transition: opacity 150ms ease; align-self: flex-end;">Send</button>
+    </div>
+    <p class="text-xs mt-1.5 text-cs-muted">Shift+Enter for new line · Enter to send</p>
+  </div>
+</div>
+
+<script>
+  // ── i18n ───────────────────────────────────────────────────────────────
+  let i18n = {}, currentLang = 'en';
+
+  /**
+   * Load locale JSON from /admin/i18n/<lang>.
+   * Falls back to English when the requested language is unavailable.
+   */
+  async function loadI18n(lang) {
+    currentLang = lang;
+    try {
+      const res = await fetch(`/admin/i18n/${encodeURIComponent(lang)}`);
+      if (res.ok) { i18n = await res.json(); applyI18n(); return; }
+    } catch { /* ignore */ }
+    if (lang !== 'en') {
+      try {
+        const res = await fetch('/admin/i18n/en');
+        if (res.ok) { i18n = await res.json(); currentLang = 'en'; }
+      } catch { /* ignore */ }
+    }
+    applyI18n();
+  }
+
+  /**
+   * Translate a dot-separated key, optionally interpolating {{param}} placeholders.
+   * Falls back to the key itself when the translation is missing.
+   *
+   * @param {string} key     Dot-separated translation key, e.g. "login.sign_in".
+   * @param {object} [params] Interpolation parameters, e.g. { name: 'Post' }.
+   * @returns {string}
+   */
+  function t(key, params) {
+    const parts = key.split('.');
+    let val = i18n;
+    for (const p of parts) {
+      if (val && typeof val === 'object') val = val[p];
+      else { val = undefined; break; }
+    }
+    if (typeof val !== 'string') return key;
+    if (!params) return val;
+    return val.replace(/\{\{(\w+)\}\}/g, (_, k) => params[k] !== undefined ? String(params[k]) : `{{${k}}}`);
+  }
+
+  /** Apply translations to all [data-i18n] and [data-i18n-ph] elements. */
+  function applyI18n() {
+    document.documentElement.lang = currentLang;
+    document.title = t('page.title');
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      el.textContent = t(el.dataset.i18n);
+    });
+    document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+      el.placeholder = t(el.dataset.i18nPh);
+    });
+  }
+
+  // ── State ──────────────────────────────────────────────────────────────
+  let schema = null, currentItem = null, editingRecord = null, toastTimer;
+  let authToken = localStorage.getItem('cs_token') || null; // NOTE: httpOnly cookie preferred in production
+  let authUser = null, authCollection = null;
+
+  // ── HTMX: inject Bearer token and language on every request ───────────
+  document.body.addEventListener('htmx:configRequest', e => {
+    if (authToken) e.detail.headers['Authorization'] = 'Bearer ' + authToken;
+    e.detail.headers['Accept-Language'] = currentLang;
+  });
+
+  // ── HTMX: after table partial swaps in ─────────────────────────────────
+  document.body.addEventListener('htmx:afterSwap', e => {
+    if (e.detail.target.id !== 'table-area') return;
+    document.getElementById('loading').classList.add('hidden');
+  });
+  document.body.addEventListener('htmx:responseError', e => {
+    if (e.detail.target?.id === 'table-area') {
+      document.getElementById('loading').classList.add('hidden');
+      toast(t('toast.failed_load_data'), 'error');
+    }
+  });
+
+  // ── Bootstrap ─────────────────────────────────────────────────────────
+  async function init() {
+    const preferredLang = ((navigator.language || 'en').split('-')[0] || 'en').toLowerCase();
+    await loadI18n(preferredLang);
+
+    try {
+      schema = await fetch('/admin/schema').then(r => r.json());
+    } catch { toast(t('toast.failed_load_schema'), 'error'); return; }
+
+    document.getElementById('project-name').textContent = schema.name;
+    populateLoginCollections();
+    buildSidebar();
+
+    if (authToken) {
+      try {
+        const col = getAdminCollections()[0];
+        if (col) {
+          const r = await apiFetch(`/api/auth/${toSlug(col.name)}/me`);
+          if (r.ok) { authUser = await r.json(); authCollection = col.name; showApp(); return; }
+        }
+      } catch { /* fall through to login */ }
+      authToken = null;
+      localStorage.removeItem('cs_token');
+    }
+    showLogin();
+  }
+
+  // ── Auth ───────────────────────────────────────────────────────────────
+  function getAdminCollections() {
+    return (schema.userCollections || schema.entities || []).filter(e => e.admin !== false);
+  }
+
+  function getNonAuthEntities() {
+    return (schema.entities || []).filter(function(e) { return !e.authenticable; });
+  }
+
+  function populateLoginCollections() {
+    const cols = getAdminCollections();
+    const input = document.getElementById('login-collection');
+    if (cols.length) {
+      input.value = cols[0].name;
+    } else {
+      input.value = '';
+      const errEl = document.getElementById('login-error');
+      errEl.textContent = t('login.errors.no_admin_collections'); errEl.classList.remove('hidden');
+      document.getElementById('login-btn').disabled = true;
+    }
+  }
+
+  function toggleCollectionField() {
+    const section = document.getElementById('login-collection-section');
+    const btn = document.getElementById('toggle-collection-btn');
+    const isHidden = section.classList.contains('hidden');
+    section.classList.toggle('hidden', !isHidden);
+    btn.textContent = isHidden ? t('login.hide_collection') : t('login.change_collection');
+    if (isHidden) document.getElementById('login-collection').focus();
+  }
+
+  async function doLogin() {
+    const collectionName = document.getElementById('login-collection').value.trim().replace(/[^a-zA-Z0-9 _-]/g, '');
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    const errEl = document.getElementById('login-error');
+    const btn = document.getElementById('login-btn');
+    const btnText = btn.querySelector('span');
+
+    errEl.classList.add('hidden');
+    if (!collectionName || !email || !password) {
+      errEl.textContent = t('login.errors.all_fields_required'); errEl.classList.remove('hidden'); return;
+    }
+
+    btn.disabled = true; btnText.textContent = t('login.signing_in');
+
+    const col = getAdminCollections().find(c => c.name === collectionName);
+    if (!col) { showLoginError(t('login.errors.collection_not_found')); return; }
+
+    try {
+      const r = await fetch(`/api/auth/${toSlug(col.name)}/login`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await r.json();
+      if (!r.ok) { showLoginError(data.error || t('login.errors.login_failed')); return; }
+      authToken = data.token; authUser = data.user; authCollection = col.name;
+      localStorage.setItem('cs_token', authToken);
+      showApp();
+    } catch { showLoginError(t('login.errors.network_error')); }
+
+    function showLoginError(msg) {
+      errEl.textContent = msg; errEl.classList.remove('hidden');
+      btn.disabled = false; btnText.textContent = t('login.sign_in');
+    }
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !document.getElementById('login-overlay').classList.contains('hidden')) doLogin();
+  });
+
+  function logout() {
+    authToken = null; authUser = null; authCollection = null;
+    localStorage.removeItem('cs_token'); currentItem = null;
+    document.getElementById('table-area').innerHTML = '';
+    document.getElementById('btn-add').classList.add('hidden');
+    document.getElementById('btn-ai').classList.add('hidden');
+    document.getElementById('btn-ai').classList.remove('flex');
+    closeAiPanel();
+    document.getElementById('page-title').textContent = t('header.select_collection');
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    showLogin();
+  }
+
+  function showLogin() {
+    document.getElementById('login-overlay').classList.remove('hidden');
+    document.getElementById('loading').classList.add('hidden');
+    const btn = document.getElementById('login-btn');
+    btn.disabled = false; btn.querySelector('span').textContent = t('login.sign_in');
+  }
+
+  function showApp() {
+    document.getElementById('login-overlay').classList.add('hidden');
+    const name = authUser ? (authUser.name || authUser.email || '?') : '?';
+    document.getElementById('user-name').textContent = name;
+    document.getElementById('user-collection-label').textContent = authCollection || '';
+    document.getElementById('user-avatar').textContent = name[0].toUpperCase();
+    checkAiStatus();
+    const first = document.querySelector('.nav-item');
+    if (first) first.click();
+  }
+
+  // ── Sidebar (mobile) ───────────────────────────────────────────────────
+  function openSidebar() {
+    document.getElementById('sidebar').classList.replace('-translate-x-full', 'translate-x-0');
+    document.getElementById('sidebar-overlay').classList.remove('hidden');
+  }
+  function closeSidebar() {
+    document.getElementById('sidebar').classList.replace('translate-x-0', '-translate-x-full');
+    document.getElementById('sidebar-overlay').classList.add('hidden');
+  }
+
+  // ── Sidebar nav ────────────────────────────────────────────────────────
+  function buildSidebar() {
+    document.getElementById('nav-user-collections').innerHTML =
+      (schema.userCollections || []).map(uc =>
+        `<div class="nav-item" onclick="selectItem('collection','${escHtml(uc.name)}',this)">${escHtml(uc.name)}</div>`
+      ).join('');
+    document.getElementById('nav-entities').innerHTML =
+      getNonAuthEntities().map(e =>
+        `<div class="nav-item" onclick="selectItem('entity','${escHtml(e.name)}',this)">${escHtml(e.name)}</div>`
+      ).join('');
+  }
+
+  function selectItem(type, name, el) {
+    configMode = false;
+    document.getElementById('config-area').classList.add('hidden');
+    document.getElementById('api-keys-area').classList.add('hidden');
+    document.getElementById('table-area').classList.remove('hidden');
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    el.classList.add('active');
+    currentItem = { type, name };
+    document.getElementById('page-title').textContent = name;
+    document.getElementById('btn-add').classList.remove('hidden');
+    closeSidebar();
+    loadTable(type, name);
   }
 }
 
@@ -676,6 +1079,77 @@ async function loadDashboard() {
         activityLog.push({ entityName: item.entityName, action: item.action, label: item.label, id: item.id, at: item.createdAt });
       }
     }
+  }  
+
+  function fieldHtml(f, value = '', pwd = false) {
+    return `<div class="mb-4">
+      <label class="block text-sm text-cs-muted mb-1">${escHtml(f.name)}</label>
+      <input type="${pwd ? 'password' : 'text'}" id="field-${f.name}" value="${escAttr(value)}" placeholder="${escAttr(f.name)}"
+        class="w-full bg-cs-bg border border-cs-border rounded text-cs-text px-3 py-2 text-sm outline-none focus:border-cs-primary" style="transition: border-color 150ms ease;"/>
+    </div>`;
+  }
+
+  function openAddModal() {
+    if (!currentItem) return;
+    editingRecord = null;
+    const isCollection = currentItem.type === 'collection';
+    document.getElementById('modal-title').textContent = t('modal.title_new', { name: currentItem.name });
+    document.getElementById('modal-body').innerHTML = getFields(isCollection).map(f => fieldHtml(f, '', f.name === 'password')).join('');
+    showModal();
+  }
+
+  function openEditModal(record) {
+    if (!currentItem) return;
+    editingRecord = record;
+    const isCollection = currentItem.type === 'collection';
+    document.getElementById('modal-title').textContent = t('modal.title_edit', { name: currentItem.name, id: record.id });
+    document.getElementById('modal-body').innerHTML =
+      getFields(isCollection).filter(f => f.name !== 'password').map(f => fieldHtml(f, String(record[f.name] ?? ''))).join('');
+    showModal();
+  }
+
+  function showModal() {
+    document.getElementById('modal-backdrop').classList.remove('hidden');
+    const btn = document.getElementById('modal-save-btn');
+    btn.disabled = false; btn.querySelector('span').textContent = t('modal.save');
+  }
+
+  function closeModal() {
+    document.getElementById('modal-backdrop').classList.add('hidden');
+    editingRecord = null;
+  }
+
+  async function saveRecord() {
+    if (!currentItem) return;
+    const isCollection = currentItem.type === 'collection';
+    const fields = getFields(isCollection);
+    const editFields = editingRecord ? fields.filter(f => f.name !== 'password') : fields;
+    const body = {};
+    for (const f of editFields) {
+      const el = document.getElementById(`field-${f.name}`);
+      if (el?.value) body[f.name] = el.value;
+    }
+    const apiPath = `/api/${toKebab(currentItem.name)}s`;
+    const btn = document.getElementById('modal-save-btn');
+    btn.disabled = true; btn.querySelector('span').textContent = t('modal.saving');
+    try {
+      let r;
+      if (editingRecord) {
+        r = await apiFetch(`${apiPath}/${editingRecord.id}`, { method: 'PATCH', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } });
+      } else if (isCollection) {
+        r = await apiFetch(`/api/auth/${toSlug(currentItem.name)}/signup`, { method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } });
+      } else {
+        r = await apiFetch(apiPath, { method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } });
+      }
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || t('toast.save_failed', { message: '' }).replace(': ', ''));
+      toast(editingRecord ? t('toast.record_updated') : t('toast.record_created'), 'success');
+      closeModal();
+      reloadTable();
+    } catch (e) {
+      toast(e.message, 'error');
+      btn.disabled = false; btn.querySelector('span').textContent = t('modal.save');
+    }
     activityLog.sort((a, b) => new Date(b.at) - new Date(a.at));
     renderActivityFeed();
   } catch {
@@ -715,7 +1189,17 @@ function renderActivityFeed() {
   if (!activityLog.length) {
     el.innerHTML = '<div class="text-xs text-cs-muted py-4">No activity yet. Live events will appear here.</div>';
     return;
+
+  async function deleteRecord(id) {
+    if (!currentItem || !confirm(t('table.delete_confirm', { id }))) return;
+    try {
+      const r = await apiFetch(`/api/${toKebab(currentItem.name)}s/${id}`, { method: 'DELETE' });
+      if (!r.ok) { const d = await r.json(); throw new Error(d.error || t('toast.record_deleted')); }
+      toast(t('toast.record_deleted'), 'success');
+      reloadTable();
+    } catch (e) { toast(e.message, 'error'); }
   }
+
   const dotClass = a => ({ created: 'dot-create', updated: 'dot-update', deleted: 'dot-delete' }[a] || 'dot-create');
   el.innerHTML = activityLog.slice(0, 40).map(item => `
     <div class="flex items-start gap-2 py-1.5 border-b border-cs-border last:border-0">
@@ -774,6 +1258,59 @@ function renderTable(rows) {
         <p class="text-sm" style="color:#888;">No records found. Click <span style="color:#e1e1e1;">+ New record</span> to create one.</p>
       </div>`;
     return;
+
+  function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function escAttr(s) { return String(s).replace(/"/g,'&quot;'); }
+  function toKebab(s) { return s.replace(/([A-Z])/g,(m,p,o)=>(o>0?'-':'')+p.toLowerCase()).replace(/^-/,''); }
+  function toSlug(s) { return s.replace(/([A-Z])/g,(m,p,o)=>(o>0?'-':'')+p.toLowerCase()).replace(/^-/,'').replace(/[^a-z0-9-]/g,'-'); }
+  function toSnake(s) { return s.replace(/([A-Z])/g,(m,p,o)=>(o>0?'_':'')+p.toLowerCase()).replace(/^_/,''); }
+
+  // ── Config Editor ─────────────────────────────────────────────────────
+  let configMode = false;
+  let configData = null;
+  let configActiveTab = 'general';
+  let _cfgEntityId = 0, _cfgEndpointId = 0, _cfgFileId = 0, _cfgRlId = 0;
+
+  const CFG_TABS = {
+    general:   { keys: ['name', 'port', 'database', 'public'] },
+    entities:  { keys: ['entities'] },
+    endpoints: { keys: ['endpoints'] },
+    files:     { keys: ['files'], s3: true },
+    settings:  { keys: ['settings', 'groups'] },
+    all:       { keys: null },
+  };
+
+  const CFG_FORM_TABS = new Set(['general', 'entities', 'endpoints', 'files', 'settings']);
+
+  const PROP_TYPES = [
+    'string','text','richText','integer','number','float','money',
+    'boolean','email','password','date','timestamp','link',
+    'file','image','choice','location','json',
+  ];
+
+  // Shared Tailwind class strings for consistent form styling
+  const _INP    = 'bg-cs-bg border border-cs-border rounded text-cs-text px-2 py-1.5 text-sm outline-none focus:border-cs-primary';
+  const _INP_XS = 'bg-cs-bg border border-cs-border rounded text-cs-text px-2 py-1 text-xs outline-none focus:border-cs-primary';
+  const _LBL    = 'block text-xs mb-1';
+
+  // General tab: labeled inputs for name, port, database, public folder
+  function renderGeneralForm() {
+    const d   = configData || {};
+    const pub = d.public || {};
+    function fld(label, id, val, ph, type, hint) {
+      return '<div>'
+        + '<label class="' + _LBL + '" style="color:#888;">' + label + '</label>'
+        + '<input type="' + (type || 'text') + '" id="' + id + '" value="' + escAttr(String(val != null ? val : '')) + '" placeholder="' + escAttr(ph) + '"'
+        + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" />'
+        + (hint ? '<p class="text-xs mt-1" style="color:#666;">' + hint + '</p>' : '')
+        + '</div>';
+    }
+    return '<div class="space-y-4 max-w-lg">'
+      + fld(t('config.general.app_name') + ' <span style="color:#f87171;">*</span>', 'cfg-f-name',          d.name || '',                       'My App',                                      'text')
+      + fld(t('config.general.port'),                                                 'cfg-f-port',          d.port !== undefined ? d.port : '', '3000',                                        'number', t('config.general.port_hint'))
+      + fld(t('config.general.database'),                                             'cfg-f-database',      d.database || '',                   t('config.general.database_placeholder'),      'text',   t('config.general.database_hint'))
+      + fld(t('config.general.public_folder'),                                        'cfg-f-public-folder', pub.folder || '',                   t('config.general.public_folder_placeholder'), 'text',   t('config.general.public_folder_hint'))
+      + '</div>';
   }
   const cols = Object.keys(rows[0]);
   const selectAllTh = `<th class="px-3 py-2.5 w-8"><input type="checkbox" id="select-all" onchange="toggleSelectAll()" style="accent-color:#34b1eb;cursor:pointer;" /></th>`;
@@ -899,6 +1436,17 @@ function applyAdvFilters() {
     const op = row.querySelector('[data-role=op]').value;
     const val = row.querySelector('[data-role=val]').value;
     if (col && val !== '') advFilters.push({ col, op, val });
+
+  // Entities tab: card list with name, flags, relations, property rows
+  function renderEntitiesForm() {
+    _cfgEntityId = 0;
+    const entities = (configData && configData.entities) || {};
+    let cards = '';
+    for (const key of Object.keys(entities)) cards += renderEntityCard(key, entities[key]);
+    return '<div id="cfg-entities-list" class="space-y-3">' + cards + '</div>'
+      + '<button type="button" onclick="addEntityCard()"'
+      + ' class="mt-3 text-xs border border-cs-border rounded px-3 py-1.5 text-cs-muted hover:text-cs-text cursor-pointer"'
+      + ' style="transition:color 150ms,background 150ms;">' + t('config.entities.add_entity') + '</button>';
   }
   curPage = 1; loadTableData();
 }
@@ -1142,6 +1690,58 @@ document.addEventListener('keydown', e => {
     if (!document.getElementById('modal-backdrop').classList.contains('hidden')) { closeModal(); return; }
     if (inInput) { document.activeElement.blur(); return; }
     return;
+    return '<div class="entity-card rounded border p-4" style="border-color:#2a2a2a;background:#181818;"'
+      + ' data-entity-id="' + id + '" data-original-name="' + escAttr(entityName) + '">'
+      + '<div class="flex flex-wrap items-end gap-3 mb-3">'
+        + '<div class="flex-1" style="min-width:160px;">'
+          + '<label class="' + _LBL + '" style="color:#888;">' + t('config.entities.entity_name') + '</label>'
+          + '<input type="text" id="cfg-e-name-' + id + '" value="' + escAttr(entityName) + '" placeholder="' + escAttr(t('config.entities.entity_placeholder')) + '"'
+          + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" />'
+        + '</div>'
+        + '<div class="flex gap-4 items-center" style="padding-bottom:2px;">'
+          + '<label class="flex items-center gap-1.5 text-xs cursor-pointer select-none" style="color:#888;">'
+          + '<input type="checkbox" id="cfg-e-auth-' + id + '"' + (def.authenticable ? ' checked' : '') + ' />'
+          + ' ' + t('config.entities.user_collection') + '</label>'
+          + '<label class="flex items-center gap-1.5 text-xs cursor-pointer select-none" style="color:#888;">'
+          + '<input type="checkbox" id="cfg-e-single-' + id + '"' + (def.single ? ' checked' : '') + ' />'
+          + ' ' + t('config.entities.single') + '</label>'
+        + '</div>'
+        + '<button type="button" onclick="removeEntityCard(' + id + ')"'
+        + ' class="text-xs px-2 py-1.5 rounded border cursor-pointer"'
+        + ' style="border-color:rgba(239,68,68,0.3);color:#f87171;background:transparent;">' + t('config.entities.remove') + '</button>'
+      + '</div>'
+      + '<div class="grid gap-3 mb-3" style="grid-template-columns:1fr 1fr;">'
+        + '<div><label class="' + _LBL + '" style="color:#888;">' + t('config.entities.belongs_to') + ' <span style="color:#555;">' + t('config.entities.belongs_to_hint') + '</span></label>'
+        + '<input type="text" id="cfg-e-bt-' + id + '" value="' + escAttr(btArr.join(', ')) + '" placeholder="' + escAttr(t('config.entities.belongs_to_placeholder')) + '"'
+        + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
+        + '<div><label class="' + _LBL + '" style="color:#888;">' + t('config.entities.belongs_to_many') + ' <span style="color:#555;">' + t('config.entities.belongs_to_hint') + '</span></label>'
+        + '<input type="text" id="cfg-e-btm-' + id + '" value="' + escAttr(btmArr.join(', ')) + '" placeholder="' + escAttr(t('config.entities.belongs_to_many_placeholder')) + '"'
+        + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
+      + '</div>'
+      + '<div>'
+        + '<div class="flex items-center justify-between mb-1.5">'
+          + '<span class="text-xs" style="color:#888;">' + t('config.entities.properties') + '</span>'
+          + '<button type="button" onclick="addPropRow(' + id + ')"'
+          + ' class="text-xs px-2 py-0.5 rounded border cursor-pointer"'
+          + ' style="border-color:#2a2a2a;color:#888;background:transparent;transition:color 150ms;">' + t('config.entities.add_property') + '</button>'
+        + '</div>'
+        + '<div id="cfg-e-props-' + id + '" class="space-y-1.5">' + propsHtml + '</div>'
+      + '</div>'
+      + '</div>';
+  }
+
+  function renderPropRow(name, type) {
+    return '<div class="flex gap-2 items-center prop-row">'
+      + '<input type="text" value="' + escAttr(name) + '" placeholder="' + escAttr(t('config.entities.property_placeholder')) + '"'
+      + ' class="flex-1 ' + _INP_XS + ' prop-name" style="transition:border-color 150ms;" />'
+      + _propTypeSelect(_INP_XS + ' prop-type', type)
+      + '<button type="button" onclick="_cfgRmPropRow(this)"'
+      + ' class="text-xs px-1.5 rounded cursor-pointer" style="color:#555;background:transparent;" title="' + escAttr(t('config.entities.remove')) + '">\xd7</button>'
+      + '</div>';
+  }
+
+  function addPropRow(entityId) {
+    document.getElementById('cfg-e-props-' + entityId).insertAdjacentHTML('beforeend', renderPropRow('', 'string'));
   }
 
   if (loginOpen || anyModal || inInput) return;
@@ -1190,6 +1790,49 @@ function getFields(isCollection) {
       const relName = typeof rel === 'string' ? rel : (rel.entity || rel.name || String(rel));
       fields.push({ name: `${toSnake(relName)}_id`, type: 'integer' });
     }
+    return entities;
+  }
+
+  // Endpoints tab: card list with name, path, method, handler, description
+  function renderEndpointsForm() {
+    _cfgEndpointId = 0;
+    const endpoints = (configData && configData.endpoints) || {};
+    let cards = '';
+    for (const key of Object.keys(endpoints)) cards += renderEndpointCard(key, endpoints[key]);
+    return '<div id="cfg-endpoints-list" class="space-y-3">' + cards + '</div>'
+      + '<button type="button" onclick="addEndpointCard()"'
+      + ' class="mt-3 text-xs border border-cs-border rounded px-3 py-1.5 text-cs-muted hover:text-cs-text cursor-pointer"'
+      + ' style="transition:color 150ms,background 150ms;">' + t('config.endpoints.add_endpoint') + '</button>';
+  }
+
+  function renderEndpointCard(epName, def) {
+    const id      = _cfgEndpointId++;
+    const methods = ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'];
+    let methodOpts = '';
+    for (const m of methods) methodOpts += '<option value="' + m + '"' + (m === (def.method || 'GET') ? ' selected' : '') + '>' + m + '</option>';
+    const methodSel = '<select id="cfg-ep-method-' + id + '" class="w-full ' + _INP + '" style="transition:border-color 150ms;">' + methodOpts + '</select>';
+    return '<div class="endpoint-card rounded border p-4" style="border-color:#2a2a2a;background:#181818;" data-endpoint-id="' + id + '">'
+      + '<div class="grid gap-3 mb-3" style="grid-template-columns:1fr 1fr;">'
+        + '<div><label class="' + _LBL + '" style="color:#888;">' + t('config.endpoints.name') + '</label>'
+        + '<input type="text" id="cfg-ep-name-' + id + '" value="' + escAttr(epName) + '" placeholder="' + escAttr(t('config.endpoints.name_placeholder')) + '"'
+        + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
+        + '<div><label class="' + _LBL + '" style="color:#888;">' + t('config.endpoints.path_label') + '</label>'
+        + '<input type="text" id="cfg-ep-path-' + id + '" value="' + escAttr(def.path || '') + '" placeholder="' + escAttr(t('config.endpoints.path_placeholder')) + '"'
+        + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
+        + '<div><label class="' + _LBL + '" style="color:#888;">' + t('config.endpoints.method') + '</label>' + methodSel + '</div>'
+        + '<div><label class="' + _LBL + '" style="color:#888;">' + t('config.endpoints.handler') + '</label>'
+        + '<input type="text" id="cfg-ep-handler-' + id + '" value="' + escAttr(def.handler || '') + '" placeholder="' + escAttr(t('config.endpoints.handler_placeholder')) + '"'
+        + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
+      + '</div>'
+      + '<div class="flex items-end gap-3">'
+        + '<div class="flex-1"><label class="' + _LBL + '" style="color:#888;">' + t('config.endpoints.description') + ' <span style="color:#555;">' + t('config.endpoints.description_hint') + '</span></label>'
+        + '<input type="text" id="cfg-ep-desc-' + id + '" value="' + escAttr(def.description || '') + '" placeholder="' + escAttr(t('config.endpoints.description_placeholder')) + '"'
+        + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
+        + '<button type="button" onclick="_cfgRmEndpointCard(this)"'
+        + ' class="text-xs px-2 py-1.5 rounded border cursor-pointer"'
+        + ' style="border-color:rgba(239,68,68,0.3);color:#f87171;background:transparent;">' + t('config.endpoints.remove') + '</button>'
+      + '</div>'
+      + '</div>';
   }
   return fields;
 }
@@ -1260,6 +1903,41 @@ async function saveRecord() {
   } catch (err) {
     toast(err.message, 'error');
     btn.disabled = false; btn.querySelector('span').textContent = 'Save';
+    return endpoints;
+  }
+
+  // Files tab: card list with bucket name, path, public checkbox
+  function renderFilesForm() {
+    _cfgFileId = 0;
+    const files = (configData && configData.files) || {};
+    let cards = '';
+    for (const key of Object.keys(files)) cards += renderFileBucketCard(key, files[key]);
+    return '<div id="cfg-files-list" class="space-y-2">' + cards + '</div>'
+      + '<button type="button" onclick="addFileBucketCard()"'
+      + ' class="mt-3 text-xs border border-cs-border rounded px-3 py-1.5 text-cs-muted hover:text-cs-text cursor-pointer"'
+      + ' style="transition:color 150ms,background 150ms;">' + t('config.files.add_bucket') + '</button>';
+  }
+
+  function renderFileBucketCard(bucketName, def) {
+    const id = _cfgFileId++;
+    return '<div class="file-bucket-card flex flex-wrap gap-3 items-end rounded border p-3"'
+      + ' style="border-color:#2a2a2a;background:#181818;" data-bucket-id="' + id + '">'
+      + '<div><label class="' + _LBL + '" style="color:#888;">' + t('config.files.name') + '</label>'
+      + '<input type="text" id="cfg-fb-name-' + id + '" value="' + escAttr(bucketName) + '" placeholder="' + escAttr(t('config.files.name_placeholder')) + '"'
+      + ' class="' + _INP + '" style="transition:border-color 150ms;width:130px;" /></div>'
+      + '<div class="flex-1"><label class="' + _LBL + '" style="color:#888;">' + t('config.files.path_label') + '</label>'
+      + '<input type="text" id="cfg-fb-path-' + id + '" value="' + escAttr(def.path || '') + '" placeholder="' + escAttr(t('config.files.path_placeholder')) + '"'
+      + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
+      + '<label class="flex items-center gap-1.5 text-xs cursor-pointer select-none" style="color:#888;padding-bottom:6px;">'
+      + '<input type="checkbox" id="cfg-fb-public-' + id + '"' + (def.public ? ' checked' : '') + ' /> ' + t('config.files.public') + '</label>'
+      + '<button type="button" onclick="_cfgRmFileBucketCard(this)"'
+      + ' class="text-xs px-2 py-1.5 rounded border cursor-pointer"'
+      + ' style="border-color:rgba(239,68,68,0.3);color:#f87171;background:transparent;">' + t('config.files.remove') + '</button>'
+      + '</div>';
+  }
+
+  function addFileBucketCard() {
+    document.getElementById('cfg-files-list').insertAdjacentHTML('beforeend', renderFileBucketCard('', {}));
   }
 }
 
@@ -1352,6 +2030,29 @@ function renderGeneralForm() {
       + '<input type="' + (type || 'text') + '" id="' + id + '" value="' + escAttr(String(val != null ? val : '')) + '" placeholder="' + escAttr(ph) + '"'
       + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" />'
       + (hint ? '<p class="text-xs mt-1" style="color:#666;">' + hint + '</p>' : '')
+      + '<p class="text-xs mb-3" style="color:#666;">' + t('config.settings.rate_limits_hint') + '</p>'
+      + '<div id="cfg-rl-list" class="space-y-2">' + rows + '</div>'
+      + '<button type="button" onclick="addRateLimitRow()"'
+      + ' class="mt-3 text-xs border border-cs-border rounded px-3 py-1.5 text-cs-muted hover:text-cs-text cursor-pointer"'
+      + ' style="transition:color 150ms,background 150ms;">' + t('config.settings.add_rate_limit') + '</button>'
+      + '</div>';
+  }
+
+  function renderRateLimitRow(rl) {
+    const id = _cfgRlId++;
+    return '<div class="flex flex-wrap gap-2 items-end rl-row" data-rl-id="' + id + '">'
+      + '<div><label class="' + _LBL + '" style="color:#888;">' + t('config.settings.name') + '</label>'
+      + '<input type="text" id="cfg-rl-name-' + id + '" value="' + escAttr(rl.name || '') + '" placeholder="' + escAttr(t('config.settings.name_placeholder')) + '"'
+      + ' class="' + _INP_XS + '" style="transition:border-color 150ms;width:90px;" /></div>'
+      + '<div><label class="' + _LBL + '" style="color:#888;">' + t('config.settings.max_requests') + '</label>'
+      + '<input type="number" id="cfg-rl-limit-' + id + '" value="' + escAttr(rl.limit !== undefined ? String(rl.limit) : '') + '" placeholder="' + escAttr(t('config.settings.max_requests_placeholder')) + '"'
+      + ' class="' + _INP_XS + '" style="transition:border-color 150ms;width:105px;" /></div>'
+      + '<div><label class="' + _LBL + '" style="color:#888;">' + t('config.settings.window_ms') + '</label>'
+      + '<input type="number" id="cfg-rl-ttl-' + id + '" value="' + escAttr(rl.ttl !== undefined ? String(rl.ttl) : '') + '" placeholder="' + escAttr(t('config.settings.window_placeholder')) + '"'
+      + ' class="' + _INP_XS + '" style="transition:border-color 150ms;width:105px;" /></div>'
+      + '<button type="button" onclick="_cfgRmRateLimitRow(this)"'
+      + ' class="text-xs px-2 py-1.5 rounded border cursor-pointer"'
+      + ' style="border-color:rgba(239,68,68,0.3);color:#f87171;background:transparent;">' + t('config.settings.remove') + '</button>'
       + '</div>';
   }
   return '<div class="space-y-4 max-w-lg">'
@@ -1599,6 +2300,463 @@ function resetConfigTab() { showConfigTab(configActiveTab); }
 
 // ── Start ─────────────────────────────────────────────────────────────────────
 init();
+
+  function collectFormData() {
+    if (configActiveTab === 'general')   return collectGeneralForm();
+    if (configActiveTab === 'entities')  return { entities: collectEntitiesForm() };
+    if (configActiveTab === 'endpoints') return { endpoints: collectEndpointsForm() };
+    if (configActiveTab === 'files')     return { files: collectFilesForm() };
+    if (configActiveTab === 'settings')  return collectSettingsForm();
+    return null;
+  }
+
+  function selectConfig(el) {
+    document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.remove('active'); });
+    el.classList.add('active');
+    configMode = true;
+    document.getElementById('page-title').textContent = t('config.editor_title');
+    document.getElementById('btn-add').classList.add('hidden');
+    document.getElementById('table-area').classList.add('hidden');
+    document.getElementById('api-keys-area').classList.add('hidden');
+    document.getElementById('config-area').classList.remove('hidden');
+    closeSidebar();
+    loadConfig();
+  }
+
+  async function loadConfig() {
+    document.getElementById('cfg-status').textContent = t('config.status.loading');
+    try {
+      const r = await apiFetch('/admin/config');
+      if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Failed to load'); }
+      configData = await r.json();
+      showConfigTab(configActiveTab);
+      document.getElementById('cfg-status').textContent = '';
+    } catch (e) {
+      document.getElementById('cfg-status').textContent = 'Error: ' + e.message;
+      toast(t('toast.config_load_failed', { message: e.message }), 'error');
+    }
+  }
+
+  function showConfigTab(tab) {
+    configActiveTab = tab;
+    document.querySelectorAll('.cfg-tab').forEach(function(btn) { btn.classList.remove('active'); });
+    const tabEl = document.getElementById('cfg-tab-' + tab);
+    if (tabEl) tabEl.classList.add('active');
+
+    const def = CFG_TABS[tab] || CFG_TABS.all;
+    const descKey = 'config.descriptions.' + tab;
+    const desc = t(descKey);
+    document.getElementById('cfg-section-desc').textContent = desc !== descKey ? desc : '';
+
+    const s3Note = document.getElementById('cfg-s3-note');
+    if (def.s3) s3Note.classList.remove('hidden'); else s3Note.classList.add('hidden');
+
+    const formEl   = document.getElementById('cfg-form');
+    const editorEl = document.getElementById('cfg-editor');
+
+    if (CFG_FORM_TABS.has(tab)) {
+      editorEl.classList.add('hidden');
+      formEl.classList.remove('hidden');
+      renderConfigForm(tab);
+    } else {
+      formEl.classList.add('hidden');
+      editorEl.classList.remove('hidden');
+      editorEl.value = JSON.stringify(configData || {}, null, 2);
+    }
+  }
+
+  async function saveConfig() {
+    let sectionData;
+
+    if (CFG_FORM_TABS.has(configActiveTab)) {
+      sectionData = collectFormData();
+      if (sectionData === null) { toast(t('toast.form_read_error'), 'error'); return; }
+    } else {
+      const rawText = document.getElementById('cfg-editor').value.trim();
+      try {
+        sectionData = JSON.parse(rawText);
+      } catch (e) {
+        toast(t('toast.invalid_json', { message: e.message }), 'error');
+        return;
+      }
+      if (typeof sectionData !== 'object' || Array.isArray(sectionData) || sectionData === null) {
+        toast(t('toast.config_not_object'), 'error');
+        return;
+      }
+    }
+
+    // Merge section into full config
+    let fullConfig;
+    if (configActiveTab === 'all') {
+      fullConfig = sectionData;
+    } else {
+      fullConfig = Object.assign({}, configData || {});
+      const tabKeys = CFG_TABS[configActiveTab].keys || [];
+      for (const key of tabKeys) delete fullConfig[key];
+      Object.assign(fullConfig, sectionData);
+    }
+
+    const btn = document.getElementById('cfg-save-btn');
+    btn.disabled = true; btn.textContent = t('config.saving_btn');
+    document.getElementById('cfg-status').textContent = '';
+
+    try {
+      const r = await apiFetch('/admin/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(fullConfig),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'Save failed');
+      configData = fullConfig;
+
+      if (data.reloading) {
+        document.getElementById('cfg-status').textContent = t('config.status.reloading');
+        toast(t('toast.config_reloading'), 'info');
+        setTimeout(async function() {
+          try {
+            schema = await fetch('/admin/schema').then(function(r2) { return r2.json(); });
+            document.getElementById('project-name').textContent = schema.name;
+            buildSidebar();
+            document.getElementById('cfg-status').textContent = t('config.status.applied');
+            toast(t('toast.config_applied'), 'success');
+          } catch (ex) {
+            document.getElementById('cfg-status').textContent = t('config.status.saved_reload');
+          }
+        }, 800);
+      } else {
+        document.getElementById('cfg-status').textContent = t('config.status.saved_restart');
+        toast(t('toast.config_saved'), 'success');
+      }
+    } catch (e) {
+      toast(t('toast.save_failed', { message: e.message }), 'error');
+    } finally {
+      btn.disabled = false; btn.textContent = t('config.save_btn');
+    }
+  }
+
+  function resetConfigTab() {
+    if (!configData) return;
+    showConfigTab(configActiveTab);
+    toast(t('toast.config_reset'), 'info');
+  }
+
+  // ── API Keys Panel ─────────────────────────────────────────────────────
+  function selectApiKeys(el) {
+    document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.remove('active'); });
+    el.classList.add('active');
+    configMode = false;
+    currentItem = null;
+    document.getElementById('page-title').textContent = 'API Keys';
+    document.getElementById('btn-add').classList.add('hidden');
+    document.getElementById('table-area').classList.add('hidden');
+    document.getElementById('config-area').classList.add('hidden');
+    document.getElementById('api-keys-area').classList.remove('hidden');
+    closeSidebar();
+    loadApiKeys();
+  }
+
+  async function loadApiKeys() {
+    const listEl = document.getElementById('api-keys-list');
+    listEl.innerHTML = '<div class="flex justify-center py-8"><div class="w-5 h-5 border-2 border-cs-border border-t-cs-primary rounded-full animate-spin"></div></div>';
+    try {
+      const r = await apiFetch('/admin/api-keys');
+      if (!r.ok) throw new Error('Failed to load API keys');
+      const keys = await r.json();
+      listEl.innerHTML = renderApiKeysList(keys);
+    } catch (e) {
+      listEl.innerHTML = '<p class="text-red-400 text-sm p-4">' + escHtml(e.message) + '</p>';
+    }
+  }
+
+  function renderApiKeysList(keys) {
+    if (!keys.length) {
+      return '<div class="flex flex-col items-center justify-center py-16 text-center"><p class="text-sm" style="color:#888;">No API keys yet. Click <span style="color:#e1e1e1;">+ Create API Key</span> to add one.</p></div>';
+    }
+    const rows = keys.map(function(k) {
+      const perms = (k.permissions && k.permissions.length) ? k.permissions.join(', ') : 'all';
+      const ents  = (k.entities && k.entities.length)       ? k.entities.join(', ')     : 'all';
+      const exp   = k.expiresAt ? new Date(k.expiresAt).toLocaleDateString() : '—';
+      return '<tr class="border-b" style="border-color:#2a2a2a;">'
+        + '<td class="px-4 py-2.5 text-sm" style="color:#e1e1e1;">' + escHtml(k.name) + '</td>'
+        + '<td class="px-4 py-2.5 text-xs" style="color:#888;">' + escHtml(k.userEntity) + '</td>'
+        + '<td class="px-4 py-2.5 text-xs" style="color:#888;" title="' + escHtml(k.userId) + '">' + escHtml(k.userId.substring(0, 8)) + '…</td>'
+        + '<td class="px-4 py-2.5 text-xs" style="color:#888;">' + escHtml(perms) + '</td>'
+        + '<td class="px-4 py-2.5 text-xs" style="color:#888;">' + escHtml(ents) + '</td>'
+        + '<td class="px-4 py-2.5 text-xs" style="color:#888;">' + escHtml(exp) + '</td>'
+        + '<td class="px-4 py-2.5 text-xs" style="color:#888;">' + escHtml(k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleDateString() : '—') + '</td>'
+        + '<td class="px-4 py-2.5"><button class="text-xs border rounded px-2 py-1 hover:opacity-80" style="border-color:rgba(239,68,68,0.4);color:#f87171;background:transparent;" onclick="deleteApiKeyAdmin(' + "'" + escHtml(k.id) + "'" + ')">Delete</button></td>'
+        + '</tr>';
+    }).join('');
+    return '<div class="overflow-x-auto border rounded" style="border-color:#2a2a2a;">'
+      + '<table class="w-full text-sm" style="color:#e1e1e1;">'
+      + '<thead style="background:#1e1e1e;"><tr class="border-b" style="border-color:#2a2a2a;">'
+      + '<th class="px-4 py-2.5 text-left text-xs font-medium" style="color:#888;">Name</th>'
+      + '<th class="px-4 py-2.5 text-left text-xs font-medium" style="color:#888;">Collection</th>'
+      + '<th class="px-4 py-2.5 text-left text-xs font-medium" style="color:#888;">User ID</th>'
+      + '<th class="px-4 py-2.5 text-left text-xs font-medium" style="color:#888;">Permissions</th>'
+      + '<th class="px-4 py-2.5 text-left text-xs font-medium" style="color:#888;">Entities</th>'
+      + '<th class="px-4 py-2.5 text-left text-xs font-medium" style="color:#888;">Expires</th>'
+      + '<th class="px-4 py-2.5 text-left text-xs font-medium" style="color:#888;">Last Used</th>'
+      + '<th class="px-4 py-2.5 text-left text-xs font-medium" style="color:#888;">Actions</th>'
+      + '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+  }
+
+  async function deleteApiKeyAdmin(id) {
+    if (!confirm('Delete this API key? This cannot be undone.')) return;
+    try {
+      const r = await apiFetch('/admin/api-keys/' + encodeURIComponent(id), { method: 'DELETE' });
+      if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Delete failed'); }
+      toast('API key deleted', 'success');
+      loadApiKeys();
+    } catch (e) { toast('Delete failed: ' + e.message, 'error'); }
+  }
+
+  // ── Create API Key modal ─────────────────────────────────────────────────
+  function openCreateApiKeyModal(prefillUserId, prefillEntity) {
+    document.getElementById('apikey-form').classList.remove('hidden');
+    document.getElementById('apikey-result').classList.add('hidden');
+    document.getElementById('apikey-form-error').classList.add('hidden');
+    document.getElementById('apikey-name').value = '';
+    document.getElementById('apikey-expires').value = '';
+    document.getElementById('apikey-user-id').value = prefillUserId || '';
+    document.querySelectorAll('.apikey-perm').forEach(function(cb) { cb.checked = false; });
+
+    // Populate entity access checkboxes
+    const entList = document.getElementById('apikey-entities-list');
+    entList.innerHTML = getNonAuthEntities().map(function(e) {
+      return '<label class="flex items-center gap-1.5 text-xs cursor-pointer select-none" style="color:#888;">'
+        + '<input type="checkbox" class="apikey-entity-cb" value="' + escAttr(e.slug) + '" /> ' + escHtml(e.name) + '</label>';
+    }).join('');
+
+    // Populate user entity selector for admin (create key for another user)
+    const sel = document.getElementById('apikey-user-entity');
+    sel.innerHTML = '<option value="">— Create for myself —</option>'
+      + (schema.userCollections || []).map(function(uc) {
+          return '<option value="' + escAttr(uc.name) + '"' + (prefillEntity === uc.name ? ' selected' : '') + '>' + escHtml(uc.name) + '</option>';
+        }).join('');
+    sel.onchange = function() {
+      const row = document.getElementById('apikey-user-id-row');
+      row.classList.toggle('hidden', !sel.value);
+    };
+    if (prefillEntity) {
+      sel.value = prefillEntity;
+      document.getElementById('apikey-user-id-row').classList.remove('hidden');
+    } else {
+      document.getElementById('apikey-user-id-row').classList.add('hidden');
+    }
+
+    document.getElementById('apikey-modal-backdrop').classList.remove('hidden');
+  }
+
+  function closeApiKeyModal() {
+    document.getElementById('apikey-modal-backdrop').classList.add('hidden');
+  }
+
+  async function submitCreateApiKey() {
+    const name      = document.getElementById('apikey-name').value.trim() || 'API Key';
+    const expiresAt = document.getElementById('apikey-expires').value;
+    const permissions = Array.from(document.querySelectorAll('.apikey-perm:checked')).map(function(cb) { return cb.value; });
+    const entities  = Array.from(document.querySelectorAll('.apikey-entity-cb:checked')).map(function(cb) { return cb.value; });
+    const selEntity = document.getElementById('apikey-user-entity').value;
+    const selUserId = document.getElementById('apikey-user-id').value.trim();
+
+    const errEl = document.getElementById('apikey-form-error');
+    errEl.classList.add('hidden');
+
+    const btn = document.getElementById('apikey-submit-btn');
+    btn.disabled = true; btn.textContent = 'Creating…';
+
+    try {
+      let r, data;
+      if (selEntity && selUserId) {
+        // Admin creates key for another user
+        r = await apiFetch('/admin/api-keys', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: selUserId, userEntity: selEntity, name, permissions, entities, expiresAt: expiresAt || null }),
+        });
+      } else {
+        // User creates key for themselves
+        const col = getAdminCollections()[0];
+        if (!col) throw new Error('No admin collection found');
+        r = await apiFetch('/api/auth/' + toSlug(col.name) + '/api-keys', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, permissions, entities, expiresAt: expiresAt || null }),
+        });
+      }
+      data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'Failed to create key');
+      document.getElementById('apikey-result-value').value = data.key;
+      document.getElementById('apikey-form').classList.add('hidden');
+      document.getElementById('apikey-result').classList.remove('hidden');
+      // Refresh list if on API keys panel
+      if (!document.getElementById('api-keys-area').classList.contains('hidden')) loadApiKeys();
+    } catch (e) {
+      errEl.textContent = e.message;
+      errEl.classList.remove('hidden');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Create Key';
+    }
+  }
+
+  function copyApiKey() {
+    const val = document.getElementById('apikey-result-value').value;
+    if (navigator.clipboard) { navigator.clipboard.writeText(val).then(function() { toast('Copied!', 'success'); }); }
+    else { document.getElementById('apikey-result-value').select(); document.execCommand('copy'); toast('Copied!', 'success'); }
+  }
+
+  // ── Impersonate ───────────────────────────────────────────────────────────
+  async function impersonateUser(userId, entityName) {
+    try {
+      const r = await apiFetch('/admin/impersonate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, userEntity: entityName }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'Impersonate failed');
+      document.getElementById('impersonate-token').value = data.token;
+      document.getElementById('impersonate-user-info').textContent =
+        'User: ' + (data.user && data.user.email ? data.user.email : userId) + ' (' + entityName + ')' +
+        ' · Expires: ' + new Date(data.expiresAt).toLocaleTimeString();
+      document.getElementById('impersonate-modal-backdrop').classList.remove('hidden');
+    } catch (e) { toast('Impersonate failed: ' + e.message, 'error'); }
+  }
+
+  function closeImpersonateModal() {
+    document.getElementById('impersonate-modal-backdrop').classList.add('hidden');
+  }
+
+  function copyImpersonateToken() {
+    const val = document.getElementById('impersonate-token').value;
+    if (navigator.clipboard) { navigator.clipboard.writeText(val).then(function() { toast('Copied!', 'success'); }); }
+    else { document.getElementById('impersonate-token').select(); document.execCommand('copy'); toast('Copied!', 'success'); }
+  }
+
+  // ── AI Chat ────────────────────────────────────────────────────────────
+  let aiMessages = []; // { role: 'user'|'assistant', content: string }
+  let aiPanelOpen = false;
+
+  async function checkAiStatus() {
+    try {
+      const r = await fetch('/admin/ai/status');
+      if (!r.ok) return;
+      const data = await r.json();
+      if (data.configured) {
+        const btn = document.getElementById('btn-ai');
+        btn.classList.remove('hidden');
+        btn.classList.add('flex');
+      }
+    } catch (e) { console.warn('AI status check failed:', e); }
+  }
+
+  function toggleAiPanel() {
+    if (aiPanelOpen) closeAiPanel(); else openAiPanel();
+  }
+
+  function openAiPanel() {
+    aiPanelOpen = true;
+    document.getElementById('ai-panel').style.translate = '0';
+    if (aiMessages.length === 0) renderAiWelcome();
+    setTimeout(() => document.getElementById('ai-input').focus(), 220);
+  }
+
+  function closeAiPanel() {
+    aiPanelOpen = false;
+    document.getElementById('ai-panel').style.translate = '100%';
+  }
+
+  function clearAiChat() {
+    aiMessages = [];
+    document.getElementById('ai-messages').innerHTML = '';
+    renderAiWelcome();
+  }
+
+  function renderAiWelcome() {
+    const el = document.getElementById('ai-messages');
+    el.innerHTML = '<div class="text-xs text-center py-6" style="color:#555;">Ask me anything about your data, API routes, entity config, or how ChadStart works.</div>';
+  }
+
+  function appendAiMessage(role, content) {
+    const container = document.getElementById('ai-messages');
+    // Remove welcome message if present
+    const welcome = container.querySelector('.text-center');
+    if (welcome) welcome.remove();
+
+    const isUser = role === 'user';
+    const bubble = document.createElement('div');
+    bubble.className = 'flex ' + (isUser ? 'justify-end' : 'justify-start');
+    const inner = document.createElement('div');
+    inner.className = 'max-w-[85%] rounded px-3 py-2 text-sm';
+    inner.style.cssText = isUser
+      ? 'background:rgba(187,134,252,0.15);color:#e1e1e1;border:1px solid rgba(187,134,252,0.25);'
+      : 'background:#1e1e1e;color:#e1e1e1;border:1px solid #2a2a2a;white-space:pre-wrap;';
+    inner.textContent = content;
+    bubble.appendChild(inner);
+    container.appendChild(bubble);
+    container.scrollTop = container.scrollHeight;
+  }
+
+  function appendAiThinking() {
+    const container = document.getElementById('ai-messages');
+    const bubble = document.createElement('div');
+    bubble.id = 'ai-thinking';
+    bubble.className = 'flex justify-start';
+    bubble.innerHTML = '<div class="rounded px-3 py-2 text-sm" style="background:#1e1e1e;color:#555;border:1px solid #2a2a2a;">Thinking…</div>';
+    container.appendChild(bubble);
+    container.scrollTop = container.scrollHeight;
+  }
+
+  function removeAiThinking() {
+    const el = document.getElementById('ai-thinking');
+    if (el) el.remove();
+  }
+
+  function aiInputKeydown(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAiMessage(); }
+  }
+
+  async function sendAiMessage() {
+    const inputEl = document.getElementById('ai-input');
+    const sendBtn = document.getElementById('ai-send-btn');
+    const text = inputEl.value.trim();
+    if (!text) return;
+
+    inputEl.value = '';
+    inputEl.disabled = true;
+    sendBtn.disabled = true;
+
+    aiMessages.push({ role: 'user', content: text });
+    appendAiMessage('user', text);
+    appendAiThinking();
+
+    try {
+      const r = await apiFetch('/admin/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: aiMessages }),
+      });
+      const data = await r.json();
+      removeAiThinking();
+      if (!r.ok) throw new Error(data.error || 'AI request failed');
+      const reply = data.message;
+      aiMessages.push({ role: 'assistant', content: reply });
+      appendAiMessage('assistant', reply);
+    } catch (err) {
+      removeAiThinking();
+      appendAiMessage('assistant', '⚠ ' + err.message);
+      // Don't push error into history — let the user retry
+      aiMessages.pop();
+    } finally {
+      inputEl.disabled = false;
+      sendBtn.disabled = false;
+      inputEl.focus();
+    }
+  }
+
+  init();
 </script>
 </body>
 </html>

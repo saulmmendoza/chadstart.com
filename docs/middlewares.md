@@ -44,10 +44,8 @@ module.exports = async (req, res) => {
 }
 ```
 
-:::tip
-
-You can add **several middlewares** for an event. They will be processed sequentially in the order you define.
-:::
+!!! tip
+    You can add **several middlewares** for an event. They will be processed sequentially in the order you define.
 
 ## Use your data with the ChadStart backend SDK
 
