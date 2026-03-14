@@ -11,9 +11,9 @@
     "email_label": "Email",
     "email_placeholder": "admin@example.com",
     "password_label": "Password",
-    "password_placeholder": "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022",
+    "password_placeholder": "••••••••",
     "sign_in": "Sign in",
-    "signing_in": "Signing in\u2026",
+    "signing_in": "Signing in…",
     "errors": {
       "no_admin_collections": "No admin collections configured",
       "all_fields_required": "All fields are required",
@@ -27,7 +27,8 @@
     "collections": "Collections",
     "entities": "Entities",
     "admin": "Admin",
-    "config_editor": "\u2699 Config Editor",
+    "config_editor": "⚙ Config Editor",
+    "api_keys": "🔑 API Keys",
     "log_out": "Log out"
   },
   "header": {
@@ -39,7 +40,7 @@
     "title_edit": "Edit {{name}} #{{id}}",
     "cancel": "Cancel",
     "save": "Save",
-    "saving": "Saving\u2026"
+    "saving": "Saving…"
   },
   "table": {
     "no_records": "No records yet. Click + New record to create one.",
@@ -54,7 +55,7 @@
     "record_created": "Record created",
     "record_updated": "Record updated",
     "record_deleted": "Record deleted",
-    "config_reloading": "Config saved \u2014 reloading server\u2026",
+    "config_reloading": "Config saved — reloading server…",
     "config_applied": "Config applied",
     "config_saved": "Config saved successfully",
     "config_reset": "Reset to last saved state",
@@ -75,22 +76,22 @@
     },
     "descriptions": {
       "general": "Application name, port, database path, and public static folder.",
-      "entities": "Entity definitions \u2014 properties, relations, and flags.",
+      "entities": "Entity definitions — properties, relations, and flags.",
       "endpoints": "Custom REST endpoint definitions (path, method, handler).",
       "files": "File bucket definitions for local uploads.",
       "settings": "API rate limits and reusable property groups.",
-      "all": "Full configuration \u2014 all sections combined (raw JSON for advanced use)."
+      "all": "Full configuration — all sections combined (raw JSON for advanced use)."
     },
     "save_btn": "Save Config",
-    "saving_btn": "Saving\u2026",
+    "saving_btn": "Saving…",
     "reset_btn": "Reset",
     "editor_title": "Config Editor",
     "status": {
-      "loading": "Loading\u2026",
-      "reloading": "Reloading\u2026",
-      "applied": "\u2713 Config applied.",
-      "saved_reload": "\u2713 Saved \u2014 reload the page to see changes.",
-      "saved_restart": "\u2713 Saved \u2014 restart the server to apply changes."
+      "loading": "Loading…",
+      "reloading": "Reloading…",
+      "applied": "✓ Config applied.",
+      "saved_reload": "✓ Saved — reload the page to see changes.",
+      "saved_restart": "✓ Saved — restart the server to apply changes."
     },
     "s3_note": {
       "title": "S3 Storage",

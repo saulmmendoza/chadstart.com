@@ -93,6 +93,7 @@
     <div class="px-4 pt-4 pb-1 text-xs text-cs-muted border-t border-cs-border mt-2" data-i18n="sidebar.admin">Admin</div>
     <div id="nav-admin">
       <div class="nav-item" id="nav-config-item" onclick="selectConfig(this)" data-i18n="sidebar.config_editor">⚙ Config Editor</div>
+      <div class="nav-item" id="nav-apikeys-item" onclick="selectApiKeys(this)" data-i18n="sidebar.api_keys">🔑 API Keys</div>
     </div>
   </nav>
 
@@ -146,6 +147,18 @@
     </div>
     <div id="table-area"></div>
 
+    <!-- ── API Keys Panel ────────────────────────────────────────── -->
+    <div id="api-keys-area" class="hidden">
+      <div class="flex items-center justify-between mb-4">
+        <p class="text-xs" style="color:#888;">Manage API keys for programmatic access. Keys are shown only at creation time.</p>
+        <button onclick="openCreateApiKeyModal()"
+          class="text-xs border border-cs-border rounded px-3 py-1.5 text-cs-muted hover:text-cs-text cursor-pointer" style="transition:color 150ms,background 150ms;">+ Create API Key</button>
+      </div>
+      <div id="api-keys-list">
+        <div class="flex justify-center py-8"><div class="w-5 h-5 border-2 border-cs-border border-t-cs-primary rounded-full animate-spin"></div></div>
+      </div>
+    </div>
+
     <!-- ── Config Editor ─────────────────────────────────────────── -->
     <div id="config-area" class="hidden">
       <!-- Section tabs -->
@@ -191,6 +204,100 @@
       </div>
     </div>
   </main>
+</div>
+
+<!-- ── Impersonate modal ──────────────────────────────────────────────── -->
+<div id="impersonate-modal-backdrop" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden">
+  <div class="bg-cs-surface border border-cs-border rounded w-full max-w-md" style="box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
+    <div class="flex items-center justify-between px-5 py-3 border-b border-cs-border">
+      <span class="font-medium text-sm">Impersonate User</span>
+      <button onclick="closeImpersonateModal()" class="text-cs-muted hover:text-cs-text text-xl leading-none" style="transition: color 150ms ease;">×</button>
+    </div>
+    <div class="p-5">
+      <p class="text-xs mb-3" style="color:#888;">A short-lived token (1 hour) has been generated for this user. Use it to test API requests as this user.</p>
+      <div id="impersonate-user-info" class="mb-3 text-xs" style="color:#888;"></div>
+      <label class="block text-xs mb-1" style="color:#888;">Token</label>
+      <textarea id="impersonate-token" readonly
+        class="w-full bg-cs-bg border border-cs-border rounded text-cs-text px-3 py-2 text-xs font-mono outline-none resize-none"
+        style="height:80px;line-height:1.5;" spellcheck="false"></textarea>
+      <div class="flex gap-2 mt-3">
+        <button onclick="copyImpersonateToken()"
+          class="text-xs border border-cs-border rounded px-3 py-1.5 text-cs-muted hover:text-cs-text cursor-pointer" style="transition:color 150ms,background 150ms;">Copy Token</button>
+        <button onclick="closeImpersonateModal()"
+          class="text-xs border border-cs-border rounded px-3 py-1.5 text-cs-muted hover:text-cs-text cursor-pointer" style="transition:color 150ms,background 150ms;">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Create API Key modal ───────────────────────────────────────────── -->
+<div id="apikey-modal-backdrop" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden">
+  <div class="bg-cs-surface border border-cs-border rounded w-full max-w-lg" style="box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
+    <div class="flex items-center justify-between px-5 py-3 border-b border-cs-border">
+      <span class="font-medium text-sm" id="apikey-modal-title">Create API Key</span>
+      <button onclick="closeApiKeyModal()" class="text-cs-muted hover:text-cs-text text-xl leading-none" style="transition: color 150ms ease;">×</button>
+    </div>
+    <div class="p-5 space-y-4">
+      <!-- Result (shown after creation) -->
+      <div id="apikey-result" class="hidden">
+        <p class="text-xs mb-2" style="color:#03dac6;">✓ API key created. Copy it now — it will not be shown again.</p>
+        <label class="block text-xs mb-1" style="color:#888;">Your API Key</label>
+        <div class="flex gap-2">
+          <input type="text" id="apikey-result-value" readonly
+            class="flex-1 bg-cs-bg border border-cs-border rounded text-cs-text px-2 py-1.5 text-xs font-mono outline-none" />
+          <button onclick="copyApiKey()"
+            class="text-xs border border-cs-border rounded px-3 py-1.5 text-cs-muted hover:text-cs-text cursor-pointer whitespace-nowrap" style="transition:color 150ms,background 150ms;">Copy</button>
+        </div>
+        <button onclick="closeApiKeyModal()" class="mt-3 text-xs border border-cs-border rounded px-3 py-1.5 text-cs-muted hover:text-cs-text cursor-pointer" style="transition:color 150ms,background 150ms;">Close</button>
+      </div>
+      <!-- Form (shown before creation) -->
+      <div id="apikey-form">
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs mb-1" style="color:#888;">Name</label>
+            <input type="text" id="apikey-name" placeholder="My API Key"
+              class="w-full bg-cs-bg border border-cs-border rounded text-cs-text px-2 py-1.5 text-sm outline-none focus:border-cs-primary" style="transition:border-color 150ms;" />
+          </div>
+          <div>
+            <label class="block text-xs mb-1" style="color:#888;">User (for admin creation)</label>
+            <select id="apikey-user-entity" class="w-full bg-cs-bg border border-cs-border rounded text-cs-text px-2 py-1.5 text-sm outline-none focus:border-cs-primary" style="transition:border-color 150ms;">
+              <option value="">— Create for myself —</option>
+            </select>
+          </div>
+          <div id="apikey-user-id-row" class="hidden">
+            <label class="block text-xs mb-1" style="color:#888;">User ID</label>
+            <input type="text" id="apikey-user-id" placeholder="user-uuid"
+              class="w-full bg-cs-bg border border-cs-border rounded text-cs-text px-2 py-1.5 text-sm outline-none focus:border-cs-primary" style="transition:border-color 150ms;" />
+          </div>
+          <div>
+            <label class="block text-xs mb-1" style="color:#888;">Permissions <span style="color:#555;">(leave empty for full access)</span></label>
+            <div class="flex flex-wrap gap-3">
+              <label class="flex items-center gap-1.5 text-xs cursor-pointer select-none" style="color:#888;"><input type="checkbox" class="apikey-perm" value="create" /> create</label>
+              <label class="flex items-center gap-1.5 text-xs cursor-pointer select-none" style="color:#888;"><input type="checkbox" class="apikey-perm" value="read" /> read</label>
+              <label class="flex items-center gap-1.5 text-xs cursor-pointer select-none" style="color:#888;"><input type="checkbox" class="apikey-perm" value="update" /> update</label>
+              <label class="flex items-center gap-1.5 text-xs cursor-pointer select-none" style="color:#888;"><input type="checkbox" class="apikey-perm" value="delete" /> delete</label>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs mb-1" style="color:#888;">Entity access <span style="color:#555;">(leave empty for all entities)</span></label>
+            <div id="apikey-entities-list" class="flex flex-wrap gap-2"></div>
+          </div>
+          <div>
+            <label class="block text-xs mb-1" style="color:#888;">Expiration date <span style="color:#555;">(optional)</span></label>
+            <input type="datetime-local" id="apikey-expires"
+              class="bg-cs-bg border border-cs-border rounded text-cs-text px-2 py-1.5 text-sm outline-none focus:border-cs-primary" style="transition:border-color 150ms;" />
+          </div>
+        </div>
+        <div id="apikey-form-error" class="hidden text-red-400 text-xs mt-2"></div>
+        <div class="flex gap-2 mt-4">
+          <button onclick="submitCreateApiKey()"
+            class="text-sm py-1.5 px-4 rounded cursor-pointer bg-cs-primary text-cs-bg font-medium hover:opacity-90 disabled:opacity-50" id="apikey-submit-btn" style="transition:opacity 150ms;">Create Key</button>
+          <button onclick="closeApiKeyModal()"
+            class="text-sm border border-cs-border rounded py-1.5 px-4 text-cs-muted hover:text-cs-text hover:bg-cs-border cursor-pointer" style="transition:color 150ms,background 150ms;">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- ── Record modal ───────────────────────────────────────────────────── -->
@@ -361,7 +468,11 @@
 
   // ── Auth ───────────────────────────────────────────────────────────────
   function getAdminCollections() {
-    return (schema.entities || []).filter(e => e.authenticable && e.admin !== false);
+    return (schema.userCollections || schema.entities || []).filter(e => e.admin !== false);
+  }
+
+  function getNonAuthEntities() {
+    return (schema.entities || []).filter(function(e) { return !e.authenticable; });
   }
 
   function populateLoginCollections() {
@@ -471,17 +582,18 @@
   function buildSidebar() {
     document.getElementById('nav-user-collections').innerHTML =
       (schema.userCollections || []).map(uc =>
-        `<div class="nav-item" onclick="selectItem('collection','${uc.name}',this)">${uc.name}</div>`
+        `<div class="nav-item" onclick="selectItem('collection','${escHtml(uc.name)}',this)">${escHtml(uc.name)}</div>`
       ).join('');
     document.getElementById('nav-entities').innerHTML =
-      (schema.entities || []).map(e =>
-        `<div class="nav-item" onclick="selectItem('entity','${e.name}',this)">${e.name}</div>`
+      getNonAuthEntities().map(e =>
+        `<div class="nav-item" onclick="selectItem('entity','${escHtml(e.name)}',this)">${escHtml(e.name)}</div>`
       ).join('');
   }
 
   function selectItem(type, name, el) {
     configMode = false;
     document.getElementById('config-area').classList.add('hidden');
+    document.getElementById('api-keys-area').classList.add('hidden');
     document.getElementById('table-area').classList.remove('hidden');
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     el.classList.add('active');
@@ -1047,6 +1159,7 @@
     document.getElementById('page-title').textContent = t('config.editor_title');
     document.getElementById('btn-add').classList.add('hidden');
     document.getElementById('table-area').classList.add('hidden');
+    document.getElementById('api-keys-area').classList.add('hidden');
     document.getElementById('config-area').classList.remove('hidden');
     closeSidebar();
     loadConfig();
@@ -1168,6 +1281,200 @@
     if (!configData) return;
     showConfigTab(configActiveTab);
     toast(t('toast.config_reset'), 'info');
+  }
+
+  // ── API Keys Panel ─────────────────────────────────────────────────────
+  function selectApiKeys(el) {
+    document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.remove('active'); });
+    el.classList.add('active');
+    configMode = false;
+    currentItem = null;
+    document.getElementById('page-title').textContent = 'API Keys';
+    document.getElementById('btn-add').classList.add('hidden');
+    document.getElementById('table-area').classList.add('hidden');
+    document.getElementById('config-area').classList.add('hidden');
+    document.getElementById('api-keys-area').classList.remove('hidden');
+    closeSidebar();
+    loadApiKeys();
+  }
+
+  async function loadApiKeys() {
+    const listEl = document.getElementById('api-keys-list');
+    listEl.innerHTML = '<div class="flex justify-center py-8"><div class="w-5 h-5 border-2 border-cs-border border-t-cs-primary rounded-full animate-spin"></div></div>';
+    try {
+      const r = await apiFetch('/admin/api-keys');
+      if (!r.ok) throw new Error('Failed to load API keys');
+      const keys = await r.json();
+      listEl.innerHTML = renderApiKeysList(keys);
+    } catch (e) {
+      listEl.innerHTML = '<p class="text-red-400 text-sm p-4">' + escHtml(e.message) + '</p>';
+    }
+  }
+
+  function renderApiKeysList(keys) {
+    if (!keys.length) {
+      return '<div class="flex flex-col items-center justify-center py-16 text-center"><p class="text-sm" style="color:#888;">No API keys yet. Click <span style="color:#e1e1e1;">+ Create API Key</span> to add one.</p></div>';
+    }
+    const rows = keys.map(function(k) {
+      const perms = (k.permissions && k.permissions.length) ? k.permissions.join(', ') : 'all';
+      const ents  = (k.entities && k.entities.length)       ? k.entities.join(', ')     : 'all';
+      const exp   = k.expiresAt ? new Date(k.expiresAt).toLocaleDateString() : '—';
+      return '<tr class="border-b" style="border-color:#2a2a2a;">'
+        + '<td class="px-4 py-2.5 text-sm" style="color:#e1e1e1;">' + escHtml(k.name) + '</td>'
+        + '<td class="px-4 py-2.5 text-xs" style="color:#888;">' + escHtml(k.userEntity) + '</td>'
+        + '<td class="px-4 py-2.5 text-xs" style="color:#888;" title="' + escHtml(k.userId) + '">' + escHtml(k.userId.substring(0, 8)) + '…</td>'
+        + '<td class="px-4 py-2.5 text-xs" style="color:#888;">' + escHtml(perms) + '</td>'
+        + '<td class="px-4 py-2.5 text-xs" style="color:#888;">' + escHtml(ents) + '</td>'
+        + '<td class="px-4 py-2.5 text-xs" style="color:#888;">' + escHtml(exp) + '</td>'
+        + '<td class="px-4 py-2.5 text-xs" style="color:#888;">' + escHtml(k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleDateString() : '—') + '</td>'
+        + '<td class="px-4 py-2.5"><button class="text-xs border rounded px-2 py-1 hover:opacity-80" style="border-color:rgba(239,68,68,0.4);color:#f87171;background:transparent;" onclick="deleteApiKeyAdmin(' + "'" + escHtml(k.id) + "'" + ')">Delete</button></td>'
+        + '</tr>';
+    }).join('');
+    return '<div class="overflow-x-auto border rounded" style="border-color:#2a2a2a;">'
+      + '<table class="w-full text-sm" style="color:#e1e1e1;">'
+      + '<thead style="background:#1e1e1e;"><tr class="border-b" style="border-color:#2a2a2a;">'
+      + '<th class="px-4 py-2.5 text-left text-xs font-medium" style="color:#888;">Name</th>'
+      + '<th class="px-4 py-2.5 text-left text-xs font-medium" style="color:#888;">Collection</th>'
+      + '<th class="px-4 py-2.5 text-left text-xs font-medium" style="color:#888;">User ID</th>'
+      + '<th class="px-4 py-2.5 text-left text-xs font-medium" style="color:#888;">Permissions</th>'
+      + '<th class="px-4 py-2.5 text-left text-xs font-medium" style="color:#888;">Entities</th>'
+      + '<th class="px-4 py-2.5 text-left text-xs font-medium" style="color:#888;">Expires</th>'
+      + '<th class="px-4 py-2.5 text-left text-xs font-medium" style="color:#888;">Last Used</th>'
+      + '<th class="px-4 py-2.5 text-left text-xs font-medium" style="color:#888;">Actions</th>'
+      + '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+  }
+
+  async function deleteApiKeyAdmin(id) {
+    if (!confirm('Delete this API key? This cannot be undone.')) return;
+    try {
+      const r = await apiFetch('/admin/api-keys/' + encodeURIComponent(id), { method: 'DELETE' });
+      if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Delete failed'); }
+      toast('API key deleted', 'success');
+      loadApiKeys();
+    } catch (e) { toast('Delete failed: ' + e.message, 'error'); }
+  }
+
+  // ── Create API Key modal ─────────────────────────────────────────────────
+  function openCreateApiKeyModal(prefillUserId, prefillEntity) {
+    document.getElementById('apikey-form').classList.remove('hidden');
+    document.getElementById('apikey-result').classList.add('hidden');
+    document.getElementById('apikey-form-error').classList.add('hidden');
+    document.getElementById('apikey-name').value = '';
+    document.getElementById('apikey-expires').value = '';
+    document.getElementById('apikey-user-id').value = prefillUserId || '';
+    document.querySelectorAll('.apikey-perm').forEach(function(cb) { cb.checked = false; });
+
+    // Populate entity access checkboxes
+    const entList = document.getElementById('apikey-entities-list');
+    entList.innerHTML = getNonAuthEntities().map(function(e) {
+      return '<label class="flex items-center gap-1.5 text-xs cursor-pointer select-none" style="color:#888;">'
+        + '<input type="checkbox" class="apikey-entity-cb" value="' + escAttr(e.slug) + '" /> ' + escHtml(e.name) + '</label>';
+    }).join('');
+
+    // Populate user entity selector for admin (create key for another user)
+    const sel = document.getElementById('apikey-user-entity');
+    sel.innerHTML = '<option value="">— Create for myself —</option>'
+      + (schema.userCollections || []).map(function(uc) {
+          return '<option value="' + escAttr(uc.name) + '"' + (prefillEntity === uc.name ? ' selected' : '') + '>' + escHtml(uc.name) + '</option>';
+        }).join('');
+    sel.onchange = function() {
+      const row = document.getElementById('apikey-user-id-row');
+      row.classList.toggle('hidden', !sel.value);
+    };
+    if (prefillEntity) {
+      sel.value = prefillEntity;
+      document.getElementById('apikey-user-id-row').classList.remove('hidden');
+    } else {
+      document.getElementById('apikey-user-id-row').classList.add('hidden');
+    }
+
+    document.getElementById('apikey-modal-backdrop').classList.remove('hidden');
+  }
+
+  function closeApiKeyModal() {
+    document.getElementById('apikey-modal-backdrop').classList.add('hidden');
+  }
+
+  async function submitCreateApiKey() {
+    const name      = document.getElementById('apikey-name').value.trim() || 'API Key';
+    const expiresAt = document.getElementById('apikey-expires').value;
+    const permissions = Array.from(document.querySelectorAll('.apikey-perm:checked')).map(function(cb) { return cb.value; });
+    const entities  = Array.from(document.querySelectorAll('.apikey-entity-cb:checked')).map(function(cb) { return cb.value; });
+    const selEntity = document.getElementById('apikey-user-entity').value;
+    const selUserId = document.getElementById('apikey-user-id').value.trim();
+
+    const errEl = document.getElementById('apikey-form-error');
+    errEl.classList.add('hidden');
+
+    const btn = document.getElementById('apikey-submit-btn');
+    btn.disabled = true; btn.textContent = 'Creating…';
+
+    try {
+      let r, data;
+      if (selEntity && selUserId) {
+        // Admin creates key for another user
+        r = await apiFetch('/admin/api-keys', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: selUserId, userEntity: selEntity, name, permissions, entities, expiresAt: expiresAt || null }),
+        });
+      } else {
+        // User creates key for themselves
+        const col = getAdminCollections()[0];
+        if (!col) throw new Error('No admin collection found');
+        r = await apiFetch('/api/auth/' + toSlug(col.name) + '/api-keys', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, permissions, entities, expiresAt: expiresAt || null }),
+        });
+      }
+      data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'Failed to create key');
+      document.getElementById('apikey-result-value').value = data.key;
+      document.getElementById('apikey-form').classList.add('hidden');
+      document.getElementById('apikey-result').classList.remove('hidden');
+      // Refresh list if on API keys panel
+      if (!document.getElementById('api-keys-area').classList.contains('hidden')) loadApiKeys();
+    } catch (e) {
+      errEl.textContent = e.message;
+      errEl.classList.remove('hidden');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Create Key';
+    }
+  }
+
+  function copyApiKey() {
+    const val = document.getElementById('apikey-result-value').value;
+    if (navigator.clipboard) { navigator.clipboard.writeText(val).then(function() { toast('Copied!', 'success'); }); }
+    else { document.getElementById('apikey-result-value').select(); document.execCommand('copy'); toast('Copied!', 'success'); }
+  }
+
+  // ── Impersonate ───────────────────────────────────────────────────────────
+  async function impersonateUser(userId, entityName) {
+    try {
+      const r = await apiFetch('/admin/impersonate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, userEntity: entityName }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'Impersonate failed');
+      document.getElementById('impersonate-token').value = data.token;
+      document.getElementById('impersonate-user-info').textContent =
+        'User: ' + (data.user && data.user.email ? data.user.email : userId) + ' (' + entityName + ')' +
+        ' · Expires: ' + new Date(data.expiresAt).toLocaleTimeString();
+      document.getElementById('impersonate-modal-backdrop').classList.remove('hidden');
+    } catch (e) { toast('Impersonate failed: ' + e.message, 'error'); }
+  }
+
+  function closeImpersonateModal() {
+    document.getElementById('impersonate-modal-backdrop').classList.add('hidden');
+  }
+
+  function copyImpersonateToken() {
+    const val = document.getElementById('impersonate-token').value;
+    if (navigator.clipboard) { navigator.clipboard.writeText(val).then(function() { toast('Copied!', 'success'); }); }
+    else { document.getElementById('impersonate-token').select(); document.execCommand('copy'); toast('Copied!', 'success'); }
   }
 
   // ── AI Chat ────────────────────────────────────────────────────────────
