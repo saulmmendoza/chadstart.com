@@ -12,7 +12,8 @@ const { validateSchema } = require('../core/schema-validator');
 const { buildCore } = require('../core/entity-engine');
 const { initDb, findAll, findAllSimple } = require('../core/db');
 const { registerApiRoutes, createBackendSdk } = require('../core/api-generator');
-const { registerAuthRoutes, verifyToken, omitPassword } = require('../core/auth');
+const { registerAuthRoutes, registerApiKeyRoutes, initApiKeys, verifyToken, omitPassword,
+        createApiKey, listAllApiKeys, deleteApiKey } = require('../core/auth');
 const { initRealtime, emit } = require('../core/realtime');
 const { generateOpenApiSpec } = require('../core/openapi');
 const { registerFileRoutes } = require('../core/file-storage');
@@ -57,6 +58,7 @@ async function buildApp(yamlPath, reloadFn) {
     ? path.resolve(path.dirname(yamlPath), core.database)
     : undefined;
   initDb(core, dbPath);
+  initApiKeys();
 
   const app = express();
   app.use(express.json());
@@ -78,6 +80,7 @@ async function buildApp(yamlPath, reloadFn) {
 
   app.use('/api/auth', authLimiter);
   registerAuthRoutes(app, core);
+  registerApiKeyRoutes(app, core);
 
   const apiLimiters = buildApiLimiters(core);
   app.use('/api', ...apiLimiters);
@@ -115,13 +118,15 @@ async function buildApp(yamlPath, reloadFn) {
     }
   });
   app.get('/admin/schema', (_req, res) => {
+    const allEntities = Object.values(core.entities).map((e) => ({
+      name: e.name, tableName: e.tableName, slug: e.slug,
+      properties: e.properties, belongsTo: e.belongsTo, belongsToMany: e.belongsToMany,
+      authenticable: e.authenticable, single: e.single, policies: e.policies,
+    }));
     res.json({
       name: core.name,
-      entities: Object.values(core.entities).map((e) => ({
-        name: e.name, tableName: e.tableName, slug: e.slug,
-        properties: e.properties, belongsTo: e.belongsTo, belongsToMany: e.belongsToMany,
-        authenticable: e.authenticable, single: e.single, policies: e.policies,
-      })),
+      entities: allEntities,
+      userCollections: allEntities.filter((e) => e.authenticable),
     });
   });
 
@@ -195,12 +200,69 @@ async function buildApp(yamlPath, reloadFn) {
     try {
       let rows = findAllSimple(item.tableName);
       if (type === 'collection') rows = rows.map(omitPassword);
-      res.send(renderAdminTable(rows, name));
+      res.send(renderAdminTable(rows, name, type === 'collection', item.name));
     } catch (err) {
       res.status(500).send(`<p class="text-red-400 p-4">Error: ${escAdminHtml(err.message)}</p>`);
     }
   });
   logger.info('  Admin UI available at /admin');
+
+  // ── Admin API key management ─────────────────────────────────────────────
+  function requireAdminToken(req, res) {
+    const header = req.headers.authorization;
+    if (!header || !header.startsWith('Bearer ')) { res.status(401).json({ error: 'Unauthorized' }); return false; }
+    try { verifyToken(header.slice(7)); return true; } catch { res.status(401).json({ error: 'Invalid token' }); return false; }
+  }
+
+  // GET /admin/api-keys — list all API keys
+  app.get('/admin/api-keys', adminRateLimiter, (req, res) => {
+    if (!requireAdminToken(req, res)) return;
+    try { res.json(listAllApiKeys()); } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  // POST /admin/api-keys — create an API key for any user
+  app.post('/admin/api-keys', adminRateLimiter, (req, res) => {
+    if (!requireAdminToken(req, res)) return;
+    const { userId, userEntity, name, permissions, entities: keyEntities, expiresAt } = req.body || {};
+    if (!userId || !userEntity) return res.status(400).json({ error: 'userId and userEntity are required' });
+    try {
+      const result = createApiKey(userId, userEntity, {
+        name: name || 'API Key',
+        permissions: Array.isArray(permissions) ? permissions : [],
+        entities: Array.isArray(keyEntities) ? keyEntities : [],
+        expiresAt: expiresAt || null,
+      });
+      res.status(201).json(result);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  // DELETE /admin/api-keys/:id — delete any API key
+  app.delete('/admin/api-keys/:id', adminRateLimiter, (req, res) => {
+    if (!requireAdminToken(req, res)) return;
+    try { deleteApiKey(req.params.id); res.json({ success: true }); } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  // POST /admin/impersonate — generate a short-lived token as a user (for admin preview)
+  app.post('/admin/impersonate', adminRateLimiter, (req, res) => {
+    const header = req.headers.authorization;
+    if (!header || !header.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorized' });
+    let adminPayload;
+    try { adminPayload = verifyToken(header.slice(7)); } catch { return res.status(401).json({ error: 'Invalid token' }); }
+    const { userId, userEntity } = req.body || {};
+    if (!userId || !userEntity) return res.status(400).json({ error: 'userId and userEntity are required' });
+    const entity = Object.values(core.authenticableEntities || {}).find((e) => e.name === userEntity);
+    if (!entity) return res.status(404).json({ error: 'User collection not found' });
+    const { findById } = require('../core/db');
+    const user = findById(entity.tableName, userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    const { signToken } = require('../core/auth');
+    const token = signToken(
+      { id: userId, entity: userEntity, impersonated: true, impersonatedBy: adminPayload.id },
+      '1h'
+    );
+    const expiresAt = new Date(Date.now() + 3600 * 1000).toISOString();
+    res.json({ token, expiresAt, userId, userEntity, user: omitPassword(user) });
+  });
 
   await loadPlugins(app, core);
   app.get('/health', (_req, res) => res.json({ status: 'ok', name: core.name }));
@@ -318,7 +380,7 @@ function escAdminHtml(s) {
  * Render an HTML table fragment for the Admin UI HTMX partial.
  * Uses Tailwind utility classes that the Play CDN will process client-side.
  */
-function renderAdminTable(rows, name) {
+function renderAdminTable(rows, name, isUserCollection, entityName) {
   const esc = escAdminHtml;
   if (!rows.length) {
     return `<div class="flex flex-col items-center justify-center py-20 text-center">
@@ -337,11 +399,18 @@ function renderAdminTable(rows, name) {
     ).join('');
     const safeJson = JSON.stringify(row)
       .replace(/&/g, '\\u0026').replace(/'/g, '\\u0027').replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
+    const safeId = esc(String(row.id ?? ''));
+    const safeEntity = esc(String(entityName || ''));
+    const impersonateBtn = isUserCollection
+      ? `<button class="text-xs border rounded px-2 py-1 hover:opacity-80" style="border-color:rgba(187,134,252,0.4);color:#bb86fc;background:transparent;transition:opacity 150ms ease;"
+          onclick="impersonateUser('${safeId}','${safeEntity}')">Impersonate</button>`
+      : '';
     const actions = `<td class="px-4 py-2.5"><div class="flex gap-2">
       <button class="text-xs border rounded px-2 py-1 hover:opacity-80" style="border-color:#2a2a2a;color:#e1e1e1;background:transparent;transition:opacity 150ms ease;"
         onclick='openEditModal(${safeJson})'>Edit</button>
       <button class="text-xs border rounded px-2 py-1 hover:opacity-80" style="border-color:rgba(239,68,68,0.4);color:#f87171;background:transparent;transition:opacity 150ms ease;"
-        onclick="deleteRecord(${row.id})">Delete</button>
+        onclick="deleteRecord('${safeId}')">Delete</button>
+      ${impersonateBtn}
     </div></td>`;
     return `<tr class="border-b" style="border-color:#2a2a2a;">${tds}${actions}</tr>`;
   }).join('');
