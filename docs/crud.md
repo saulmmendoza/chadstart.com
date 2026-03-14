@@ -29,7 +29,7 @@ Examples:
 - `http://localhost:3000/api/singles/home-content` gets the home content
 
 !!! tip
-    In addition to **CRUD endpoints** that are generated automatically, you also can create your own [custom endpoints](./endpoints.md) to add your custom logic.
+    In addition to **CRUD endpoints** that are generated automatically, you also can create your own [custom endpoints](./functions.md) to add your custom logic.
 
 ## Using the JavaScript SDK
 

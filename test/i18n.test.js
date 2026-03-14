@@ -64,7 +64,7 @@ describe('i18n – locale files', () => {
 
   it('config section has all tab description keys', () => {
     const { config } = JSON.parse(fs.readFileSync(EN_LOCALE, 'utf8'));
-    const tabs = ['general', 'entities', 'endpoints', 'files', 'settings', 'all'];
+    const tabs = ['general', 'entities', 'functions', 'files', 'settings', 'all'];
     for (const tab of tabs) {
       assert.ok(tab in config.tabs,         `config.tabs.${tab} is missing`);
       assert.ok(tab in config.descriptions, `config.descriptions.${tab} is missing`);

@@ -25,9 +25,9 @@
       "description": "Map of entity names to their definitions.",
       "additionalProperties": { "$ref": "#/$defs/entity" }
     },
-    "endpoints": {
+    "functions": {
       "type": "object",
-      "description": "Map of custom endpoint names to their definitions.",
+      "description": "Map of custom function-based endpoint names to their definitions.",
       "additionalProperties": { "$ref": "#/$defs/endpoint" }
     },
     "groups": {
@@ -230,9 +230,9 @@
     },
     "middleware": {
       "type": "object",
-      "required": ["handler"],
+      "required": ["function"],
       "properties": {
-        "handler": { "type": "string" }
+        "function": { "type": "string" }
       },
       "additionalProperties": false
     },
@@ -283,11 +283,11 @@
     },
     "endpoint": {
       "type": "object",
-      "required": ["path", "method", "handler"],
+      "required": ["path", "method", "function"],
       "properties": {
         "path":        { "type": "string", "description": "URL path (supports :param syntax)." },
         "method":      { "type": "string", "enum": ["GET", "POST", "PATCH", "PUT", "DELETE"] },
-        "handler":     { "type": "string", "description": "Name of the handler function in /handlers." },
+        "function":    { "type": "string", "description": "Name of the function in /functions." },
         "description": { "type": "string" },
         "policies":    { "type": "array", "items": { "$ref": "#/$defs/policy" } }
       },
