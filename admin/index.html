@@ -943,7 +943,7 @@ function setActiveNav(el) {
 }
 
 function showOnlyArea(id) {
-  ['dashboard-area', 'table-view', 'config-area'].forEach(a => {
+  ['dashboard-area', 'table-view', 'config-area', 'api-keys-area'].forEach(a => {
     document.getElementById(a).classList.toggle('hidden', a !== id);
   });
 }
@@ -1587,44 +1587,6 @@ document.addEventListener('keydown', e => {
     if (!document.getElementById('seed-modal').classList.contains('hidden')) { closeSeedModal(); return; }
     if (!document.getElementById('modal-backdrop').classList.contains('hidden')) { closeModal(); return; }
     if (inInput) { document.activeElement.blur(); return; }
-    return '<div class="entity-card rounded border p-4" style="border-color:#2a2a2a;background:#181818;"'
-      + ' data-entity-id="' + id + '" data-original-name="' + escAttr(entityName) + '">'
-      + '<div class="flex flex-wrap items-end gap-3 mb-3">'
-        + '<div class="flex-1" style="min-width:160px;">'
-          + '<label class="' + _LBL + '" style="color:#888;">' + t('config.entities.entity_name') + '</label>'
-          + '<input type="text" id="cfg-e-name-' + id + '" value="' + escAttr(entityName) + '" placeholder="' + escAttr(t('config.entities.entity_placeholder')) + '"'
-          + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" />'
-        + '</div>'
-        + '<div class="flex gap-4 items-center" style="padding-bottom:2px;">'
-          + '<label class="flex items-center gap-1.5 text-xs cursor-pointer select-none" style="color:#888;">'
-          + '<input type="checkbox" id="cfg-e-auth-' + id + '"' + (def.authenticable ? ' checked' : '') + ' />'
-          + ' ' + t('config.entities.user_collection') + '</label>'
-          + '<label class="flex items-center gap-1.5 text-xs cursor-pointer select-none" style="color:#888;">'
-          + '<input type="checkbox" id="cfg-e-single-' + id + '"' + (def.single ? ' checked' : '') + ' />'
-          + ' ' + t('config.entities.single') + '</label>'
-        + '</div>'
-        + '<button type="button" onclick="removeEntityCard(' + id + ')"'
-        + ' class="text-xs px-2 py-1.5 rounded border cursor-pointer"'
-        + ' style="border-color:rgba(239,68,68,0.3);color:#f87171;background:transparent;">' + t('config.entities.remove') + '</button>'
-      + '</div>'
-      + '<div class="grid gap-3 mb-3" style="grid-template-columns:1fr 1fr;">'
-        + '<div><label class="' + _LBL + '" style="color:#888;">' + t('config.entities.belongs_to') + ' <span style="color:#555;">' + t('config.entities.belongs_to_hint') + '</span></label>'
-        + '<input type="text" id="cfg-e-bt-' + id + '" value="' + escAttr(btArr.join(', ')) + '" placeholder="' + escAttr(t('config.entities.belongs_to_placeholder')) + '"'
-        + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
-        + '<div><label class="' + _LBL + '" style="color:#888;">' + t('config.entities.belongs_to_many') + ' <span style="color:#555;">' + t('config.entities.belongs_to_hint') + '</span></label>'
-        + '<input type="text" id="cfg-e-btm-' + id + '" value="' + escAttr(btmArr.join(', ')) + '" placeholder="' + escAttr(t('config.entities.belongs_to_many_placeholder')) + '"'
-        + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
-      + '</div>'
-      + '<div>'
-        + '<div class="flex items-center justify-between mb-1.5">'
-          + '<span class="text-xs" style="color:#888;">' + t('config.entities.properties') + '</span>'
-          + '<button type="button" onclick="addPropRow(' + id + ')"'
-          + ' class="text-xs px-2 py-0.5 rounded border cursor-pointer"'
-          + ' style="border-color:#2a2a2a;color:#888;background:transparent;transition:color 150ms;">' + t('config.entities.add_property') + '</button>'
-        + '</div>'
-        + '<div id="cfg-e-props-' + id + '" class="space-y-1.5">' + propsHtml + '</div>'
-      + '</div>'
-      + '</div>';
   }
 
   function renderPropRow(name, type) {
@@ -2188,9 +2150,9 @@ init();
     configMode = true;
     document.getElementById('page-title').textContent = t('config.editor_title');
     document.getElementById('btn-add').classList.add('hidden');
-    document.getElementById('table-area').classList.add('hidden');
-    document.getElementById('api-keys-area').classList.add('hidden');
-    document.getElementById('config-area').classList.remove('hidden');
+    document.getElementById('btn-share').classList.add('hidden');
+    document.getElementById('btn-devs').classList.add('hidden');
+    showOnlyArea('config-area');
     closeSidebar();
     loadConfig();
   }
@@ -2338,9 +2300,9 @@ init();
     currentItem = null;
     document.getElementById('page-title').textContent = 'API Keys';
     document.getElementById('btn-add').classList.add('hidden');
-    document.getElementById('table-area').classList.add('hidden');
-    document.getElementById('config-area').classList.add('hidden');
-    document.getElementById('api-keys-area').classList.remove('hidden');
+    document.getElementById('btn-share').classList.add('hidden');
+    document.getElementById('btn-devs').classList.add('hidden');
+    showOnlyArea('api-keys-area');
     closeSidebar();
     loadApiKeys();
   }

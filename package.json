@@ -13,7 +13,8 @@
     "build": "node cli/cli.js build",
     "seed": "node cli/cli.js seed",
     "test": "mocha --timeout 10000 'test/*.test.js'",
-    "test:coverage": "c8 --reporter=text --reporter=json-summary mocha --timeout 10000 'test/*.test.js'"
+    "test:coverage": "c8 --reporter=text --reporter=json-summary mocha --timeout 10000 'test/*.test.js'",
+    "test:browser": "playwright test"
   },
   "repository": {
     "type": "git",
@@ -51,6 +52,7 @@
     "yaml": "^2.8.2"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "c8": "^11.0.0",
     "mocha": "^11.7.5"
   },
