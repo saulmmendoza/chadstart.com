@@ -518,7 +518,12 @@ function applyDefaults(body, entity) {
   const result = { ...(body || {}) };
   for (const p of entity.properties) {
     if (p.default !== undefined && (result[p.name] === undefined || result[p.name] === null)) {
-      result[p.name] = p.default;
+      // Coerce boolean defaults to SQLite integers (1/0)
+      if (p.type === 'boolean' || p.type === 'bool') {
+        result[p.name] = p.default ? 1 : 0;
+      } else {
+        result[p.name] = p.default;
+      }
     }
   }
   return result;
@@ -563,11 +568,15 @@ function sanitizeBody(body, entity, fullReplace) {
   }
 
   // Serialize group properties to JSON strings for SQLite TEXT storage
+  // Coerce boolean properties to SQLite integers (1/0)
   for (const p of entity.properties) {
     if (p.type === 'group' && result[p.name] !== undefined && result[p.name] !== null) {
       if (typeof result[p.name] !== 'string') {
         result[p.name] = JSON.stringify(result[p.name]);
       }
+    }
+    if ((p.type === 'boolean' || p.type === 'bool') && result[p.name] !== undefined && result[p.name] !== null) {
+      result[p.name] = result[p.name] ? 1 : 0;
     }
   }
 

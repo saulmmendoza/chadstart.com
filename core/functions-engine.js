@@ -173,10 +173,15 @@ async function runJsFunction(entry, event, ctx) {
 // ── External runtime invocation ───────────────────────────────────────────────
 
 async function runExternal(runtime, entry, event, ctx) {
-  const worker = getWorker(runtime);
-  if (worker) return worker.invoke(entry, event, ctx);
+  // Strip the Express request object — it has circular references and cannot be
+  // serialised to JSON. The serialised event still contains body, query, params,
+  // and headers, which are all a function needs to handle the request.
+  const { req: _req, ...safeEvent } = (event || {});
 
-  const input = JSON.stringify({ event, ctx });
+  const worker = getWorker(runtime);
+  if (worker) return worker.invoke(entry, safeEvent, ctx);
+
+  const input = JSON.stringify({ event: safeEvent, ctx });
   const ts = Date.now();
   const safeEntry = entry.replace(/'/g, "'\\''"); // single-quote escape for shell
   const cmds = {

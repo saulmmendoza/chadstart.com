@@ -275,7 +275,7 @@ async function doSignup() {
   const name     = email.split('@')[0];
   if (!email || !password) return toast('Enter email and password', 'error');
   try {
-    const r = await fetch(BASE + '/api/auth/users/signup', {
+    const r = await fetch(BASE + '/api/auth/user/signup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, email, password }),
@@ -293,7 +293,7 @@ async function doLogin() {
   const password = document.getElementById('inp-password').value;
   if (!email || !password) return toast('Enter email and password', 'error');
   try {
-    const r = await fetch(BASE + '/api/auth/users/login', {
+    const r = await fetch(BASE + '/api/auth/user/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
@@ -316,7 +316,7 @@ function doLogout() {
 // ── CRUD ──────────────────────────────────────────────────────────────────────
 async function loadTodos() {
   try {
-    const r = await fetch(BASE + '/api/todos?orderBy=createdAt&order=DESC', { headers: authHeaders() });
+    const r = await fetch(BASE + '/api/collections/todo?orderBy=createdAt&order=DESC', { headers: authHeaders() });
     const d = await r.json();
     todos = d.data || d || [];
     renderList();
@@ -331,7 +331,7 @@ async function addTodo(e) {
   const priority = document.getElementById('inp-priority').value || 'medium';
   if (!title) return;
   try {
-    const r = await fetch(BASE + '/api/todos', {
+    const r = await fetch(BASE + '/api/collections/todo', {
       method: 'POST',
       headers: authHeaders(),
       body: JSON.stringify({ title, priority }),
@@ -348,7 +348,7 @@ async function addTodo(e) {
 
 async function toggleTodo(id, completed) {
   try {
-    const r = await fetch(BASE + '/api/todos/' + id, {
+    const r = await fetch(BASE + '/api/collections/todo/' + id, {
       method: 'PATCH',
       headers: authHeaders(),
       body: JSON.stringify({ completed }),
@@ -364,7 +364,7 @@ async function toggleTodo(id, completed) {
 
 async function deleteTodo(id) {
   try {
-    const r = await fetch(BASE + '/api/todos/' + id, { method: 'DELETE', headers: authHeaders() });
+    const r = await fetch(BASE + '/api/collections/todo/' + id, { method: 'DELETE', headers: authHeaders() });
     if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Delete failed'); }
     todos = todos.filter(t => t.id !== id);
     renderList();
@@ -462,23 +462,27 @@ async function loadRuntimeShowcase() {
 // ── Realtime WebSocket ────────────────────────────────────────────────────────
 function connectRealtime() {
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const ws = new WebSocket(`${proto}//${location.host}/ws`);
+  const ws = new WebSocket(`${proto}//${location.host}/realtime`);
   const log = document.getElementById('rt-entries');
 
   ws.onopen = () => {
     log.innerHTML = '';
     appendRtLog('system', 'Connected to realtime WebSocket');
+    // Subscribe to Todo entity events
+    ws.send(JSON.stringify({ type: 'subscribe', channel: 'Todo' }));
   };
 
   ws.onmessage = (e) => {
     try {
       const msg = JSON.parse(e.data);
-      if (!msg.entity && !msg.event) return;
-      const cls  = { create: 'rt-create', update: 'rt-update', delete: 'rt-delete' }[msg.event] || '';
-      const text = `[${msg.entity || '?'}] ${msg.event} — id:${msg.id || msg.data?.id || '?'}`;
+      // Realtime format: { type: 'event', event: 'Todo.created', data: {...} }
+      if (msg.type !== 'event' || !msg.event) return;
+      const [entity, action] = msg.event.split('.');
+      const cls  = { created: 'rt-create', updated: 'rt-update', deleted: 'rt-delete' }[action] || '';
+      const text = `[${entity}] ${action} — id:${msg.data?.id || '?'}`;
       appendRtLog(cls, text);
       // Refresh list on Todo changes
-      if (msg.entity === 'Todo') { loadTodos(); loadStats(); }
+      if (entity === 'Todo') { loadTodos(); loadStats(); }
     } catch { /* ignore parse errors */ }
   };
 

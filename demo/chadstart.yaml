@@ -1,12 +1,12 @@
-# demo/chadstart.yml
+# demo/chadstart.yaml
 # ─────────────────────────────────────────────────────────────────────────────
-# ChadStart Todo App — demonstration of a complete chadstart.yml config.
+# ChadStart Todo App — demonstration of a complete chadstart.yaml config.
 # Shows: entities, access policies, realtime, CRUD, and functions in every
 # supported runtime (js, bash, python, go, ruby, php).
 #
 # To run:
 #   cd demo
-#   CHADSTART_CONFIG=./chadstart.yml node ../index.js
+#   CHADSTART_CONFIG=./chadstart.yaml node ../index.js
 # ─────────────────────────────────────────────────────────────────────────────
 
 name: Todo App
