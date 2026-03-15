@@ -617,7 +617,7 @@
   let configMode = false;
   let configData = null;
   let configActiveTab = 'general';
-  let _cfgEntityId = 0, _cfgEndpointId = 0, _cfgFileId = 0, _cfgRlId = 0;
+  let _cfgEntityId = 0, _cfgEndpointId = 0, _cfgFileId = 0, _cfgRlId = 0, _cfgTriggerId = 0;
 
   // ── HTMX: inject Bearer token and language on every request ───────────
   document.body.addEventListener('htmx:configRequest', e => {
@@ -1955,6 +1955,7 @@ function collectEntitiesForm() {
 
 function renderEndpointsForm() {
   _cfgEndpointId = 0;
+  _cfgTriggerId = 0;
   const endpoints = (configData && configData.functions) || {};
   let cards = '';
   for (const [k, ep] of Object.entries(endpoints)) cards += renderEndpointCard(k, ep);
@@ -1980,17 +1981,71 @@ function renderTriggerBadges(ep) {
   }).join(' ');
 }
 
+function renderTriggerRow(epId, tId, trigger) {
+  const type    = trigger.type || 'http';
+  const method  = trigger.method || 'GET';
+  const path    = trigger.path  || '';
+  const sched   = trigger.schedule || '';
+  const evtName = trigger.name || '';
+  const policy  = (trigger.policies && trigger.policies[0]) ? (trigger.policies[0].access || 'public') : 'public';
+  const typeOpts = ['http','cron','event'].map(t =>
+    '<option value="' + t + '"' + (t === type ? ' selected' : '') + '>' + t + '</option>').join('');
+  const methodOpts = ['GET','POST','PUT','PATCH','DELETE'].map(m =>
+    '<option value="' + m + '"' + (m === method ? ' selected' : '') + '>' + m + '</option>').join('');
+  const policyOpts = ['public','restricted','admin','forbidden'].map(a =>
+    '<option value="' + a + '"' + (a === policy ? ' selected' : '') + '>' + a + '</option>').join('');
+  return '<div class="flex flex-wrap gap-1.5 items-center p-2 rounded" style="background:#0d0d0d;border:1px solid #2a2a2a;" data-trigger-id="' + tId + '">'
+    + '<select data-role="tr-type" onchange="_onTrTypeChange(this)" class="' + _INP_XS + '" style="width:64px;">' + typeOpts + '</select>'
+    // HTTP fields
+    + '<select data-role="tr-method" class="' + _INP_XS + '" style="width:74px;' + (type !== 'http' ? 'display:none;' : '') + '">' + methodOpts + '</select>'
+    + '<input type="text"   data-role="tr-path"    placeholder="/path"          value="' + escAttr(path)    + '" class="' + _INP_XS + ' flex-1" style="min-width:90px;' + (type !== 'http' ? 'display:none;' : '') + '" />'
+    + '<select data-role="tr-policy" class="' + _INP_XS + '" title="Access policy" style="width:88px;' + (type !== 'http' ? 'display:none;' : '') + '">' + policyOpts + '</select>'
+    // Cron fields
+    + '<input type="text"   data-role="tr-schedule" placeholder="* * * * * or @daily" value="' + escAttr(sched) + '" class="' + _INP_XS + ' flex-1" style="min-width:130px;' + (type !== 'cron' ? 'display:none;' : '') + '" />'
+    // Event fields
+    + '<input type="text"   data-role="tr-event"    placeholder="event.name"    value="' + escAttr(evtName) + '" class="' + _INP_XS + ' flex-1" style="min-width:130px;' + (type !== 'event' ? 'display:none;' : '') + '" />'
+    + '<button type="button" onclick="this.closest(\'[data-trigger-id]\').remove()" class="text-cs-muted hover:text-red-400 text-xs cursor-pointer" title="Remove trigger">✕</button>'
+    + '</div>';
+}
+
+function _onTrTypeChange(sel) {
+  const row = sel.closest('[data-trigger-id]');
+  const type = sel.value;
+  const show = (role) => { const el = row.querySelector('[data-role=' + role + ']'); if (el) el.style.display = ''; };
+  const hide = (role) => { const el = row.querySelector('[data-role=' + role + ']'); if (el) el.style.display = 'none'; };
+  ['tr-method','tr-path','tr-policy'].forEach(hide);
+  ['tr-schedule'].forEach(hide);
+  ['tr-event'].forEach(hide);
+  if (type === 'http')  { show('tr-method'); show('tr-path'); show('tr-policy'); }
+  if (type === 'cron')  { show('tr-schedule'); }
+  if (type === 'event') { show('tr-event'); }
+}
+
+function addTriggerToEndpoint(epId) {
+  const card = document.querySelector('[data-ep-id="' + epId + '"]');
+  if (!card) return;
+  const list = card.querySelector('[data-role=trigger-list]');
+  if (!list) return;
+  const tId = _cfgTriggerId++;
+  const d = document.createElement('div');
+  d.innerHTML = renderTriggerRow(epId, tId, {});
+  list.appendChild(d.firstElementChild);
+}
+
 function renderEndpointCard(name, ep) {
   const id = _cfgEndpointId++;
   const runtimes = ['js','bash','python','go','c++','ruby','php'];
   const rOpts = runtimes.map(r => '<option value="' + r + '"' + (r === (ep.runtime||'js') ? ' selected' : '') + '>' + r + '</option>').join('');
-  const triggerBadges = renderTriggerBadges(ep);
+  const triggers = ep.triggers || [];
+  let triggersHtml = '';
+  for (const tr of triggers) { const tId = _cfgTriggerId++; triggersHtml += renderTriggerRow(id, tId, tr); }
   return '<div class="bg-cs-bg border border-cs-border rounded p-3 space-y-2" data-ep-id="' + id + '">'
     + '<div class="flex gap-2 items-center"><input type="text" placeholder="Name" value="' + escAttr(name) + '" data-role="ep-name" class="' + _INP_XS + ' flex-1" />'
     + '<select data-role="ep-runtime" class="' + _INP_XS + '" title="Runtime">' + rOpts + '</select>'
     + '<button type="button" onclick="this.closest(\'[data-ep-id]\').remove()" class="text-cs-muted hover:text-red-400 text-xs cursor-pointer">✕</button></div>'
     + '<input type="text" placeholder="function.js" value="' + escAttr(ep.function||'') + '" data-role="ep-function" class="w-full ' + _INP_XS + '" />'
-    + (triggerBadges ? '<div class="flex flex-wrap gap-1 pt-1">' + triggerBadges + '</div>' : '')
+    + '<div class="space-y-1.5" data-role="trigger-list">' + triggersHtml + '</div>'
+    + '<button type="button" onclick="addTriggerToEndpoint(' + id + ')" class="text-xs text-cs-muted hover:text-cs-text cursor-pointer" style="background:transparent;border:none;padding:0;">+ Add trigger</button>'
     + '</div>';
 }
 
@@ -2006,7 +2061,25 @@ function collectEndpointsForm() {
     const name    = card.querySelector('[data-role=ep-name]')?.value.trim();
     const fn      = card.querySelector('[data-role=ep-function]')?.value.trim();
     const runtime = card.querySelector('[data-role=ep-runtime]')?.value || 'js';
-    if (name && fn) endpoints[name] = { runtime, function: fn, triggers: [] };
+    const triggers = [];
+    for (const row of card.querySelectorAll('[data-trigger-id]')) {
+      const type = row.querySelector('[data-role=tr-type]')?.value || 'http';
+      if (type === 'http') {
+        const method = row.querySelector('[data-role=tr-method]')?.value || 'GET';
+        const path   = row.querySelector('[data-role=tr-path]')?.value.trim() || '';
+        const access = row.querySelector('[data-role=tr-policy]')?.value || 'public';
+        const trigger = { type, method, path };
+        if (access !== 'public') trigger.policies = [{ access }];
+        if (path) triggers.push(trigger);
+      } else if (type === 'cron') {
+        const schedule = row.querySelector('[data-role=tr-schedule]')?.value.trim() || '';
+        if (schedule) triggers.push({ type, schedule });
+      } else if (type === 'event') {
+        const evtName = row.querySelector('[data-role=tr-event]')?.value.trim() || '';
+        if (evtName) triggers.push({ type, name: evtName });
+      }
+    }
+    if (name && fn) endpoints[name] = { runtime, function: fn, triggers };
   }
   return endpoints;
 }
