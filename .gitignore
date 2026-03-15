@@ -10,3 +10,5 @@ sdk/dist/
 coverage/
 test-results/
 playwright-report/
+root/
+data/
