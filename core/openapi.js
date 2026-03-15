@@ -99,16 +99,12 @@ function generateOpenApiSpec(core) {
     }
   }
 
-  // Custom endpoints/functions
+  // Custom functions
   for (const [name, ep] of Object.entries(core.functions || {})) {
-    const triggers = (ep.triggers && ep.triggers.length)
-      ? ep.triggers.filter((t) => t.type === 'http' || !t.type)
-      : (ep.path && ep.method ? [{ type: 'http', method: ep.method, path: ep.path }] : []);
-    for (const trigger of triggers) {
+    for (const trigger of (ep.triggers || []).filter((t) => t.type === 'http')) {
       const method = (trigger.method || 'GET').toLowerCase();
-      const epPath = ep.triggers ? trigger.path : `/endpoints${trigger.path}`;
-      spec.paths[epPath] = spec.paths[epPath] || {};
-      spec.paths[epPath][method] = { tags: ['Functions'], summary: ep.description || name, responses: { 200: desc('OK') } };
+      spec.paths[trigger.path] = spec.paths[trigger.path] || {};
+      spec.paths[trigger.path][method] = { tags: ['Functions'], summary: ep.description || name, responses: { 200: desc('OK') } };
     }
   }
 

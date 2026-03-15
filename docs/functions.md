@@ -1,105 +1,143 @@
 ---
 id: functions
-title: Custom Endpoints
-description: Add your own endpoints for your custom logic with ChadStart. Each endpoint triggers a function file that has access to ChadStart logic and data.
+title: Functions
+description: Add custom functions to your ChadStart app — with multiple runtimes, triggers, and formats.
 ---
 
-# Endpoints
+# Functions
 
 ## Introduction
 
-A custom endpoint is a user-defined API route that executes specific logic on the backend. Unlike built-in routes, custom endpoints allow you to control how data is processed, retrieved, or modified in response to client requests.
-
-For example, you can define an endpoint like `/competitors/:id/increase` that directly increments the score of a given competitor.
-
-Custom endpoints in ChadStart follow a simple structure where you define:
-
-- **A path (path):** The URL where the endpoint can be accessed.
-- **A method (method):** The type of HTTP request (GET, POST, etc.).
-- **A function (function):** The JavaScript function that processes the request.
+Functions let you run custom logic on the server. Each function can be triggered by one or more events: an HTTP request, a scheduled cron job, or an emitted application event.
 
 ## Syntax
 
-This is an example of a simple endpoint that returns a "Hello world from my new endpoint !" message when requesting `GET /endpoints/hello-world`.
-
 ```yaml title="chadstart.yaml"
 functions:
-  helloWorld:
-    path: /hello-world
-    method: GET
-    function: helloWorld.js
+  hello:
+    runtime: js         # js (default) | bash | python | go | c++ | ruby | php
+    function: hello.js  # file path relative to /functions (or CHADSTART_FUNCTIONS_FOLDER)
+    triggers:
+      - type: http
+        method: GET
+        path: /hello
+      - type: cron
+        schedule: "@daily"
+      - type: event
+        name: user.created
 ```
 
-```js title="functions/helloWorld.js"
-module.exports = async (req, res) => {
-  res.json({ message: 'Hello world from my new endpoint!' })
-}
+## Triggers
+
+### HTTP trigger
+
+Registers an HTTP route. The function receives an `event` object and a `ctx` context.
+
+```yaml
+triggers:
+  - type: http
+    method: GET   # GET | POST | PUT | PATCH | DELETE
+    path: /hello
 ```
 
-ChadStart functions are basically [ExpressJS middlewares](https://expressjs.com/en/guide/using-middleware.html) exposed with the [ChadStart SDK](./crud.md#using-the-javascript-sdk) to help you work with your data.
+### Cron trigger
 
-Place the function file in the `/functions` folder. For example, if the function is `helloWorld`, the file should be `helloWorld.js`.
+Runs the function on a schedule. Supports standard cron expressions and predefined aliases.
+
+```yaml
+triggers:
+  - type: cron
+    schedule: "*/10 * * * *"  # every 10 minutes
+  - type: cron
+    schedule: "@daily"        # once a day at midnight
+```
+
+**Predefined aliases:**
+
+| Alias       | Equivalent      | Description              |
+| ----------- | --------------- | ------------------------ |
+| `@yearly`   | `0 0 1 1 *`     | Once a year, Jan 1st     |
+| `@annually` | `0 0 1 1 *`     | Same as @yearly          |
+| `@monthly`  | `0 0 1 * *`     | First day of each month  |
+| `@weekly`   | `0 0 * * 0`     | Every Sunday at midnight |
+| `@daily`    | `0 0 * * *`     | Every day at midnight    |
+| `@midnight` | `0 0 * * *`     | Same as @daily           |
+| `@hourly`   | `0 * * * *`     | Every hour               |
+
+### Event trigger
+
+Runs the function when a named event is emitted via the shared `eventBus`.
+
+```yaml
+triggers:
+  - type: event
+    name: user.created
+```
+
+Emit from middleware or other functions:
+
+```js
+const { eventBus } = require('./core/functions-engine');
+eventBus.emit('user.created', { id: user.id });
+```
+
+## Function formats (JS runtime)
+
+### Universal (recommended)
+
+```js title="functions/hello.js"
+module.exports = async function(event, ctx) {
+  if (ctx.trigger === 'http')  return { message: 'Hello from HTTP!' };
+  if (ctx.trigger === 'cron')  console.log('Running scheduled task');
+  if (ctx.trigger === 'event') console.log('Event payload:', event);
+};
+```
+
+The `event` object for HTTP triggers contains `{ req, body, query, params, headers }`.
+The `ctx` object always has `{ trigger, name }` plus trigger-specific fields (`method`, `path`, `schedule`, `event`).
+
+### AWS Lambda format
+
+```js title="functions/hello.js"
+exports.handler = async (event, context) => {
+  return { statusCode: 200, body: JSON.stringify({ message: 'Hello!' }) };
+};
+```
+
+### Cloudflare Workers format
+
+```js title="functions/hello.js"
+export default {
+  async fetch(request) {
+    return new Response(JSON.stringify({ message: 'Hello!' }), {
+      headers: { 'Content-Type': 'application/json' },
+    });
+  },
+};
+```
+
+## Runtimes
+
+| Runtime  | Execution          | Notes                            |
+| -------- | ------------------ | -------------------------------- |
+| `js`     | In-process         | Default. Supports all formats.   |
+| `python` | Persistent worker  | Reads `event` from stdin as JSON |
+| `ruby`   | Persistent worker  | Reads `event` from stdin as JSON |
+| `php`    | Persistent worker  | Reads `event` from stdin as JSON |
+| `bash`   | Per-invocation     | Reads `event` from stdin as JSON |
+| `go`     | Per-invocation     | `go run` per invocation          |
+| `c++`    | Per-invocation     | Compiled with `g++`              |
+
+Python/Ruby/PHP runtimes spawn one persistent worker process per runtime (not per request) for better performance.
+
+## Configuration
+
+| Option       | Default | Description                                          |
+| ------------ | ------- | ---------------------------------------------------- |
+| `function`*  | —       | File name relative to the functions folder           |
+| `runtime`    | `js`    | Runtime to use                                       |
+| `description`| —       | Optional description (shown in OpenAPI docs)         |
+| `triggers`*  | —       | Array of trigger definitions                         |
 
 !!! tip
-    You can choose to set a different folder for functions adding the `CHADSTART_FUNCTIONS_FOLDER` variable in your `.env` file.
-
-## Endpoint params
-
-Each endpoint can be defined in the YAML file with the following values:
-
-| Option           | Default | Type         | Description                                                                               |
-| ---------------- | ------- | ------------ | ----------------------------------------------------------------------------------------- |
-| **path\***       | -       | string       | The path of your endpoint. Use the `:var` syntax for route params. Ex: `users/:id/upvote` |
-| **method\***     | -       | _HttpMethod_ | The HTTP request method: "GET", "POST", "PATCH", "PUT" or "DELETE"                        |
-| **function\***   | -       | string       | The name of the function triggered                                                        |
-| **policies\***   | `[]`    | _Policy[]_   | The [access policies](./access-policies.md) that restrict the access of the endpoint      |
-| **description**  | -       | string       | Optional description for your endpoint                                                    |
-
-## Manipulate data with the backend SDK
-
-The next thing you may want to do is to **read and write data from your app**. This can be done using the ChadStart backend SDK that shares the same CRUD and upload functions as the [JS SDK](./crud.md#using-the-javascript-sdk) for the front-end.
-
-Take the following example of a `chadstart.yaml` file of a **leaderboard**:
-
-```yaml title="chadstart.yaml"
-name: Leaderboard app 🏅
-
-entities:
-  Competitor:
-    properties:
-      - name
-      - { name: score, type: number }
-
-functions:
-  increaseScore:
-    description: Adds 1 to the competitor score.
-    path: /competitors/:id/increase
-    method: POST
-    function: increaseScore.js
-```
-
-We can now add the function in the `/functions` folder:
-
-```js title="/functions/increaseScore.js"
-module.exports = async (req, res, chadstart) => {
-  // Get the requested competitor with the ChadStart backend SDK.
-  const competitor = await chadstart
-    .from('competitors')
-    .findOneById(req.params['id'])
-
-  // Add 1 to the competitor score.
-  const newScore = competitor.score + 1
-
-  // Patch the record (changing only specified prop "score").
-  await chadstart.from('competitors').patch(competitor.id, {
-    score: newScore
-  })
-
-  // Return updated score.
-  res.json({ newScore })
-}
-```
-
-The custom endpoint increases the score of a competitor. The path integrates an `id` route param that we can use as `req.params['id']` from our function.
-
-Note the third argument in our function. This is the ChadStart backend SDK that allow you to do CRUD operations in your app using the same syntax as the [JS SDK](./crud.md#using-the-javascript-sdk).
+    Set `CHADSTART_FUNCTIONS_FOLDER` in your `.env` to use a different folder than `/functions`.

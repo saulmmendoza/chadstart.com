@@ -295,15 +295,12 @@
     },
     "endpoint": {
       "type": "object",
-      "required": ["function"],
+      "required": ["function", "triggers"],
       "properties": {
         "function":    { "type": "string", "description": "Name of the function file in /functions." },
         "runtime":     { "type": "string", "enum": ["js", "bash", "python", "go", "c++", "ruby", "php"], "default": "js" },
         "description": { "type": "string" },
-        "triggers":    { "type": "array", "items": { "$ref": "#/$defs/trigger" }, "description": "List of triggers (http, cron, event)." },
-        "path":        { "type": "string", "description": "URL path for legacy single-HTTP-trigger format." },
-        "method":      { "type": "string", "enum": ["GET", "POST", "PATCH", "PUT", "DELETE"], "description": "HTTP method for legacy single-HTTP-trigger format." },
-        "policies":    { "type": "array", "items": { "$ref": "#/$defs/policy" } }
+        "triggers":    { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/trigger" }, "description": "List of triggers (http, cron, event)." }
       },
       "additionalProperties": false
     },

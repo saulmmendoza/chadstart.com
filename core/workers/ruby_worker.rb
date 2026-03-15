@@ -13,7 +13,7 @@ $stdin.each_line do |line|
     load req['entry']
     event = req['event'] || {}
     ctx   = req['ctx']   || {}
-    result = defined?(handler) ? handler(event, ctx) : (defined?(default_fn) ? default_fn(event, ctx) : nil)
+    result = defined?(handler) ? handler(event, ctx) : (defined?(default) ? method(:default).call(event, ctx) : nil)
     puts JSON.generate({ id: req['id'], result: result })
   rescue => e
     puts JSON.generate({ id: req['id'], error: e.message })

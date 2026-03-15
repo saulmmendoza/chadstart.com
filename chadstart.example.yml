@@ -294,7 +294,6 @@ groups:
 # Predefined cron aliases: @yearly @annually @monthly @weekly @daily @midnight @hourly
 
 functions:
-  # ── New format: multi-trigger with explicit runtime ────────────────────────
   hello:
     runtime: js                   # js (default) | bash | python | go | c++ | ruby | php
     function: hello.js            # path relative to CHADSTART_FUNCTIONS_FOLDER (default: functions/)
@@ -308,23 +307,6 @@ functions:
         schedule: "*/10 * * * *"  # Every 10 minutes
       - type: cron
         schedule: "@daily"        # Predefined alias (resolves to "0 0 * * *")
-
-  # ── Legacy format: single HTTP trigger (backward compatible) ───────────────
-  sendPasswordReset:
-    path: /auth/password-reset
-    method: POST              # GET | POST | PATCH | PUT | DELETE
-    function: sendPasswordReset.js
-    description: Sends a password-reset email to the given address.
-    policies:
-      - access: public
-
-  adminStats:
-    path: /admin/stats
-    method: GET
-    function: adminStats.js
-    description: Returns usage statistics for the admin dashboard.
-    policies:
-      - access: admin
 
 # ── File buckets ──────────────────────────────────────────────────────────────
 # Named storage locations for uploaded files.

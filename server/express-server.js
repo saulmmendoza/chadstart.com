@@ -12,7 +12,7 @@ const { loadYaml, saveYaml } = require('../core/yaml-loader');
 const { validateSchema } = require('../core/schema-validator');
 const { buildCore } = require('../core/entity-engine');
 const { initDb, findAll, findAllSimple, create: dbCreate } = require('../core/db');
-const { registerApiRoutes, createBackendSdk } = require('../core/api-generator');
+const { registerApiRoutes } = require('../core/api-generator');
 const { registerAuthRoutes, registerApiKeyRoutes, initApiKeys, verifyToken, omitPassword,
         createApiKey, listAllApiKeys, deleteApiKey } = require('../core/auth');
 const { initRealtime, emit } = require('../core/realtime');
@@ -141,8 +141,7 @@ async function buildApp(yamlPath, reloadFn) {
 
   // Stop any previous cron tasks / worker processes before registering new ones
   cleanupFunctions();
-  const manifestSdk = createBackendSdk(core);
-  setupFunctions(app, core.functions, manifestSdk);
+  setupFunctions(app, core.functions);
 
   const openApiSpec = generateOpenApiSpec(core);
   const showApiDocs = process.env.OPEN_API_DOCS !== undefined

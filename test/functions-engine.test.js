@@ -24,57 +24,15 @@ describe('functions-engine – resolveSchedule', () => {
   });
 });
 
-// ── HTTP trigger (legacy format) ───────────────────────────────────────────────
+// ── HTTP trigger ───────────────────────────────────────────────────────────────
 
-describe('functions-engine – HTTP trigger (legacy format)', () => {
-  let server, port, fnDir, fnFile;
-
-  before(async () => {
-    cleanup();
-    fnDir  = fs.mkdtempSync(path.join(os.tmpdir(), 'cs-fn-'));
-    fnFile = path.join(fnDir, 'hello.js');
-    // Legacy format functions are Express middleware style: fn(req, res, sdk)
-    fs.writeFileSync(fnFile, `module.exports = function(req, res) { res.json({ hello: 'world', trigger: 'http' }); };`);
-
-    process.env.CHADSTART_FUNCTIONS_FOLDER = fnDir;
-
-    const app = express();
-    app.use(express.json());
-    setupFunctions(app, {
-      hello: { path: '/hello', method: 'GET', function: 'hello.js' },
-    });
-
-    server = http.createServer(app);
-    await new Promise((r) => server.listen(0, '127.0.0.1', r));
-    port = server.address().port;
-  });
-
-  after(async () => {
-    cleanup();
-    await new Promise((r) => server.close(r));
-    delete process.env.CHADSTART_FUNCTIONS_FOLDER;
-    fs.rmSync(fnDir, { recursive: true, force: true });
-  });
-
-  it('GET /endpoints/hello returns the function result', async () => {
-    const res  = await fetch(`http://127.0.0.1:${port}/endpoints/hello`);
-    const body = await res.json();
-    assert.strictEqual(res.status, 200);
-    assert.strictEqual(body.hello, 'world');
-    assert.strictEqual(body.trigger, 'http');
-  });
-});
-
-// ── HTTP trigger (new multi-trigger format) ────────────────────────────────────
-
-describe('functions-engine – HTTP trigger (multi-trigger format)', () => {
-  let server, port, fnDir, fnFile;
+describe('functions-engine – HTTP trigger', () => {
+  let server, port, fnDir;
 
   before(async () => {
     cleanup();
-    fnDir  = fs.mkdtempSync(path.join(os.tmpdir(), 'cs-fn-'));
-    fnFile = path.join(fnDir, 'greet.js');
-    fs.writeFileSync(fnFile, `module.exports = async function(event, ctx) { return { msg: 'hi', trigger: ctx.trigger }; };`);
+    fnDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cs-fn-'));
+    fs.writeFileSync(path.join(fnDir, 'greet.js'), `module.exports = async function(event, ctx) { return { msg: 'hi', trigger: ctx.trigger }; };`);
 
     process.env.CHADSTART_FUNCTIONS_FOLDER = fnDir;
 
@@ -112,14 +70,12 @@ describe('functions-engine – HTTP trigger (multi-trigger format)', () => {
 // ── Event trigger ──────────────────────────────────────────────────────────────
 
 describe('functions-engine – event trigger', () => {
-  let fnDir, fnFile, received;
+  let fnDir;
 
   before(() => {
     cleanup();
-    fnDir  = fs.mkdtempSync(path.join(os.tmpdir(), 'cs-fn-'));
-    fnFile = path.join(fnDir, 'onMyEvent.js');
-    // Write a simple function that stores the payload globally
-    fs.writeFileSync(fnFile, `
+    fnDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cs-fn-'));
+    fs.writeFileSync(path.join(fnDir, 'onMyEvent.js'), `
       module.exports = async function(event, ctx) { global.__csTestPayload = event; };
     `);
     process.env.CHADSTART_FUNCTIONS_FOLDER = fnDir;
@@ -143,7 +99,6 @@ describe('functions-engine – event trigger', () => {
   it('emitting an event invokes the registered function', async () => {
     global.__csTestPayload = null;
     eventBus.emit('test-event', { value: 42 });
-    // Give async handler time to complete
     await new Promise((r) => setTimeout(r, 100));
     assert.deepStrictEqual(global.__csTestPayload, { value: 42 });
   });
@@ -151,19 +106,17 @@ describe('functions-engine – event trigger', () => {
 
 // ── JS format adapters ─────────────────────────────────────────────────────────
 
-describe('functions-engine – JS universal format via HTTP', () => {
+describe('functions-engine – JS format auto-detection', () => {
   let server, port, fnDir;
 
   before(async () => {
     cleanup();
     fnDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cs-fn-'));
-    // Universal function: return value based on trigger
     fs.writeFileSync(path.join(fnDir, 'universal.js'), `
       module.exports = async function(event, ctx) {
         if (ctx.trigger === 'http') return { format: 'universal' };
       };
     `);
-    // AWS Lambda style (named handler export)
     fs.writeFileSync(path.join(fnDir, 'lambda.js'), `
       exports.handler = async (event, context) => ({ statusCode: 200, body: JSON.stringify({ format: 'lambda' }) });
     `);
@@ -171,7 +124,6 @@ describe('functions-engine – JS universal format via HTTP', () => {
     process.env.CHADSTART_FUNCTIONS_FOLDER = fnDir;
     const app = express();
     app.use(express.json());
-    // Both use the NEW triggers format so they go through runJsFunction (multi-format detection)
     setupFunctions(app, {
       universal: { function: 'universal.js', triggers: [{ type: 'http', method: 'GET', path: '/universal' }] },
       lambda:    { function: 'lambda.js',    triggers: [{ type: 'http', method: 'GET', path: '/lambda'    }] },
@@ -198,3 +150,4 @@ describe('functions-engine – JS universal format via HTTP', () => {
     assert.strictEqual(body.format, 'lambda');
   });
 });
+

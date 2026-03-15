@@ -24,10 +24,10 @@ describe('schema-validator', () => {
   it('accepts middlewares', () => assert.strictEqual(validateSchema({ name: 'App', entities: { Post: { middlewares: { afterCreate: [{ function: 'sendEmail' }] } } } }), true));
   it('accepts belongsToMany', () => assert.strictEqual(validateSchema({ name: 'App', entities: { Player: { properties: ['name'], belongsToMany: ['Skill'] }, Skill: { properties: ['name'] } } }), true));
   it('accepts single entity', () => assert.strictEqual(validateSchema({ name: 'App', entities: { Home: { single: true, properties: ['title'] } } }), true));
-  it('accepts functions', () => assert.strictEqual(validateSchema({ name: 'App', functions: { hello: { path: '/hello', method: 'GET', function: 'hello.js' } } }), true));
-  it('rejects function missing function field', () => assert.throws(() => validateSchema({ name: 'App', functions: { bad: { path: '/bad', method: 'GET' } } })));
+  it('rejects function missing function field', () => assert.throws(() => validateSchema({ name: 'App', functions: { bad: { triggers: [{ type: 'http', method: 'GET', path: '/bad' }] } } })));
   it('rejects deprecated endpoints key', () => assert.throws(() => validateSchema({ name: 'App', endpoints: { hello: { path: '/hello', method: 'GET', function: 'hello.js' } } })));
   it('accepts new-format function with triggers', () => assert.strictEqual(validateSchema({ name: 'App', functions: { hello: { runtime: 'js', function: 'hello.js', triggers: [{ type: 'http', method: 'GET', path: '/hello' }] } } }), true));
+  it('rejects old-format function with path+method (no triggers)', () => assert.throws(() => validateSchema({ name: 'App', functions: { hello: { path: '/hello', method: 'GET', function: 'hello.js' } } })));
   it('accepts function with cron trigger and predefined schedule', () => assert.strictEqual(validateSchema({ name: 'App', functions: { daily: { function: 'daily.js', triggers: [{ type: 'cron', schedule: '@daily' }] } } }), true));
   it('accepts function with event trigger', () => assert.strictEqual(validateSchema({ name: 'App', functions: { onEvt: { function: 'onEvt.js', triggers: [{ type: 'event', name: 'user.created' }] } } }), true));
   it('accepts python runtime function', () => assert.strictEqual(validateSchema({ name: 'App', functions: { fn: { runtime: 'python', function: 'fn.py', triggers: [{ type: 'http', method: 'POST', path: '/fn' }] } } }), true));

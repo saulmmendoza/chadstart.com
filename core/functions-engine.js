@@ -4,15 +4,15 @@
  * ChadStart Functions Engine
  *
  * Supports multiple runtimes (js, bash, python, go, c++, ruby, php),
- * multiple trigger types (http, event, cron), multiple JS formats
- * (universal, aws lambda, vercel, netlify, cloudflare workers, google cloud,
- * azure functions), and persistent worker processes for scripted runtimes.
+ * multiple trigger types (http, event, cron), and multiple JS formats
+ * (universal, aws lambda, cloudflare workers).
+ * Scripted runtimes (python, ruby, php) use persistent worker processes.
  */
 
 const path    = require('path');
 const fs      = require('fs');
 const { EventEmitter } = require('events');
-const { execaNode, execa } = require('execa');
+const { execa } = require('execa');
 const cron    = require('node-cron');
 const logger  = require('../utils/logger');
 
@@ -100,7 +100,6 @@ function getWorker(runtime) {
 
   proc.on('close', () => {
     _workers.delete(runtime);
-    // reject any pending
     for (const p of pending.values()) p.reject(new Error(`${runtime} worker exited`));
     pending.clear();
     logger.warn(`[functions] ${runtime} worker exited — will restart on next invocation`);
@@ -130,26 +129,15 @@ function getWorker(runtime) {
 function loadJsModule(entry) {
   delete require.cache[require.resolve(entry)];
   const raw = require(entry);
-  // Normalise: if raw is a plain function, treat it as the default export
   const mod = (raw && typeof raw === 'object') ? raw : { default: raw };
   if (!mod.default && typeof raw === 'function') mod.default = raw;
   return mod;
 }
 
 /**
- * Run a JS function in legacy (Express middleware) mode.
- * The function receives (req, res, sdk) – same as the old registerCustomEndpoints.
- */
-async function runJsFunctionLegacy(entry, req, res, sdk) {
-  const mod = loadJsModule(entry);
-  const fn = mod.default || mod;
-  if (typeof fn !== 'function') throw new Error(`No callable export in ${entry}`);
-  await fn(req, res, sdk);
-}
-
-/**
- * Run a JS function in multi-format mode (Universal, Lambda, Cloudflare Workers, Vercel).
- * Auto-detects the format from the module's exports.
+ * Run a JS function — auto-detects format: Universal, AWS Lambda, Cloudflare Workers.
+ * Called as fn(event, ctx) for Universal; module.handler(event, {}) for Lambda;
+ * module.default.fetch(request) for Cloudflare Workers.
  */
 async function runJsFunction(entry, event, ctx) {
   const mod = loadJsModule(entry);
@@ -168,16 +156,13 @@ async function runJsFunction(entry, event, ctx) {
   }
 
   // 2. AWS Lambda style: exports.handler (named export, not default)
-  const lambdaHandler = mod.handler;
-  if (typeof lambdaHandler === 'function') {
-    const result = await lambdaHandler(event, {});
+  if (typeof mod.handler === 'function') {
+    const result = await mod.handler(event, {});
     if (result && result.body) { try { return JSON.parse(result.body); } catch { return result.body; } }
     return result;
   }
 
-  // 3. Universal / Vercel / Netlify: default export function
-  //    Called as fn(event, ctx) – the ctx always has trigger, name, etc.
-  //    For Vercel-style: the function can also access ctx.res (Express res) to send directly.
+  // 3. Universal: default export called as fn(event, ctx)
   if (typeof defaultExport === 'function') {
     return defaultExport(event, ctx);
   }
@@ -188,17 +173,16 @@ async function runJsFunction(entry, event, ctx) {
 // ── External runtime invocation ───────────────────────────────────────────────
 
 async function runExternal(runtime, entry, event, ctx) {
-  // Try persistent worker for scripted runtimes
   const worker = getWorker(runtime);
   if (worker) return worker.invoke(entry, event, ctx);
 
-  // Per-invocation for other runtimes
   const input = JSON.stringify({ event, ctx });
   const ts = Date.now();
+  const safeEntry = entry.replace(/'/g, "'\\''"); // single-quote escape for shell
   const cmds = {
     bash: ['bash', [entry]],
     go:   ['go', ['run', entry]],
-    'c++': ['sh', ['-c', `g++ -o /tmp/cs_fn_${ts} "${entry}" && /tmp/cs_fn_${ts}`]],
+    'c++': ['sh', ['-c', `g++ -o /tmp/cs_fn_${ts} '${safeEntry}' && /tmp/cs_fn_${ts}`]],
   };
 
   if (!cmds[runtime]) throw new Error(`No command mapping for runtime: "${runtime}"`);
@@ -221,7 +205,7 @@ function resolveFnEntry(fnFile) {
 async function runFunction(fn, event, ctx) {
   const runtime = fn.runtime || 'js';
   if (!SUPPORTED_RUNTIMES.has(runtime)) throw new Error(`Unsupported runtime: "${runtime}"`);
-  const entry   = resolveFnEntry(fn.function);
+  const entry = resolveFnEntry(fn.function);
   if (!entry) {
     logger.warn(`Function file not found: ${fn.function}`);
     return { error: `Function not found: ${fn.function}` };
@@ -234,88 +218,50 @@ async function runFunction(fn, event, ctx) {
 
 const _cronTasks = [];
 
-/**
- * Register all function triggers on the Express app.
- * `sdk` is the backend SDK injected into legacy-format functions as the 3rd argument.
- */
-function setupFunctions(app, functions, sdk) {
+/** Register all function triggers on the Express app. */
+function setupFunctions(app, functions) {
   if (!functions || !Object.keys(functions).length) return;
-
   for (const [name, fn] of Object.entries(functions)) {
-    const triggers = normaliseTriggers(fn);
-    for (const trigger of triggers) {
-      registerTrigger(app, name, fn, trigger, sdk);
+    for (const trigger of (fn.triggers || [])) {
+      registerTrigger(app, name, fn, trigger);
     }
   }
 }
 
-/**
- * Stop all active cron tasks and worker processes.
- * Called on hot reload to release resources before setting up new config.
- */
+/** Stop all active cron tasks and worker processes (call before hot reload). */
 function cleanup() {
   for (const task of _cronTasks) { try { task.stop(); } catch { /* */ } }
   _cronTasks.length = 0;
-
   for (const [, w] of _workers) { try { w.proc.kill(); } catch { /* */ } }
   _workers.clear();
 }
 
-function normaliseTriggers(fn) {
-  // New format: fn.triggers array
-  if (fn.triggers && fn.triggers.length) return fn.triggers;
-  // Legacy format: fn.path + fn.method → single http trigger
-  if (fn.path && fn.method) {
-    return [{ type: 'http', method: fn.method, path: fn.path }];
-  }
-  return [];
-}
-
-function registerTrigger(app, name, fn, trigger, sdk) {
-  switch (trigger.type || 'http') {
-    case 'http':
-      registerHttp(app, name, fn, trigger, sdk);
-      break;
-    case 'cron':
-      registerCron(name, fn, trigger);
-      break;
-    case 'event':
-      registerEvent(name, fn, trigger);
-      break;
-    default:
-      logger.warn(`[functions] Unknown trigger type "${trigger.type}" for "${name}"`);
+function registerTrigger(app, name, fn, trigger) {
+  switch (trigger.type) {
+    case 'http':  registerHttp(app, name, fn, trigger);  break;
+    case 'cron':  registerCron(name, fn, trigger);        break;
+    case 'event': registerEvent(name, fn, trigger);       break;
+    default: logger.warn(`[functions] Unknown trigger type "${trigger.type}" for "${name}"`);
   }
 }
 
-function registerHttp(app, name, fn, trigger, sdk) {
+function registerHttp(app, name, fn, trigger) {
   const method = (trigger.method || 'GET').toLowerCase();
-  // Legacy functions are served at /endpoints/<path>; new multi-trigger at the path directly
-  const isLegacy = !fn.triggers;
-  const epPath = isLegacy ? `/endpoints${trigger.path}` : trigger.path;
+  const epPath = trigger.path;
 
-  // Build policy middleware for legacy format (new format is always public by default)
-  const middlewares = fn.policies ? buildPolicyMiddlewares(fn.policies) : [];
-
-  app[method](epPath, ...middlewares, async (req, res) => {
-    const runtime = fn.runtime || 'js';
-    const entry   = resolveFnEntry(fn.function);
+  app[method](epPath, async (req, res) => {
+    const entry = resolveFnEntry(fn.function);
     if (!entry) {
       logger.warn(`[functions] File not found for "${name}": ${fn.function}`);
       return res.status(404).json({ error: `Function not found: ${fn.function}` });
     }
     try {
-      if (isLegacy && runtime === 'js') {
-        // Legacy format: call as Express middleware fn(req, res, sdk)
-        await runJsFunctionLegacy(entry, req, res, sdk);
-        if (!res.headersSent) res.json({});
-      } else {
-        const event = { req, body: req.body, query: req.query, params: req.params, headers: req.headers };
-        const ctx   = { trigger: 'http', method: req.method, path: epPath, name };
-        const result = await runFunction(fn, event, ctx);
-        if (!res.headersSent) {
-          if (result && typeof result === 'object') return res.json(result);
-          res.send(result ?? '');
-        }
+      const event  = { req, body: req.body, query: req.query, params: req.params, headers: req.headers };
+      const ctx    = { trigger: 'http', method: req.method, path: epPath, name };
+      const result = await runFunction(fn, event, ctx);
+      if (!res.headersSent) {
+        if (result && typeof result === 'object') return res.json(result);
+        res.send(result ?? '');
       }
     } catch (e) {
       logger.error(`[functions] ${name} http error: ${e.message}`);
@@ -334,8 +280,7 @@ function registerCron(name, fn, trigger) {
   }
   const task = cron.schedule(schedule, async () => {
     try {
-      const ctx = { trigger: 'cron', schedule: trigger.schedule, name };
-      await runFunction(fn, {}, ctx);
+      await runFunction(fn, {}, { trigger: 'cron', schedule: trigger.schedule, name });
     } catch (e) {
       logger.error(`[functions] ${name} cron error: ${e.message}`);
     }
@@ -349,8 +294,7 @@ function registerEvent(name, fn, trigger) {
   if (!eventName) { logger.warn(`[functions] Event trigger for "${name}" has no name`); return; }
   eventBus.on(eventName, async (payload) => {
     try {
-      const ctx = { trigger: 'event', event: eventName, name };
-      await runFunction(fn, payload || {}, ctx);
+      await runFunction(fn, payload || {}, { trigger: 'event', event: eventName, name });
     } catch (e) {
       logger.error(`[functions] ${name} event error: ${e.message}`);
     }
@@ -358,32 +302,5 @@ function registerEvent(name, fn, trigger) {
   logger.info(`  Registered event: "${eventName}" → ${name}`);
 }
 
-// ── Policy middleware (legacy HTTP functions) ─────────────────────────────────
-
-function buildPolicyMiddlewares(policies) {
-  const { optionalAuth, requireAuth, JWT_SECRET } = require('./auth');
-  const jwt = require('jsonwebtoken');
-  if (!policies || !policies.length) return [optionalAuth, (_r, _s, n) => n()];
-  const p = policies[0];
-  switch (p.access) {
-    case 'public': return [optionalAuth, (_r, _s, n) => n()];
-    case 'restricted': {
-      if (!p.allow) return [requireAuth()];
-      const allowed = Array.isArray(p.allow) ? p.allow : [p.allow];
-      return [(req, res, next) => {
-        const h = req.headers.authorization;
-        if (!h || !h.startsWith('Bearer ')) return res.status(401).json({ error: 'Authorization required' });
-        try {
-          req.user = jwt.verify(h.slice(7), JWT_SECRET);
-          if (!allowed.includes(req.user.entity)) return res.status(403).json({ error: 'Access denied' });
-          next();
-        } catch { res.status(401).json({ error: 'Invalid or expired token' }); }
-      }];
-    }
-    case 'admin': return [requireAuth()];
-    case 'forbidden': return [(_r, res) => res.status(403).json({ error: 'Access forbidden' })];
-    default: return [(_r, _s, n) => n()];
-  }
-}
-
 module.exports = { setupFunctions, cleanup, eventBus, resolveSchedule };
+

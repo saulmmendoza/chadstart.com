@@ -1652,47 +1652,6 @@ function getFields(isCollection) {
     }
   }
 
-  // Endpoints tab: card list with name, path, method, function, description
-  function renderEndpointsForm() {
-    _cfgEndpointId = 0;
-    const endpoints = (configData && configData.functions) || {};
-    let cards = '';
-    for (const key of Object.keys(endpoints)) cards += renderEndpointCard(key, endpoints[key]);
-    return '<div id="cfg-endpoints-list" class="space-y-3">' + cards + '</div>'
-      + '<button type="button" onclick="addEndpointCard()"'
-      + ' class="mt-3 text-xs border border-cs-border rounded px-3 py-1.5 text-cs-muted hover:text-cs-text cursor-pointer"'
-      + ' style="transition:color 150ms,background 150ms;">' + t('config.functions.add_endpoint') + '</button>';
-  }
-
-  function renderEndpointCard(epName, def) {
-    const id      = _cfgEndpointId++;
-    const methods = ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'];
-    let methodOpts = '';
-    for (const m of methods) methodOpts += '<option value="' + m + '"' + (m === (def.method || 'GET') ? ' selected' : '') + '>' + m + '</option>';
-    const methodSel = '<select id="cfg-ep-method-' + id + '" class="w-full ' + _INP + '" style="transition:border-color 150ms;">' + methodOpts + '</select>';
-    return '<div class="endpoint-card rounded border p-4" style="border-color:#2a2a2a;background:#181818;" data-endpoint-id="' + id + '">'
-      + '<div class="grid gap-3 mb-3" style="grid-template-columns:1fr 1fr;">'
-        + '<div><label class="' + _LBL + '" style="color:#888;">' + t('config.functions.name') + '</label>'
-        + '<input type="text" id="cfg-ep-name-' + id + '" value="' + escAttr(epName) + '" placeholder="' + escAttr(t('config.functions.name_placeholder')) + '"'
-        + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
-        + '<div><label class="' + _LBL + '" style="color:#888;">' + t('config.functions.path_label') + '</label>'
-        + '<input type="text" id="cfg-ep-path-' + id + '" value="' + escAttr(def.path || '') + '" placeholder="' + escAttr(t('config.functions.path_placeholder')) + '"'
-        + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
-        + '<div><label class="' + _LBL + '" style="color:#888;">' + t('config.functions.method') + '</label>' + methodSel + '</div>'
-        + '<div><label class="' + _LBL + '" style="color:#888;">' + t('config.functions.function') + '</label>'
-        + '<input type="text" id="cfg-ep-function-' + id + '" value="' + escAttr(def.function || '') + '" placeholder="' + escAttr(t('config.functions.function_placeholder')) + '"'
-        + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
-      + '</div>'
-      + '<div class="flex items-end gap-3">'
-        + '<div class="flex-1"><label class="' + _LBL + '" style="color:#888;">' + t('config.functions.description') + ' <span style="color:#555;">' + t('config.functions.description_hint') + '</span></label>'
-        + '<input type="text" id="cfg-ep-desc-' + id + '" value="' + escAttr(def.description || '') + '" placeholder="' + escAttr(t('config.functions.description_placeholder')) + '"'
-        + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
-        + '<button type="button" onclick="_cfgRmEndpointCard(this)"'
-        + ' class="text-xs px-2 py-1.5 rounded border cursor-pointer"'
-        + ' style="border-color:rgba(239,68,68,0.3);color:#f87171;background:transparent;">' + t('config.functions.remove') + '</button>'
-      + '</div>'
-      + '</div>';
-  }
   return fields;
 }
 
@@ -2009,8 +1968,7 @@ function cronHuman(schedule) {
 }
 
 function renderTriggerBadges(ep) {
-  const triggers = ep.triggers && ep.triggers.length ? ep.triggers
-    : (ep.path && ep.method ? [{ type: 'http', method: ep.method, path: ep.path }] : []);
+  const triggers = ep.triggers || [];
   return triggers.map(t => {
     if (t.type === 'http') return '<span class="px-1.5 py-0.5 rounded text-xs" style="background:rgba(52,177,235,.15);color:#34b1eb;">'
       + escAttr(t.method || 'GET') + ' ' + escAttr(t.path || '') + '</span>';
@@ -2026,15 +1984,11 @@ function renderEndpointCard(name, ep) {
   const id = _cfgEndpointId++;
   const runtimes = ['js','bash','python','go','c++','ruby','php'];
   const rOpts = runtimes.map(r => '<option value="' + r + '"' + (r === (ep.runtime||'js') ? ' selected' : '') + '>' + r + '</option>').join('');
-  const methods = ['GET','POST','PUT','PATCH','DELETE'];
-  const mOpts = methods.map(m => '<option value="' + m + '"' + (m === (ep.method||'GET') ? ' selected' : '') + '>' + m + '</option>').join('');
   const triggerBadges = renderTriggerBadges(ep);
   return '<div class="bg-cs-bg border border-cs-border rounded p-3 space-y-2" data-ep-id="' + id + '">'
     + '<div class="flex gap-2 items-center"><input type="text" placeholder="Name" value="' + escAttr(name) + '" data-role="ep-name" class="' + _INP_XS + ' flex-1" />'
     + '<select data-role="ep-runtime" class="' + _INP_XS + '" title="Runtime">' + rOpts + '</select>'
     + '<button type="button" onclick="this.closest(\'[data-ep-id]\').remove()" class="text-cs-muted hover:text-red-400 text-xs cursor-pointer">✕</button></div>'
-    + '<div class="flex gap-2"><select data-role="ep-method" class="' + _INP_XS + '">' + mOpts + '</select>'
-    + '<input type="text" placeholder="/path" value="' + escAttr(ep.path||'') + '" data-role="ep-path" class="' + _INP_XS + ' flex-1" /></div>'
     + '<input type="text" placeholder="function.js" value="' + escAttr(ep.function||'') + '" data-role="ep-function" class="w-full ' + _INP_XS + '" />'
     + (triggerBadges ? '<div class="flex flex-wrap gap-1 pt-1">' + triggerBadges + '</div>' : '')
     + '</div>';
@@ -2050,11 +2004,9 @@ function collectEndpointsForm() {
   const endpoints = {};
   for (const card of document.querySelectorAll('[data-ep-id]')) {
     const name    = card.querySelector('[data-role=ep-name]')?.value.trim();
-    const method  = card.querySelector('[data-role=ep-method]')?.value || 'GET';
-    const path    = card.querySelector('[data-role=ep-path]')?.value.trim();
     const fn      = card.querySelector('[data-role=ep-function]')?.value.trim();
     const runtime = card.querySelector('[data-role=ep-runtime]')?.value || 'js';
-    if (name && path && fn) endpoints[name] = { runtime, method, path, function: fn };
+    if (name && fn) endpoints[name] = { runtime, function: fn, triggers: [] };
   }
   return endpoints;
 }

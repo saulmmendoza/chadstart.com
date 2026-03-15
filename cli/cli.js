@@ -151,11 +151,14 @@ async function runDev() {
       const fnWatcher = chokidar.watch(functionsDir, { ignoreInitial: true, ignorePermissionErrors: true });
       fnWatcher.on('change', (filePath) => {
         console.log(`\n[dev] Function file changed: ${path.relative(process.cwd(), filePath)}`);
-        // Clear from require cache so next invocation picks up the new version
-        try { delete require.cache[require.resolve(filePath)]; } catch { /* */ }
-        // Validate that the module can be loaded; restart server if not
-        try { require(filePath); console.log(`[dev] ✔ ${path.basename(filePath)} reloaded`); }
-        catch (e) { console.error(`[dev] ✖ ${path.basename(filePath)} has errors — restarting server:`, e.message); boot(); }
+        // Only validate and cache-bust JS files; other runtimes (python, bash, etc.) are loaded fresh each invocation
+        if (filePath.endsWith('.js') || filePath.endsWith('.mjs')) {
+          try { delete require.cache[require.resolve(filePath)]; } catch { /* */ }
+          try { require(filePath); console.log(`[dev] ✔ ${path.basename(filePath)} reloaded`); }
+          catch (e) { console.error(`[dev] ✖ ${path.basename(filePath)} has errors — restarting server:`, e.message); boot(); }
+        } else {
+          console.log(`[dev] ✔ ${path.basename(filePath)} updated`);
+        }
       });
       console.log(`[dev] Watching ${functionsDir} for function file changes...\n`);
     }
