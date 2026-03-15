@@ -38,7 +38,49 @@ triggers:
   - type: http
     method: GET   # GET | POST | PUT | PATCH | DELETE
     path: /hello
+    # policies omitted → public (anyone can call)
 ```
+
+#### Access policies
+
+Add a `policies` array to restrict who can call an HTTP trigger:
+
+```yaml
+triggers:
+  - type: http
+    method: GET
+    path: /public-data
+    policies:
+      - access: public        # Anyone can call (default when omitted)
+
+  - type: http
+    method: GET
+    path: /admin-data
+    policies:
+      - access: admin         # Any valid JWT is required
+
+  - type: http
+    method: GET
+    path: /customer-data
+    policies:
+      - access: restricted    # JWT required, filtered by entity
+        allow: Customer       # Only Customer tokens are allowed (string or array)
+
+  - type: http
+    method: GET
+    path: /disabled
+    policies:
+      - access: forbidden     # Always returns 403
+```
+
+**Policy access values:**
+
+| Value        | Emoji alias | Description                                                       |
+| ------------ | ----------- | ----------------------------------------------------------------- |
+| `public`     | `🌐`        | Open to everyone (default when `policies` is omitted)             |
+| `admin`      | `👨🏻‍💻`     | Requires any valid JWT (any entity)                               |
+| `restricted` | `🔒`        | Requires a valid JWT; combine with `allow` to limit to an entity  |
+| `forbidden`  | `🚫`        | Always returns 403 — disables the route                           |
 
 ### Cron trigger
 
@@ -132,12 +174,23 @@ Python/Ruby/PHP runtimes spawn one persistent worker process per runtime (not pe
 
 ## Configuration
 
+### Function options
+
 | Option       | Default | Description                                          |
 | ------------ | ------- | ---------------------------------------------------- |
 | `function`*  | —       | File name relative to the functions folder           |
 | `runtime`    | `js`    | Runtime to use                                       |
 | `description`| —       | Optional description (shown in OpenAPI docs)         |
 | `triggers`*  | —       | Array of trigger definitions                         |
+
+### HTTP trigger options
+
+| Option     | Default  | Description                                              |
+| ---------- | -------- | -------------------------------------------------------- |
+| `type`*    | —        | `http`                                                   |
+| `method`   | `GET`    | HTTP verb: `GET` `POST` `PUT` `PATCH` `DELETE`           |
+| `path`*    | —        | URL path, e.g. `/hello` or `/users/:id/activate`         |
+| `policies` | `public` | Array of policy objects to restrict access (see above)   |
 
 !!! tip
     Set `CHADSTART_FUNCTIONS_FOLDER` in your `.env` to use a different folder than `/functions`.

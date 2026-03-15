@@ -104,7 +104,94 @@ describe('functions-engine – event trigger', () => {
   });
 });
 
-// ── JS format adapters ─────────────────────────────────────────────────────────
+// ── HTTP trigger with policies ─────────────────────────────────────────────────
+
+describe('functions-engine – HTTP trigger policies', () => {
+  let server, port, fnDir;
+  const jwt = require('jsonwebtoken');
+  const JWT_SECRET = process.env.JWT_SECRET || process.env.TOKEN_SECRET_KEY || 'chadstart-dev-secret-change-in-production';
+
+  before(async () => {
+    cleanup();
+    fnDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cs-fn-'));
+    fs.writeFileSync(path.join(fnDir, 'ok.js'), `module.exports = async function() { return { ok: true }; };`);
+
+    process.env.CHADSTART_FUNCTIONS_FOLDER = fnDir;
+
+    const app = express();
+    app.use(express.json());
+    setupFunctions(app, {
+      publicFn:     { function: 'ok.js', triggers: [{ type: 'http', method: 'GET', path: '/pub',       policies: [{ access: 'public'     }] }] },
+      defaultFn:    { function: 'ok.js', triggers: [{ type: 'http', method: 'GET', path: '/default'                                         }] },
+      adminFn:      { function: 'ok.js', triggers: [{ type: 'http', method: 'GET', path: '/admin',     policies: [{ access: 'admin'      }] }] },
+      forbiddenFn:  { function: 'ok.js', triggers: [{ type: 'http', method: 'GET', path: '/forbidden', policies: [{ access: 'forbidden'  }] }] },
+      restrictedFn: { function: 'ok.js', triggers: [{ type: 'http', method: 'GET', path: '/restricted', policies: [{ access: 'restricted', allow: 'Customer' }] }] },
+    });
+
+    server = http.createServer(app);
+    await new Promise((r) => server.listen(0, '127.0.0.1', r));
+    port = server.address().port;
+  });
+
+  after(async () => {
+    cleanup();
+    await new Promise((r) => server.close(r));
+    delete process.env.CHADSTART_FUNCTIONS_FOLDER;
+    fs.rmSync(fnDir, { recursive: true, force: true });
+  });
+
+  function makeToken(entity) {
+    return jwt.sign({ id: 'test-id', entity }, JWT_SECRET, { expiresIn: '1h' });
+  }
+
+  it('public policy: allows unauthenticated requests', async () => {
+    const res = await fetch(`http://127.0.0.1:${port}/pub`);
+    assert.strictEqual(res.status, 200);
+    const body = await res.json();
+    assert.strictEqual(body.ok, true);
+  });
+
+  it('no policy (default): allows unauthenticated requests', async () => {
+    const res = await fetch(`http://127.0.0.1:${port}/default`);
+    assert.strictEqual(res.status, 200);
+  });
+
+  it('admin policy: rejects unauthenticated request with 401', async () => {
+    const res = await fetch(`http://127.0.0.1:${port}/admin`);
+    assert.strictEqual(res.status, 401);
+  });
+
+  it('admin policy: allows any valid JWT', async () => {
+    const token = makeToken('Admin');
+    const res = await fetch(`http://127.0.0.1:${port}/admin`, { headers: { Authorization: `Bearer ${token}` } });
+    assert.strictEqual(res.status, 200);
+  });
+
+  it('forbidden policy: always returns 403', async () => {
+    const res = await fetch(`http://127.0.0.1:${port}/forbidden`);
+    assert.strictEqual(res.status, 403);
+  });
+
+  it('restricted policy: rejects unauthenticated request with 401', async () => {
+    const res = await fetch(`http://127.0.0.1:${port}/restricted`);
+    assert.strictEqual(res.status, 401);
+  });
+
+  it('restricted policy: rejects token from wrong entity with 403', async () => {
+    const token = makeToken('Admin');
+    const res = await fetch(`http://127.0.0.1:${port}/restricted`, { headers: { Authorization: `Bearer ${token}` } });
+    assert.strictEqual(res.status, 403);
+  });
+
+  it('restricted policy: allows token from correct entity', async () => {
+    const token = makeToken('Customer');
+    const res = await fetch(`http://127.0.0.1:${port}/restricted`, { headers: { Authorization: `Bearer ${token}` } });
+    assert.strictEqual(res.status, 200);
+    const body = await res.json();
+    assert.strictEqual(body.ok, true);
+  });
+});
+
 
 describe('functions-engine – JS format auto-detection', () => {
   let server, port, fnDir;

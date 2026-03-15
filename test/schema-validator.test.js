@@ -32,6 +32,10 @@ describe('schema-validator', () => {
   it('accepts function with event trigger', () => assert.strictEqual(validateSchema({ name: 'App', functions: { onEvt: { function: 'onEvt.js', triggers: [{ type: 'event', name: 'user.created' }] } } }), true));
   it('accepts python runtime function', () => assert.strictEqual(validateSchema({ name: 'App', functions: { fn: { runtime: 'python', function: 'fn.py', triggers: [{ type: 'http', method: 'POST', path: '/fn' }] } } }), true));
   it('rejects unknown runtime', () => assert.throws(() => validateSchema({ name: 'App', functions: { fn: { runtime: 'deno', function: 'fn.js', triggers: [{ type: 'http', method: 'GET', path: '/fn' }] } } })));
+  it('accepts http trigger with public policy', () => assert.strictEqual(validateSchema({ name: 'App', functions: { fn: { function: 'fn.js', triggers: [{ type: 'http', method: 'GET', path: '/fn', policies: [{ access: 'public' }] }] } } }), true));
+  it('accepts http trigger with restricted policy and allow', () => assert.strictEqual(validateSchema({ name: 'App', functions: { fn: { function: 'fn.js', triggers: [{ type: 'http', method: 'GET', path: '/fn', policies: [{ access: 'restricted', allow: 'Admin' }] }] } } }), true));
+  it('accepts http trigger with admin policy', () => assert.strictEqual(validateSchema({ name: 'App', functions: { fn: { function: 'fn.js', triggers: [{ type: 'http', method: 'GET', path: '/fn', policies: [{ access: 'admin' }] }] } } }), true));
+  it('accepts http trigger with forbidden policy', () => assert.strictEqual(validateSchema({ name: 'App', functions: { fn: { function: 'fn.js', triggers: [{ type: 'http', method: 'GET', path: '/fn', policies: [{ access: 'forbidden' }] }] } } }), true));
   it('accepts groups', () => assert.strictEqual(validateSchema({ name: 'App', groups: { T: { properties: [{ name: 'author', type: 'string' }] } } }), true));
   it('rejects invalid file bucket', () => assert.throws(() => validateSchema({ name: 'App', files: { uploads: {} } }), /path/i));
   it('rejects invalid plugin', () => assert.throws(() => validateSchema({ name: 'App', plugins: [{ name: 'bad' }] })));

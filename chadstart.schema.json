@@ -289,7 +289,8 @@
         "method":   { "type": "string", "enum": ["GET", "POST", "PATCH", "PUT", "DELETE"] },
         "path":     { "type": "string", "description": "URL path for http triggers (supports :param syntax)." },
         "schedule": { "type": "string", "description": "Cron expression or predefined alias (@daily, @hourly…)." },
-        "name":     { "type": "string", "description": "Event name for event triggers." }
+        "name":     { "type": "string", "description": "Event name for event triggers." },
+        "policies": { "type": "array", "items": { "$ref": "#/$defs/policy" }, "description": "Access policies for http triggers. Default: public." }
       },
       "additionalProperties": false
     },

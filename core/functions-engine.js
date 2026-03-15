@@ -248,8 +248,9 @@ function registerTrigger(app, name, fn, trigger) {
 function registerHttp(app, name, fn, trigger) {
   const method = (trigger.method || 'GET').toLowerCase();
   const epPath = trigger.path;
+  const middlewares = buildPolicyMiddlewares(trigger.policies);
 
-  app[method](epPath, async (req, res) => {
+  app[method](epPath, ...middlewares, async (req, res) => {
     const entry = resolveFnEntry(fn.function);
     if (!entry) {
       logger.warn(`[functions] File not found for "${name}": ${fn.function}`);
@@ -270,6 +271,47 @@ function registerHttp(app, name, fn, trigger) {
   });
 
   logger.info(`  Registered function: ${trigger.method || 'GET'} ${epPath} (${name})`);
+}
+
+// ── Policy middleware for HTTP triggers ───────────────────────────────────────
+
+/**
+ * Build Express middleware array from a policies definition.
+ * With no policies (or `access: public`) the route is open to everyone.
+ * Supports: public | restricted | admin | forbidden
+ */
+function buildPolicyMiddlewares(policies) {
+  const { optionalAuth, requireAuth, JWT_SECRET } = require('./auth');
+  const jwt = require('jsonwebtoken');
+  if (!policies || !policies.length) return [optionalAuth];
+  const p = policies[0];
+  switch (p.access) {
+    case 'public':
+    case '🌐':
+      return [optionalAuth];
+    case 'restricted':
+    case '🔒': {
+      if (!p.allow) return [requireAuth()];
+      const allowed = Array.isArray(p.allow) ? p.allow : [p.allow];
+      return [(req, res, next) => {
+        const h = req.headers.authorization;
+        if (!h || !h.startsWith('Bearer ')) return res.status(401).json({ error: 'Authorization required' });
+        try {
+          req.user = jwt.verify(h.slice(7), JWT_SECRET);
+          if (!allowed.includes(req.user.entity)) return res.status(403).json({ error: 'Access denied' });
+          next();
+        } catch { res.status(401).json({ error: 'Invalid or expired token' }); }
+      }];
+    }
+    case 'admin':
+    case '👨🏻‍💻':
+      return [requireAuth()];
+    case 'forbidden':
+    case '🚫':
+      return [(_r, res) => res.status(403).json({ error: 'Access forbidden' })];
+    default:
+      return [optionalAuth];
+  }
 }
 
 function registerCron(name, fn, trigger) {
