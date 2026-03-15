@@ -2,11 +2,15 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # ChadStart Todo App — demonstration of a complete chadstart.yaml config.
 # Shows: entities, access policies, realtime, CRUD, and functions in every
-# supported runtime (js, bash, python, go, ruby, php).
+# supported runtime (js, bash, python, go, ruby, c++).
 #
-# To run:
+# To run locally:
 #   cd demo
 #   CHADSTART_CONFIG=./chadstart.yaml node ../index.js
+#
+# To run with Docker Compose:
+#   cd demo
+#   docker compose up --build
 # ─────────────────────────────────────────────────────────────────────────────
 
 name: Todo App
@@ -157,15 +161,15 @@ functions:
         policies:
           - access: public
 
-  # PHP — greets the caller from the PHP runtime.
-  greetPhp:
-    runtime: php
-    function: hello.php
-    description: Returns a greeting from the PHP runtime.
+  # C++ — greets the caller from the C++ runtime.
+  greetCpp:
+    runtime: c++
+    function: hello.cpp
+    description: Returns a greeting from the C++ runtime.
     triggers:
       - type: http
         method: GET
-        path: /api/fn/greet/php
+        path: /api/fn/greet/cpp
         policies:
           - access: public
 

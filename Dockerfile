@@ -18,14 +18,13 @@ ENV NODE_ENV=production
 # python — python3 interpreter
 # go     — go toolchain (used via `go run`)
 # ruby   — ruby interpreter
-# php    — php-cli interpreter
+# c++    — g++ compiler (functions compiled on first invocation)
 RUN apk add --no-cache \
       bash \
       python3 \
       go \
       ruby \
-      php-cli \
-      php83-json
+      g++
 
 # Run as non-root user
 RUN addgroup -S nodejs && adduser -S nodejs -G nodejs
