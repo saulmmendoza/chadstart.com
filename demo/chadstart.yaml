@@ -67,7 +67,7 @@ entities:
       - { name: dueDate,     type: date }
     policies:
       create:
-        - { access: restricted, allow: User }   # Logged-in users can create todos
+        - { access: restricted, allow: User, condition: self }   # Set owner on create
       read:
         - access: public                         # Anyone can list / view todos
       update:
