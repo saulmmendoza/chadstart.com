@@ -12,3 +12,6 @@ test-results/
 playwright-report/
 root/
 data/
+__pycache__/
+*.pyc
+*.pyo
