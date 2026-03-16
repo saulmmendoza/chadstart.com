@@ -384,8 +384,8 @@ admin:
   policies:
     - access: admin         # Who can access /admin. Default: access: admin
 
-# ── Rate limiting (top-level) ─────────────────────────────────────────────────
-# Protect your API from abuse. Can also be set under settings.rateLimits (deprecated).
+# ── Rate limiting ─────────────────────────────────────────────────────────────
+# Protect your API from abuse.
 
 rateLimits:
   - name: default
@@ -395,8 +395,7 @@ rateLimits:
     limit: 10
     ttl: 60000
 
-# ── OpenTelemetry tracing (top-level) ─────────────────────────────────────────
-# Can also be set under settings.telemetry (deprecated).
+# ── OpenTelemetry tracing ──────────────────────────────────────────────────────
 # Non-secret values can be set here; secret values (auth headers / API keys)
 # must be set via environment variables only — see .env.example.
 
@@ -406,23 +405,6 @@ telemetry:
   endpoint: http://localhost:4318  # Overridable via OTEL_EXPORTER_OTLP_ENDPOINT env var
   # Auth headers (e.g., "authorization=Bearer <token>") must be set via
   # OTEL_EXPORTER_OTLP_HEADERS env var — never place secrets in this file.
-
-# ── Global settings ───────────────────────────────────────────────────────────
-# Note: settings.rateLimits and settings.telemetry are deprecated.
-# Use the top-level rateLimits and telemetry properties above instead.
-
-settings:
-  # Rate limiting — kept for backward compatibility; prefer top-level rateLimits.
-  rateLimits:
-    - name: default
-      limit: 100
-      ttl: 60000
-
-  # OpenTelemetry tracing — kept for backward compatibility; prefer top-level telemetry.
-  telemetry:
-    enabled: false
-    serviceName: my-app
-    endpoint: http://localhost:4318
 
 # ── Error reporting (Sentry / Bugsink) ────────────────────────────────────────
 # Set SENTRY_DSN in your .env to enable. The DSN is a secret — never put it here.

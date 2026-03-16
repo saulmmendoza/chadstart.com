@@ -132,9 +132,9 @@ describe('getTelemetryConfig – enabled via env var', () => {
 });
 
 describe('getTelemetryConfig – enabled via yaml', () => {
-  it('returns config when settings.telemetry.enabled is true', () => {
+  it('returns config when telemetry.enabled is true', () => {
     withEnv({ OTEL_ENABLED: undefined, OTEL_SERVICE_NAME: undefined, OTEL_EXPORTER_OTLP_ENDPOINT: undefined, OTEL_EXPORTER_OTLP_HEADERS: undefined }, () => {
-      const cfg = getTelemetryConfig({ telemetry: { enabled: true } });
+      const cfg = getTelemetryConfig({ enabled: true });
       assert.ok(cfg);
       assert.strictEqual(cfg.enabled, true);
     });
@@ -142,35 +142,35 @@ describe('getTelemetryConfig – enabled via yaml', () => {
 
   it('reads serviceName from yaml', () => {
     withEnv({ OTEL_ENABLED: undefined, OTEL_SERVICE_NAME: undefined, OTEL_EXPORTER_OTLP_ENDPOINT: undefined, OTEL_EXPORTER_OTLP_HEADERS: undefined }, () => {
-      const cfg = getTelemetryConfig({ telemetry: { enabled: true, serviceName: 'yaml-service' } });
+      const cfg = getTelemetryConfig({ enabled: true, serviceName: 'yaml-service' });
       assert.strictEqual(cfg.serviceName, 'yaml-service');
     });
   });
 
   it('reads endpoint from yaml', () => {
     withEnv({ OTEL_ENABLED: undefined, OTEL_SERVICE_NAME: undefined, OTEL_EXPORTER_OTLP_ENDPOINT: undefined, OTEL_EXPORTER_OTLP_HEADERS: undefined }, () => {
-      const cfg = getTelemetryConfig({ telemetry: { enabled: true, endpoint: 'http://my-collector:4318' } });
+      const cfg = getTelemetryConfig({ enabled: true, endpoint: 'http://my-collector:4318' });
       assert.strictEqual(cfg.endpoint, 'http://my-collector:4318');
     });
   });
 
   it('env var serviceName overrides yaml', () => {
     withEnv({ OTEL_ENABLED: undefined, OTEL_SERVICE_NAME: 'env-wins', OTEL_EXPORTER_OTLP_ENDPOINT: undefined, OTEL_EXPORTER_OTLP_HEADERS: undefined }, () => {
-      const cfg = getTelemetryConfig({ telemetry: { enabled: true, serviceName: 'yaml-service' } });
+      const cfg = getTelemetryConfig({ enabled: true, serviceName: 'yaml-service' });
       assert.strictEqual(cfg.serviceName, 'env-wins');
     });
   });
 
   it('env var endpoint overrides yaml', () => {
     withEnv({ OTEL_ENABLED: undefined, OTEL_SERVICE_NAME: undefined, OTEL_EXPORTER_OTLP_ENDPOINT: 'http://env-collector:4318', OTEL_EXPORTER_OTLP_HEADERS: undefined }, () => {
-      const cfg = getTelemetryConfig({ telemetry: { enabled: true, endpoint: 'http://yaml-collector:4318' } });
+      const cfg = getTelemetryConfig({ enabled: true, endpoint: 'http://yaml-collector:4318' });
       assert.strictEqual(cfg.endpoint, 'http://env-collector:4318');
     });
   });
 
   it('yaml has no headers field (secrets must come from env)', () => {
     withEnv({ OTEL_ENABLED: undefined, OTEL_SERVICE_NAME: undefined, OTEL_EXPORTER_OTLP_ENDPOINT: undefined, OTEL_EXPORTER_OTLP_HEADERS: undefined }, () => {
-      const cfg = getTelemetryConfig({ telemetry: { enabled: true } });
+      const cfg = getTelemetryConfig({ enabled: true });
       // Headers are always empty when OTEL_EXPORTER_OTLP_HEADERS env var is absent
       assert.deepStrictEqual(cfg.headers, {});
     });
@@ -178,16 +178,16 @@ describe('getTelemetryConfig – enabled via yaml', () => {
 
   it('OTEL_ENABLED=true overrides yaml enabled: false', () => {
     withEnv({ OTEL_ENABLED: 'true', OTEL_SERVICE_NAME: undefined, OTEL_EXPORTER_OTLP_ENDPOINT: undefined, OTEL_EXPORTER_OTLP_HEADERS: undefined }, () => {
-      const cfg = getTelemetryConfig({ telemetry: { enabled: false } });
+      const cfg = getTelemetryConfig({ enabled: false });
       assert.ok(cfg);
       assert.strictEqual(cfg.enabled, true);
     });
   });
 });
 
-describe('schema: settings.telemetry', () => {
+describe('schema: telemetry', () => {
   it('schema accepts telemetry with enabled only', () => {
-    assert.strictEqual(validateSchema({ name: 'App', settings: { telemetry: { enabled: true } } }), true);
+    assert.strictEqual(validateSchema({ name: 'App', telemetry: { enabled: true } }), true);
   });
 
   it('schema accepts top-level telemetry', () => {
@@ -200,50 +200,36 @@ describe('schema: settings.telemetry', () => {
   it('schema accepts telemetry with all non-secret fields', () => {
     assert.strictEqual(validateSchema({
       name: 'App',
-      settings: {
-        telemetry: {
-          enabled: true,
-          serviceName: 'my-service',
-          endpoint: 'http://localhost:4318',
-        },
+      telemetry: {
+        enabled: true,
+        serviceName: 'my-service',
+        endpoint: 'http://localhost:4318',
       },
     }), true);
   });
 
   it('schema accepts disabled telemetry', () => {
-    assert.strictEqual(validateSchema({ name: 'App', settings: { telemetry: { enabled: false } } }), true);
+    assert.strictEqual(validateSchema({ name: 'App', telemetry: { enabled: false } }), true);
   });
 
   it('schema accepts empty telemetry object', () => {
-    assert.strictEqual(validateSchema({ name: 'App', settings: { telemetry: {} } }), true);
+    assert.strictEqual(validateSchema({ name: 'App', telemetry: {} }), true);
   });
 
   it('schema rejects unknown telemetry key', () => {
-    assert.throws(() => validateSchema({ name: 'App', settings: { telemetry: { enabled: true, headers: {} } } }));
+    assert.throws(() => validateSchema({ name: 'App', telemetry: { enabled: true, headers: {} } }));
   });
 
   it('schema rejects telemetry with enabled as non-boolean', () => {
-    assert.throws(() => validateSchema({ name: 'App', settings: { telemetry: { enabled: 'yes' } } }));
+    assert.throws(() => validateSchema({ name: 'App', telemetry: { enabled: 'yes' } }));
   });
 
-  it('schema rejects telemetry alongside unknown settings key', () => {
-    assert.throws(() => validateSchema({ name: 'App', settings: { telemetry: { enabled: true }, badKey: true } }));
+  it('schema rejects settings property (removed)', () => {
+    assert.throws(() => validateSchema({ name: 'App', settings: { telemetry: { enabled: true } } }));
   });
 });
 
-describe('buildCore: settings.telemetry passthrough', () => {
-  it('exposes settings.telemetry when provided', () => {
-    const core = buildCore({
-      name: 'App',
-      settings: { telemetry: { enabled: true, serviceName: 'svc', endpoint: 'http://host:4318' } },
-    });
-    assert.ok(core.settings);
-    assert.ok(core.settings.telemetry);
-    assert.strictEqual(core.settings.telemetry.enabled, true);
-    assert.strictEqual(core.settings.telemetry.serviceName, 'svc');
-    assert.strictEqual(core.settings.telemetry.endpoint, 'http://host:4318');
-  });
-
+describe('buildCore: telemetry passthrough', () => {
   it('exposes top-level telemetry when provided', () => {
     const core = buildCore({
       name: 'App',
@@ -252,20 +238,12 @@ describe('buildCore: settings.telemetry passthrough', () => {
     assert.ok(core.telemetry);
     assert.strictEqual(core.telemetry.enabled, true);
     assert.strictEqual(core.telemetry.serviceName, 'top-svc');
+    assert.strictEqual(core.telemetry.endpoint, 'http://host:4318');
   });
 
-  it('top-level telemetry takes precedence over settings.telemetry', () => {
-    const core = buildCore({
-      name: 'App',
-      telemetry: { enabled: true, serviceName: 'top' },
-      settings: { telemetry: { enabled: false, serviceName: 'settings' } },
-    });
-    assert.strictEqual(core.telemetry.serviceName, 'top');
-  });
-
-  it('settings is null when not provided (telemetry not configured)', () => {
+  it('sets telemetry to null when not provided', () => {
     const core = buildCore({ name: 'App' });
-    assert.strictEqual(core.settings, null);
+    assert.strictEqual(core.telemetry, null);
   });
 });
 

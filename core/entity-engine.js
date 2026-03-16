@@ -139,10 +139,8 @@ function buildCore(config) {
 
   const entities = buildEntities({ ...config, entities: rawEntities });
 
-  // Top-level rateLimits (preferred) with fallback to settings.rateLimits
-  const rateLimits = config.rateLimits || (config.settings && config.settings.rateLimits) || null;
-  // Top-level telemetry (preferred) with fallback to settings.telemetry
-  const telemetry = config.telemetry || (config.settings && config.settings.telemetry) || null;
+  const rateLimits = config.rateLimits || null;
+  const telemetry = config.telemetry || null;
 
   return {
     name: config.name,
@@ -155,7 +153,6 @@ function buildCore(config) {
     files: config.files || {},
     public: config.public || null,
     port: parseInt(process.env.CHADSTART_PORT || process.env.PORT || config.port || 3000, 10),
-    settings: config.settings || null,
     rateLimits,
     telemetry,
     admin: {

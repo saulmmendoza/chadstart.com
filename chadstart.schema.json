@@ -79,12 +79,12 @@
     },
     "rateLimits": {
       "type": "array",
-      "description": "Rate limit definitions applied to API routes (top-level shorthand for settings.rateLimits).",
+      "description": "Rate limit definitions applied to API routes.",
       "items": { "$ref": "#/$defs/rateLimit" }
     },
     "telemetry": {
       "type": "object",
-      "description": "OpenTelemetry tracing configuration (top-level shorthand for settings.telemetry).",
+      "description": "OpenTelemetry tracing configuration. Secret values (auth headers / API keys) must be supplied via environment variables only — never put secrets in this file.",
       "additionalProperties": false,
       "properties": {
         "enabled": {
@@ -99,38 +99,6 @@
         "endpoint": {
           "type": "string",
           "description": "OTLP collector base URL (e.g. http://localhost:4318). Overridable via OTEL_EXPORTER_OTLP_ENDPOINT env var."
-        }
-      }
-    },
-    "settings": {
-      "type": "object",
-      "description": "Global application settings.",
-      "additionalProperties": false,
-      "properties": {
-        "rateLimits": {
-          "type": "array",
-          "description": "Rate limit definitions applied to API routes.",
-          "items": { "$ref": "#/$defs/rateLimit" }
-        },
-        "telemetry": {
-          "type": "object",
-          "description": "OpenTelemetry tracing configuration. Secret values (auth headers / API keys) must be supplied via environment variables only — never put secrets in this file.",
-          "additionalProperties": false,
-          "properties": {
-            "enabled": {
-              "type": "boolean",
-              "default": false,
-              "description": "Enable OpenTelemetry tracing. Also configurable via OTEL_ENABLED=true env var."
-            },
-            "serviceName": {
-              "type": "string",
-              "description": "Service name reported to the OTLP collector. Overridable via OTEL_SERVICE_NAME env var."
-            },
-            "endpoint": {
-              "type": "string",
-              "description": "OTLP collector base URL (e.g. http://localhost:4318). Overridable via OTEL_EXPORTER_OTLP_ENDPOINT env var."
-            }
-          }
         }
       }
     },

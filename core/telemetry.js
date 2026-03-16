@@ -39,14 +39,14 @@ function parseOtlpHeaders(raw) {
 }
 
 /**
- * Derive telemetry configuration from YAML settings + environment variables.
+ * Derive telemetry configuration from YAML telemetry config + environment variables.
  * Returns null when telemetry is disabled.
  *
- * @param {object|null} settings  Value of `core.settings` (may be null)
+ * @param {object|null} telemetry  Value of `core.telemetry` (may be null)
  * @returns {{ enabled: true, serviceName: string, endpoint: string, headers: Record<string,string> } | null}
  */
-function getTelemetryConfig(settings) {
-  const tel = (settings && settings.telemetry) || {};
+function getTelemetryConfig(telemetry) {
+  const tel = telemetry || {};
 
   const enabled =
     process.env.OTEL_ENABLED === 'true' ||

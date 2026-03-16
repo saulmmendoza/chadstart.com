@@ -69,11 +69,10 @@ const authLimiter  = limiter(15 * 60 * 1000, 30);
 const adminRateLimiter = limiter(60 * 1000, 100);
 
 /**
- * Build the API rate limiters from core.rateLimits (top-level, preferred),
- * falling back to settings.rateLimits for backward compat, or the default.
+ * Build the API rate limiters from core.rateLimits, or the default.
  */
 function buildApiLimiters(core) {
-  const configured = core.rateLimits || (core.settings && core.settings.rateLimits);
+  const configured = core.rateLimits;
   if (configured && configured.length > 0) {
     return configured.map((rl) => limiter(rl.ttl, rl.limit));
   }
@@ -96,8 +95,7 @@ async function buildApp(yamlPath, reloadFn) {
   logger.info(`Loading "${core.name}"...`);
 
   // Initialize OpenTelemetry (singleton — no-op on hot reload)
-  // Use top-level telemetry config (preferred) with fallback to settings.telemetry
-  const telConfig = getTelemetryConfig(core.telemetry ? { telemetry: core.telemetry } : core.settings);
+  const telConfig = getTelemetryConfig(core.telemetry);
   await initTelemetry(telConfig);
 
   const dbPath = core.database

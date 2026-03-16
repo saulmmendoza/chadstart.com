@@ -5,19 +5,7 @@ const { buildCore } = require('../core/entity-engine');
 const { validateSchema } = require('../core/schema-validator');
 const { buildApiLimiters } = require('../server/express-server');
 
-describe('settings.rateLimits', () => {
-  it('schema accepts settings with rateLimits', () => {
-    assert.strictEqual(validateSchema({
-      name: 'App',
-      settings: {
-        rateLimits: [
-          { name: 'short',  limit: 2,  ttl: 1000 },
-          { name: 'medium', limit: 50, ttl: 60000 },
-        ],
-      },
-    }), true);
-  });
-
+describe('rateLimits', () => {
   it('schema accepts top-level rateLimits', () => {
     assert.strictEqual(validateSchema({
       name: 'App',
@@ -29,37 +17,23 @@ describe('settings.rateLimits', () => {
   });
 
   it('schema rejects rateLimit missing required name', () => {
-    assert.throws(() => validateSchema({ name: 'App', settings: { rateLimits: [{ limit: 2, ttl: 1000 }] } }));
+    assert.throws(() => validateSchema({ name: 'App', rateLimits: [{ limit: 2, ttl: 1000 }] }));
   });
 
   it('schema rejects rateLimit missing required limit', () => {
-    assert.throws(() => validateSchema({ name: 'App', settings: { rateLimits: [{ name: 'short', ttl: 1000 }] } }));
+    assert.throws(() => validateSchema({ name: 'App', rateLimits: [{ name: 'short', ttl: 1000 }] }));
   });
 
   it('schema rejects rateLimit missing required ttl', () => {
-    assert.throws(() => validateSchema({ name: 'App', settings: { rateLimits: [{ name: 'short', limit: 2 }] } }));
+    assert.throws(() => validateSchema({ name: 'App', rateLimits: [{ name: 'short', limit: 2 }] }));
   });
 
-  it('schema rejects unknown settings key', () => {
-    assert.throws(() => validateSchema({ name: 'App', settings: { unknownKey: true } }));
+  it('schema rejects unknown top-level key', () => {
+    assert.throws(() => validateSchema({ name: 'App', unknownKey: true }));
   });
 
-  it('buildCore exposes settings with rateLimits', () => {
-    const core = buildCore({
-      name: 'App',
-      settings: {
-        rateLimits: [
-          { name: 'short',  limit: 2,  ttl: 1000 },
-          { name: 'medium', limit: 50, ttl: 60000 },
-        ],
-      },
-    });
-    assert.ok(core.settings);
-    assert.strictEqual(core.settings.rateLimits.length, 2);
-    assert.strictEqual(core.settings.rateLimits[0].name,  'short');
-    assert.strictEqual(core.settings.rateLimits[0].limit, 2);
-    assert.strictEqual(core.settings.rateLimits[0].ttl,   1000);
-    assert.strictEqual(core.settings.rateLimits[1].name,  'medium');
+  it('schema rejects settings property (removed)', () => {
+    assert.throws(() => validateSchema({ name: 'App', settings: { rateLimits: [] } }));
   });
 
   it('buildCore exposes top-level rateLimits', () => {
@@ -67,25 +41,20 @@ describe('settings.rateLimits', () => {
       name: 'App',
       rateLimits: [
         { name: 'short',  limit: 2,  ttl: 1000 },
+        { name: 'medium', limit: 50, ttl: 60000 },
       ],
     });
     assert.ok(core.rateLimits);
-    assert.strictEqual(core.rateLimits.length, 1);
-    assert.strictEqual(core.rateLimits[0].name, 'short');
+    assert.strictEqual(core.rateLimits.length, 2);
+    assert.strictEqual(core.rateLimits[0].name,  'short');
+    assert.strictEqual(core.rateLimits[0].limit, 2);
+    assert.strictEqual(core.rateLimits[0].ttl,   1000);
+    assert.strictEqual(core.rateLimits[1].name,  'medium');
   });
 
-  it('top-level rateLimits takes precedence over settings.rateLimits', () => {
-    const core = buildCore({
-      name: 'App',
-      rateLimits: [{ name: 'top', limit: 5, ttl: 1000 }],
-      settings: { rateLimits: [{ name: 'settings', limit: 10, ttl: 2000 }] },
-    });
-    assert.strictEqual(core.rateLimits[0].name, 'top');
-  });
-
-  it('buildCore sets settings to null when not provided', () => {
+  it('buildCore sets rateLimits to null when not provided', () => {
     const core = buildCore({ name: 'App' });
-    assert.strictEqual(core.settings, null);
+    assert.strictEqual(core.rateLimits, null);
   });
 });
 
@@ -112,29 +81,14 @@ describe('env vars', () => {
 });
 
 describe('buildApiLimiters', () => {
-  it('returns 1 default limiter when no settings', () => {
+  it('returns 1 default limiter when no rateLimits', () => {
     const core = buildCore({ name: 'App' });
     const limiters = buildApiLimiters(core);
     assert.strictEqual(limiters.length, 1);
     assert.strictEqual(typeof limiters[0], 'function');
   });
 
-  it('returns one limiter per configured rateLimit entry (settings)', () => {
-    const core = buildCore({
-      name: 'App',
-      settings: {
-        rateLimits: [
-          { name: 'short',  limit: 2,  ttl: 1000 },
-          { name: 'medium', limit: 50, ttl: 60000 },
-        ],
-      },
-    });
-    const limiters = buildApiLimiters(core);
-    assert.strictEqual(limiters.length, 2);
-    assert.ok(limiters.every((l) => typeof l === 'function'));
-  });
-
-  it('returns one limiter per configured top-level rateLimit entry', () => {
+  it('returns one limiter per configured rateLimit entry', () => {
     const core = buildCore({
       name: 'App',
       rateLimits: [
@@ -148,7 +102,7 @@ describe('buildApiLimiters', () => {
   });
 
   it('falls back to default when rateLimits is empty array', () => {
-    const core = buildCore({ name: 'App', settings: { rateLimits: [] } });
+    const core = buildCore({ name: 'App', rateLimits: [] });
     const limiters = buildApiLimiters(core);
     assert.strictEqual(limiters.length, 1);
   });
