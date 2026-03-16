@@ -13,4 +13,5 @@ services:
       - ./chadstart.yaml:/app/chadstart.yaml:ro
       - ./data:/app/data
       - ./public:/app/public
+      - ./functions:/app/functions:ro
     restart: unless-stopped

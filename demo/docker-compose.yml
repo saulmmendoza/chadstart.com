@@ -1,0 +1,29 @@
+# demo/docker-compose.yml
+# ─────────────────────────────────────────────────────────────────────────────
+# Run the ChadStart Todo demo with Docker Compose.
+#
+# Usage (from this directory):
+#   cp ../.env.example .env          # create your .env — at minimum set TOKEN_SECRET_KEY
+#   docker compose up --build
+#
+# The build context is the repo root so the image is always built from
+# the current source, keeping the schema and code in sync.
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  app:
+    build:
+      context: ..          # repo root — Dockerfile lives there
+    ports:
+      - "3000:3000"
+    env_file:
+      - path: .env
+        required: false    # optional — defaults are safe for local dev
+    environment:
+      NODE_ENV: production
+    volumes:
+      - ./chadstart.yaml:/app/chadstart.yaml:ro
+      - ./data:/app/data
+      - ./public:/app/public
+      - ./functions:/app/functions:ro
+    restart: unless-stopped

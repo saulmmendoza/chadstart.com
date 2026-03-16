@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ChadStart · Todo Demo</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #121212;
+      --surface:  #1e1e1e;
+      --border:   #2a2a2a;
+      --primary:  #34b1eb;
+      --accent:   #03dac6;
+      --text:     #e1e1e1;
+      --muted:    #888;
+      --danger:   #f87171;
+      --warn:     #fbbf24;
+      --radius:   6px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+    }
+
+    /* ── Layout ── */
+    .app { max-width: 760px; margin: 0 auto; padding: 32px 16px 64px; }
+
+    /* ── Header ── */
+    header { margin-bottom: 32px; }
+    header h1 { font-size: 1.5rem; font-weight: 700; color: var(--primary); }
+    header p  { font-size: .875rem; color: var(--muted); margin-top: 4px; }
+
+    /* ── Auth bar ── */
+    .auth-bar {
+      display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px;
+      padding: 12px 14px; background: var(--surface);
+      border: 1px solid var(--border); border-radius: var(--radius);
+    }
+    .auth-bar input {
+      flex: 1; min-width: 120px; background: var(--bg); border: 1px solid var(--border);
+      border-radius: 4px; color: var(--text); padding: 6px 10px; font-size: .85rem;
+      outline: none; transition: border-color 150ms;
+    }
+    .auth-bar input:focus { border-color: var(--primary); }
+    .auth-bar button { font-size: .82rem; padding: 6px 14px; border-radius: 4px; cursor: pointer; border: none; font-weight: 500; transition: opacity 150ms; }
+    .auth-bar button:hover { opacity: .8; }
+    #btn-login  { background: var(--primary); color: #121212; }
+    #btn-signup { background: transparent; border: 1px solid var(--border) !important; color: var(--text); }
+    #btn-logout { background: transparent; border: 1px solid var(--border) !important; color: var(--danger); }
+    .auth-status { font-size: .8rem; color: var(--muted); align-self: center; margin-left: auto; }
+
+    /* ── Add todo form ── */
+    .add-form {
+      display: flex; gap: 8px; margin-bottom: 20px;
+    }
+    .add-form input {
+      flex: 1; background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); color: var(--text); padding: 9px 12px;
+      font-size: .9rem; outline: none; transition: border-color 150ms;
+    }
+    .add-form input:focus { border-color: var(--primary); }
+    .add-form select {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); color: var(--text); padding: 9px 10px;
+      font-size: .85rem; outline: none; cursor: pointer;
+    }
+    .add-form button {
+      background: var(--primary); color: #121212; border: none;
+      border-radius: var(--radius); padding: 9px 18px; font-size: .9rem;
+      font-weight: 600; cursor: pointer; transition: opacity 150ms;
+    }
+    .add-form button:hover { opacity: .85; }
+    .add-form button:disabled { opacity: .45; cursor: not-allowed; }
+
+    /* ── Filters ── */
+    .filters { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+    .filter-btn {
+      font-size: .78rem; padding: 4px 12px; border-radius: 4px; cursor: pointer;
+      border: 1px solid var(--border); background: transparent; color: var(--muted);
+      transition: all 150ms;
+    }
+    .filter-btn.active { border-color: var(--primary); color: var(--primary); background: rgba(52,177,235,.08); }
+    .filter-btn:hover:not(.active) { color: var(--text); }
+
+    /* ── Todo list ── */
+    #todo-list { list-style: none; }
+    .todo-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 11px 14px; background: var(--surface);
+      border: 1px solid var(--border); border-radius: var(--radius);
+      margin-bottom: 8px; transition: opacity 150ms;
+    }
+    .todo-item.completed { opacity: .55; }
+    .todo-item input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); flex-shrink: 0; cursor: pointer; }
+    .todo-title { flex: 1; font-size: .9rem; }
+    .todo-item.completed .todo-title { text-decoration: line-through; color: var(--muted); }
+    .priority-badge {
+      font-size: .7rem; padding: 2px 7px; border-radius: 3px; font-weight: 600;
+    }
+    .p-high   { background: rgba(248,113,113,.15); color: var(--danger); }
+    .p-medium { background: rgba(251,191,36,.15);  color: var(--warn); }
+    .p-low    { background: rgba(52,177,235,.15);  color: var(--primary); }
+    .btn-delete {
+      background: transparent; border: none; color: var(--muted); cursor: pointer;
+      font-size: .85rem; padding: 2px 6px; border-radius: 3px; transition: color 150ms;
+    }
+    .btn-delete:hover { color: var(--danger); }
+
+    /* ── Stats bar ── */
+    .stats-bar {
+      display: flex; gap: 20px; flex-wrap: wrap; padding: 12px 14px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); margin-bottom: 20px; font-size: .82rem; color: var(--muted);
+    }
+    .stats-bar span b { color: var(--text); }
+
+    /* ── Runtime showcase ── */
+    .runtime-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 10px; margin-top: 32px;
+    }
+    .runtime-card {
+      padding: 14px; background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); font-size: .82rem;
+    }
+    .runtime-card h3 { font-size: .8rem; color: var(--primary); margin-bottom: 6px; font-weight: 600; }
+    .runtime-card pre { color: var(--muted); white-space: pre-wrap; word-break: break-all; font-size: .75rem; }
+
+    /* ── Realtime log ── */
+    .rt-log {
+      margin-top: 32px; padding: 12px 14px; background: var(--surface);
+      border: 1px solid var(--border); border-radius: var(--radius);
+    }
+    .rt-log h2 { font-size: .85rem; font-weight: 600; color: var(--muted); margin-bottom: 8px; }
+    #rt-entries { font-size: .75rem; font-family: monospace; color: var(--muted); max-height: 140px; overflow-y: auto; }
+    .rt-entry { padding: 2px 0; border-bottom: 1px solid var(--border); }
+    .rt-create { color: var(--primary); }
+    .rt-update { color: var(--warn); }
+    .rt-delete { color: var(--danger); }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed; bottom: 20px; right: 20px; z-index: 999;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 10px 16px;
+      font-size: .85rem; display: none; max-width: 300px;
+    }
+    #toast.show { display: block; }
+    #toast.error   { border-color: rgba(248,113,113,.6); color: var(--danger); }
+    #toast.success { border-color: rgba(52,177,235,.6);  color: var(--primary); }
+
+    /* ── Empty state ── */
+    .empty-state { text-align: center; padding: 32px; color: var(--muted); font-size: .9rem; }
+
+    /* ── Section title ── */
+    .section-title { font-size: .75rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin: 24px 0 10px; }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <h1>⚡ ChadStart · Todo Demo</h1>
+    <p>Full-stack Todo app — CRUD · Auth · Realtime · Multi-runtime Functions</p>
+  </header>
+
+  <!-- Auth -->
+  <div class="auth-bar">
+    <input id="inp-email"    type="email"    placeholder="email@example.com" autocomplete="email" />
+    <input id="inp-password" type="password" placeholder="password" autocomplete="current-password" />
+    <button id="btn-signup" onclick="doSignup()">Sign up</button>
+    <button id="btn-login"  onclick="doLogin()">Log in</button>
+    <button id="btn-logout" onclick="doLogout()" style="display:none;">Log out</button>
+    <span class="auth-status" id="auth-status">Not signed in</span>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-bar" id="stats-bar">
+    <span>Total <b id="stat-total">—</b></span>
+    <span>Completed <b id="stat-done">—</b></span>
+    <span>Pending <b id="stat-pending">—</b></span>
+  </div>
+
+  <!-- Add todo -->
+  <form class="add-form" onsubmit="addTodo(event)">
+    <input id="inp-title" placeholder="New todo…" autocomplete="off" required />
+    <select id="inp-priority">
+      <option value="">Priority</option>
+      <option value="low">Low</option>
+      <option value="medium">Medium</option>
+      <option value="high">High</option>
+    </select>
+    <button type="submit" id="btn-add">Add</button>
+  </form>
+
+  <!-- Filter bar -->
+  <div class="filters">
+    <button class="filter-btn active" onclick="setFilter('all',  this)">All</button>
+    <button class="filter-btn"        onclick="setFilter('active', this)">Active</button>
+    <button class="filter-btn"        onclick="setFilter('done',   this)">Completed</button>
+  </div>
+
+  <!-- Todo list -->
+  <ul id="todo-list"></ul>
+  <div id="empty-state" class="empty-state" style="display:none;">No todos yet — add one above!</div>
+
+  <!-- Realtime log -->
+  <div class="rt-log">
+    <h2>🔴 Live events (WebSocket)</h2>
+    <div id="rt-entries"><span style="color:var(--muted);">Connecting…</span></div>
+  </div>
+
+  <!-- Runtime function showcase -->
+  <div class="section-title">Custom function responses — multiple runtimes</div>
+  <div class="runtime-grid" id="runtime-grid">
+    <!-- filled by JS -->
+  </div>
+
+</div>
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+
+// ── Config ────────────────────────────────────────────────────────────────────
+const BASE = '';          // same origin
+let token = localStorage.getItem('cs_todo_token') || null;
+let currentFilter = 'all';
+let todos = [];
+
+// ── Auth helpers ──────────────────────────────────────────────────────────────
+function authHeaders() {
+  return token
+    ? { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
+    : { 'Content-Type': 'application/json' };
+}
+
+function setToken(t) {
+  token = t;
+  if (t) localStorage.setItem('cs_todo_token', t);
+  else localStorage.removeItem('cs_todo_token');
+  updateAuthUI();
+}
+
+function updateAuthUI() {
+  const status  = document.getElementById('auth-status');
+  const btnOut  = document.getElementById('btn-logout');
+  const btnIn   = document.getElementById('btn-login');
+  const btnUp   = document.getElementById('btn-signup');
+  if (token) {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      status.textContent = 'Signed in as ' + (payload.name || payload.email || payload.sub || 'User');
+    } catch { status.textContent = 'Signed in'; }
+    btnOut.style.display = '';
+    btnIn.style.display  = 'none';
+    btnUp.style.display  = 'none';
+  } else {
+    status.textContent = 'Not signed in';
+    btnOut.style.display = 'none';
+    btnIn.style.display  = '';
+    btnUp.style.display  = '';
+  }
+}
+
+async function doSignup() {
+  const email    = document.getElementById('inp-email').value.trim();
+  const password = document.getElementById('inp-password').value;
+  const name     = email.split('@')[0];
+  if (!email || !password) return toast('Enter email and password', 'error');
+  try {
+    const r = await fetch(BASE + '/api/auth/user/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, password }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Signup failed');
+    setToken(d.token);
+    toast('Account created!', 'success');
+    loadTodos();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function doLogin() {
+  const email    = document.getElementById('inp-email').value.trim();
+  const password = document.getElementById('inp-password').value;
+  if (!email || !password) return toast('Enter email and password', 'error');
+  try {
+    const r = await fetch(BASE + '/api/auth/user/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Login failed');
+    setToken(d.token);
+    toast('Welcome back!', 'success');
+    loadTodos();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+function doLogout() {
+  setToken(null);
+  todos = [];
+  renderList();
+  toast('Signed out', 'success');
+}
+
+// ── CRUD ──────────────────────────────────────────────────────────────────────
+async function loadTodos() {
+  try {
+    const r = await fetch(BASE + '/api/collections/todo?orderBy=createdAt&order=DESC', { headers: authHeaders() });
+    const d = await r.json();
+    todos = d.data || d || [];
+    renderList();
+    loadStats();
+  } catch (e) { toast('Failed to load todos', 'error'); }
+}
+
+async function addTodo(e) {
+  e.preventDefault();
+  if (!token) return toast('Sign in to create todos', 'error');
+  const title    = document.getElementById('inp-title').value.trim();
+  const priority = document.getElementById('inp-priority').value || 'medium';
+  if (!title) return;
+  try {
+    const r = await fetch(BASE + '/api/collections/todo', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ title, priority }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Create failed');
+    document.getElementById('inp-title').value = '';
+    todos.unshift(d);
+    renderList();
+    loadStats();
+    toast('Todo added!', 'success');
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+async function toggleTodo(id, completed) {
+  try {
+    const r = await fetch(BASE + '/api/collections/todo/' + id, {
+      method: 'PATCH',
+      headers: authHeaders(),
+      body: JSON.stringify({ completed }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Update failed');
+    const idx = todos.findIndex(t => t.id === id);
+    if (idx !== -1) todos[idx] = d;
+    renderList();
+    loadStats();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function deleteTodo(id) {
+  try {
+    const r = await fetch(BASE + '/api/collections/todo/' + id, { method: 'DELETE', headers: authHeaders() });
+    if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Delete failed'); }
+    todos = todos.filter(t => t.id !== id);
+    renderList();
+    loadStats();
+    toast('Deleted', 'success');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+// ── Filter + Render ───────────────────────────────────────────────────────────
+function setFilter(f, el) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderList();
+}
+
+function filtered() {
+  if (currentFilter === 'done')   return todos.filter(t => t.completed);
+  if (currentFilter === 'active') return todos.filter(t => !t.completed);
+  return todos;
+}
+
+function priorityBadge(p) {
+  if (!p) return '';
+  const cls = { high: 'p-high', medium: 'p-medium', low: 'p-low' }[p] || '';
+  return `<span class="priority-badge ${cls}">${p}</span>`;
+}
+
+function renderList() {
+  const ul    = document.getElementById('todo-list');
+  const empty = document.getElementById('empty-state');
+  const items = filtered();
+  if (!items.length) {
+    ul.innerHTML = '';
+    empty.style.display = '';
+    return;
+  }
+  empty.style.display = 'none';
+  ul.innerHTML = items.map(t => `
+    <li class="todo-item${t.completed ? ' completed' : ''}" data-id="${t.id}">
+      <input type="checkbox" ${t.completed ? 'checked' : ''} onchange="toggleTodo('${t.id}', this.checked)" />
+      <span class="todo-title">${escHtml(t.title)}</span>
+      ${priorityBadge(t.priority)}
+      <button class="btn-delete" onclick="deleteTodo('${t.id}')" title="Delete">✕</button>
+    </li>`).join('');
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Stats (JS function endpoint) ──────────────────────────────────────────────
+async function loadStats() {
+  try {
+    const r = await fetch(BASE + '/api/fn/stats');
+    if (!r.ok) return;
+    const d = await r.json();
+    document.getElementById('stat-total').textContent   = d.total   ?? '—';
+    document.getElementById('stat-done').textContent    = d.completed ?? '—';
+    document.getElementById('stat-pending').textContent = d.pending  ?? '—';
+  } catch { /* stats are optional */ }
+}
+
+// ── Runtime showcase ──────────────────────────────────────────────────────────
+const RUNTIMES = [
+  { label: 'JS',     url: '/api/fn/stats',        note: 'Built-in Node.js runtime' },
+  { label: 'Bash',   url: '/api/fn/ping',         note: 'Shell script runtime' },
+  { label: 'Python', url: '/api/fn/greet/python', note: 'python3 runtime' },
+  { label: 'Go',     url: '/api/fn/greet/go',     note: 'go run runtime' },
+  { label: 'Ruby',   url: '/api/fn/greet/ruby',   note: 'ruby runtime' },
+  { label: 'C++',   url: '/api/fn/greet/cpp',    note: 'g++ compile + run runtime' },
+];
+
+async function loadRuntimeShowcase() {
+  const grid = document.getElementById('runtime-grid');
+  const results = await Promise.all(RUNTIMES.map(async rt => {
+    try {
+      const r = await fetch(BASE + rt.url);
+      const text = await r.text();
+      let pretty;
+      try { pretty = JSON.stringify(JSON.parse(text), null, 2); } catch { pretty = text; }
+      return { ...rt, result: pretty, ok: r.ok };
+    } catch (e) {
+      return { ...rt, result: e.message, ok: false };
+    }
+  }));
+  grid.innerHTML = results.map(rt => `
+    <div class="runtime-card">
+      <h3>${rt.label} <span style="color:var(--muted);font-weight:400;">${rt.ok ? '✓' : '✗'}</span></h3>
+      <div style="color:var(--muted);font-size:.7rem;margin-bottom:6px;">${rt.note}</div>
+      <pre>${escHtml(rt.result)}</pre>
+    </div>`).join('');
+}
+
+// ── Realtime WebSocket ────────────────────────────────────────────────────────
+function connectRealtime() {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const ws = new WebSocket(`${proto}//${location.host}/realtime`);
+  const log = document.getElementById('rt-entries');
+
+  ws.onopen = () => {
+    log.innerHTML = '';
+    appendRtLog('system', 'Connected to realtime WebSocket');
+    // Subscribe to Todo entity events
+    ws.send(JSON.stringify({ type: 'subscribe', channel: 'Todo' }));
+  };
+
+  ws.onmessage = (e) => {
+    try {
+      const msg = JSON.parse(e.data);
+      // Realtime format: { type: 'event', event: 'Todo.created', data: {...} }
+      if (msg.type !== 'event' || !msg.event) return;
+      const [entity, action] = msg.event.split('.');
+      const cls  = { created: 'rt-create', updated: 'rt-update', deleted: 'rt-delete' }[action] || '';
+      const text = `[${entity}] ${action} — id:${msg.data?.id || '?'}`;
+      appendRtLog(cls, text);
+      // Refresh list on Todo changes
+      if (entity === 'Todo') { loadTodos(); loadStats(); }
+    } catch { /* ignore parse errors */ }
+  };
+
+  ws.onclose  = () => appendRtLog('', 'Disconnected — reconnecting in 5 s…');
+  ws.onerror  = () => appendRtLog('', 'WebSocket error');
+
+  setTimeout(() => { if (ws.readyState !== WebSocket.OPEN) connectRealtime(); }, 5000);
+}
+
+function appendRtLog(cls, text) {
+  const log   = document.getElementById('rt-entries');
+  const entry = document.createElement('div');
+  entry.className = `rt-entry ${cls}`.trim();
+  entry.textContent = `${new Date().toLocaleTimeString()} — ${text}`;
+  log.insertBefore(entry, log.firstChild);
+  if (log.children.length > 30) log.removeChild(log.lastChild);
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+let toastTimer;
+function toast(msg, type = 'info') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `show ${type}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = ''; }, 3000);
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+updateAuthUI();
+loadTodos();
+loadStats();
+loadRuntimeShowcase();
+connectRealtime();
+</script>
+</body>
+</html>

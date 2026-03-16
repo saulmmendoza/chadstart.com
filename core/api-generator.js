@@ -117,7 +117,7 @@ function registerApiRoutes(app, core, emit) {
           const row = rows[0];
           if (!row) return res.status(404).json({ error: 'Not found' });
           if (!await runMiddlewares('beforeUpdate', entity, req, res, sdk)) return;
-          const v = validateBody(req.body, entity, core.groups);
+          const v = validateBody(req.body, entity, core.groups, { partial: true });
           if (v.errors) return res.status(400).json(v.errors);
           fireWebhooks(entity, 'beforeUpdate', req.body);
           const updated = db.update(table, row.id, sanitizeBody(req.body, entity));
@@ -215,7 +215,7 @@ function registerApiRoutes(app, core, emit) {
         try {
           if (!db.findById(table, req.params.id)) return res.status(404).json({ error: 'Not found' });
           if (!await runMiddlewares('beforeUpdate', entity, req, res, sdk)) return;
-          const v = validateBody(req.body, entity, core.groups);
+          const v = validateBody(req.body, entity, core.groups, { partial: true });
           if (v.errors) return res.status(400).json(v.errors);
           fireWebhooks(entity, 'beforeUpdate', req.body);
           const row = db.update(table, req.params.id, sanitizeBody(req.body, entity));
@@ -426,10 +426,13 @@ const VALIDATORS = {
   isMimeType:     (v)      => typeof v === 'string' && /^[a-zA-Z0-9][a-zA-Z0-9!#$&\-^_]*\/[a-zA-Z0-9][a-zA-Z0-9!#$&\-^_.+]*$/.test(v),
 };
 
-function validateBody(body, entity, groups) {
+function validateBody(body, entity, groups, opts) {
+  const partial = opts && opts.partial;
   const errors = [];
   for (const [prop, rules] of Object.entries(entity.validation || {})) {
     const val = body ? body[prop] : undefined;
+    // In partial (PATCH) mode, skip validation for fields not sent in the body
+    if (partial && val === undefined) continue;
     if (rules.isOptional && (val === undefined || val === null)) continue;
     const constraints = {};
     for (const [name, param] of Object.entries(rules)) {
@@ -518,7 +521,12 @@ function applyDefaults(body, entity) {
   const result = { ...(body || {}) };
   for (const p of entity.properties) {
     if (p.default !== undefined && (result[p.name] === undefined || result[p.name] === null)) {
-      result[p.name] = p.default;
+      // Coerce boolean defaults to SQLite integers (1/0)
+      if (p.type === 'boolean' || p.type === 'bool') {
+        result[p.name] = p.default ? 1 : 0;
+      } else {
+        result[p.name] = p.default;
+      }
     }
   }
   return result;
@@ -563,11 +571,15 @@ function sanitizeBody(body, entity, fullReplace) {
   }
 
   // Serialize group properties to JSON strings for SQLite TEXT storage
+  // Coerce boolean properties to SQLite integers (1/0)
   for (const p of entity.properties) {
     if (p.type === 'group' && result[p.name] !== undefined && result[p.name] !== null) {
       if (typeof result[p.name] !== 'string') {
         result[p.name] = JSON.stringify(result[p.name]);
       }
+    }
+    if ((p.type === 'boolean' || p.type === 'bool') && result[p.name] !== undefined && result[p.name] !== null) {
+      result[p.name] = result[p.name] ? 1 : 0;
     }
   }
 

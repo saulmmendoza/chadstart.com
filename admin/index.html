@@ -62,6 +62,7 @@
     /* ── Row highlight (vim nav) ──────────────────────────────────── */
     tr.row-hl td { background: rgba(52,177,235,.06) !important; }
   </style>
+  <script src="/admin/vendor/cronstrue.min.js"></script>
 </head>
 <body class="bg-cs-bg text-cs-text min-h-screen flex" style="font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;">
 
@@ -616,7 +617,7 @@
   let configMode = false;
   let configData = null;
   let configActiveTab = 'general';
-  let _cfgEntityId = 0, _cfgEndpointId = 0, _cfgFileId = 0, _cfgRlId = 0;
+  let _cfgEntityId = 0, _cfgEndpointId = 0, _cfgFileId = 0, _cfgRlId = 0, _cfgTriggerId = 0;
 
   // ── HTMX: inject Bearer token and language on every request ───────────
   document.body.addEventListener('htmx:configRequest', e => {
@@ -1651,47 +1652,6 @@ function getFields(isCollection) {
     }
   }
 
-  // Endpoints tab: card list with name, path, method, function, description
-  function renderEndpointsForm() {
-    _cfgEndpointId = 0;
-    const endpoints = (configData && configData.functions) || {};
-    let cards = '';
-    for (const key of Object.keys(endpoints)) cards += renderEndpointCard(key, endpoints[key]);
-    return '<div id="cfg-endpoints-list" class="space-y-3">' + cards + '</div>'
-      + '<button type="button" onclick="addEndpointCard()"'
-      + ' class="mt-3 text-xs border border-cs-border rounded px-3 py-1.5 text-cs-muted hover:text-cs-text cursor-pointer"'
-      + ' style="transition:color 150ms,background 150ms;">' + t('config.functions.add_endpoint') + '</button>';
-  }
-
-  function renderEndpointCard(epName, def) {
-    const id      = _cfgEndpointId++;
-    const methods = ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'];
-    let methodOpts = '';
-    for (const m of methods) methodOpts += '<option value="' + m + '"' + (m === (def.method || 'GET') ? ' selected' : '') + '>' + m + '</option>';
-    const methodSel = '<select id="cfg-ep-method-' + id + '" class="w-full ' + _INP + '" style="transition:border-color 150ms;">' + methodOpts + '</select>';
-    return '<div class="endpoint-card rounded border p-4" style="border-color:#2a2a2a;background:#181818;" data-endpoint-id="' + id + '">'
-      + '<div class="grid gap-3 mb-3" style="grid-template-columns:1fr 1fr;">'
-        + '<div><label class="' + _LBL + '" style="color:#888;">' + t('config.functions.name') + '</label>'
-        + '<input type="text" id="cfg-ep-name-' + id + '" value="' + escAttr(epName) + '" placeholder="' + escAttr(t('config.functions.name_placeholder')) + '"'
-        + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
-        + '<div><label class="' + _LBL + '" style="color:#888;">' + t('config.functions.path_label') + '</label>'
-        + '<input type="text" id="cfg-ep-path-' + id + '" value="' + escAttr(def.path || '') + '" placeholder="' + escAttr(t('config.functions.path_placeholder')) + '"'
-        + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
-        + '<div><label class="' + _LBL + '" style="color:#888;">' + t('config.functions.method') + '</label>' + methodSel + '</div>'
-        + '<div><label class="' + _LBL + '" style="color:#888;">' + t('config.functions.function') + '</label>'
-        + '<input type="text" id="cfg-ep-function-' + id + '" value="' + escAttr(def.function || '') + '" placeholder="' + escAttr(t('config.functions.function_placeholder')) + '"'
-        + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
-      + '</div>'
-      + '<div class="flex items-end gap-3">'
-        + '<div class="flex-1"><label class="' + _LBL + '" style="color:#888;">' + t('config.functions.description') + ' <span style="color:#555;">' + t('config.functions.description_hint') + '</span></label>'
-        + '<input type="text" id="cfg-ep-desc-' + id + '" value="' + escAttr(def.description || '') + '" placeholder="' + escAttr(t('config.functions.description_placeholder')) + '"'
-        + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
-        + '<button type="button" onclick="_cfgRmEndpointCard(this)"'
-        + ' class="text-xs px-2 py-1.5 rounded border cursor-pointer"'
-        + ' style="border-color:rgba(239,68,68,0.3);color:#f87171;background:transparent;">' + t('config.functions.remove') + '</button>'
-      + '</div>'
-      + '</div>';
-  }
   return fields;
 }
 
@@ -1995,6 +1955,7 @@ function collectEntitiesForm() {
 
 function renderEndpointsForm() {
   _cfgEndpointId = 0;
+  _cfgTriggerId = 0;
   const endpoints = (configData && configData.functions) || {};
   let cards = '';
   for (const [k, ep] of Object.entries(endpoints)) cards += renderEndpointCard(k, ep);
@@ -2002,16 +1963,90 @@ function renderEndpointsForm() {
     + '<button type="button" onclick="addEndpointCard()" class="mt-3 text-xs border border-cs-border rounded px-3 py-1.5 text-cs-muted hover:text-cs-text cursor-pointer">+ Add endpoint</button>';
 }
 
+function cronHuman(schedule) {
+  try { return (typeof cronstrue !== 'undefined') ? cronstrue.toString(schedule) : schedule; }
+  catch { return schedule; }
+}
+
+function renderTriggerBadges(ep) {
+  const triggers = ep.triggers || [];
+  return triggers.map(t => {
+    if (t.type === 'http') return '<span class="px-1.5 py-0.5 rounded text-xs" style="background:rgba(52,177,235,.15);color:#34b1eb;">'
+      + escAttr(t.method || 'GET') + ' ' + escAttr(t.path || '') + '</span>';
+    if (t.type === 'cron') return '<span class="px-1.5 py-0.5 rounded text-xs" title="' + escAttr(cronHuman(t.schedule||'')) + '" style="background:rgba(3,218,198,.15);color:#03dac6;">cron: '
+      + escAttr(t.schedule || '') + '</span>';
+    if (t.type === 'event') return '<span class="px-1.5 py-0.5 rounded text-xs" style="background:rgba(187,134,252,.15);color:#bb86fc;">event: '
+      + escAttr(t.name || '') + '</span>';
+    return '';
+  }).join(' ');
+}
+
+function renderTriggerRow(epId, tId, trigger) {
+  const type    = trigger.type || 'http';
+  const method  = trigger.method || 'GET';
+  const path    = trigger.path  || '';
+  const sched   = trigger.schedule || '';
+  const evtName = trigger.name || '';
+  const policy  = (trigger.policies && trigger.policies[0]) ? (trigger.policies[0].access || 'public') : 'public';
+  const typeOpts = ['http','cron','event'].map(t =>
+    '<option value="' + t + '"' + (t === type ? ' selected' : '') + '>' + t + '</option>').join('');
+  const methodOpts = ['GET','POST','PUT','PATCH','DELETE'].map(m =>
+    '<option value="' + m + '"' + (m === method ? ' selected' : '') + '>' + m + '</option>').join('');
+  const policyOpts = ['public','restricted','admin','forbidden'].map(a =>
+    '<option value="' + a + '"' + (a === policy ? ' selected' : '') + '>' + a + '</option>').join('');
+  return '<div class="flex flex-wrap gap-1.5 items-center p-2 rounded" style="background:#0d0d0d;border:1px solid #2a2a2a;" data-trigger-id="' + tId + '">'
+    + '<select data-role="tr-type" onchange="_onTrTypeChange(this)" class="' + _INP_XS + '" style="width:64px;">' + typeOpts + '</select>'
+    // HTTP fields
+    + '<select data-role="tr-method" class="' + _INP_XS + '" style="width:74px;' + (type !== 'http' ? 'display:none;' : '') + '">' + methodOpts + '</select>'
+    + '<input type="text"   data-role="tr-path"    placeholder="/path"          value="' + escAttr(path)    + '" class="' + _INP_XS + ' flex-1" style="min-width:90px;' + (type !== 'http' ? 'display:none;' : '') + '" />'
+    + '<select data-role="tr-policy" class="' + _INP_XS + '" title="Access policy" style="width:88px;' + (type !== 'http' ? 'display:none;' : '') + '">' + policyOpts + '</select>'
+    // Cron fields
+    + '<input type="text"   data-role="tr-schedule" placeholder="* * * * * or @daily" value="' + escAttr(sched) + '" class="' + _INP_XS + ' flex-1" style="min-width:130px;' + (type !== 'cron' ? 'display:none;' : '') + '" />'
+    // Event fields
+    + '<input type="text"   data-role="tr-event"    placeholder="event.name"    value="' + escAttr(evtName) + '" class="' + _INP_XS + ' flex-1" style="min-width:130px;' + (type !== 'event' ? 'display:none;' : '') + '" />'
+    + '<button type="button" onclick="this.closest(\'[data-trigger-id]\').remove()" class="text-cs-muted hover:text-red-400 text-xs cursor-pointer" title="Remove trigger">✕</button>'
+    + '</div>';
+}
+
+function _onTrTypeChange(sel) {
+  const row = sel.closest('[data-trigger-id]');
+  const type = sel.value;
+  const show = (role) => { const el = row.querySelector('[data-role=' + role + ']'); if (el) el.style.display = ''; };
+  const hide = (role) => { const el = row.querySelector('[data-role=' + role + ']'); if (el) el.style.display = 'none'; };
+  ['tr-method','tr-path','tr-policy'].forEach(hide);
+  ['tr-schedule'].forEach(hide);
+  ['tr-event'].forEach(hide);
+  if (type === 'http')  { show('tr-method'); show('tr-path'); show('tr-policy'); }
+  if (type === 'cron')  { show('tr-schedule'); }
+  if (type === 'event') { show('tr-event'); }
+}
+
+function addTriggerToEndpoint(epId) {
+  const card = document.querySelector('[data-ep-id="' + epId + '"]');
+  if (!card) return;
+  const list = card.querySelector('[data-role=trigger-list]');
+  if (!list) return;
+  const tId = _cfgTriggerId++;
+  const d = document.createElement('div');
+  d.innerHTML = renderTriggerRow(epId, tId, {});
+  list.appendChild(d.firstElementChild);
+}
+
 function renderEndpointCard(name, ep) {
   const id = _cfgEndpointId++;
-  const methods = ['GET','POST','PUT','PATCH','DELETE'];
-  const mOpts = methods.map(m => '<option value="' + m + '"' + (m === (ep.method||'GET') ? ' selected' : '') + '>' + m + '</option>').join('');
+  const runtimes = ['js','bash','python','go','c++','ruby','php'];
+  const rOpts = runtimes.map(r => '<option value="' + r + '"' + (r === (ep.runtime||'js') ? ' selected' : '') + '>' + r + '</option>').join('');
+  const triggers = ep.triggers || [];
+  let triggersHtml = '';
+  for (const tr of triggers) { const tId = _cfgTriggerId++; triggersHtml += renderTriggerRow(id, tId, tr); }
   return '<div class="bg-cs-bg border border-cs-border rounded p-3 space-y-2" data-ep-id="' + id + '">'
     + '<div class="flex gap-2 items-center"><input type="text" placeholder="Name" value="' + escAttr(name) + '" data-role="ep-name" class="' + _INP_XS + ' flex-1" />'
+    + '<select data-role="ep-runtime" class="' + _INP_XS + '" title="Runtime">' + rOpts + '</select>'
     + '<button type="button" onclick="this.closest(\'[data-ep-id]\').remove()" class="text-cs-muted hover:text-red-400 text-xs cursor-pointer">✕</button></div>'
-    + '<div class="flex gap-2"><select data-role="ep-method" class="' + _INP_XS + '">' + mOpts + '</select>'
-    + '<input type="text" placeholder="/path" value="' + escAttr(ep.path||'') + '" data-role="ep-path" class="' + _INP_XS + ' flex-1" /></div>'
-    + '<input type="text" placeholder="function.js" value="' + escAttr(ep.function||'') + '" data-role="ep-function" class="w-full ' + _INP_XS + '" /></div>';
+    + '<input type="text" placeholder="function.js" value="' + escAttr(ep.function||'') + '" data-role="ep-function" class="w-full ' + _INP_XS + '" />'
+    + '<div class="space-y-1.5" data-role="trigger-list">' + triggersHtml + '</div>'
+    + '<button type="button" onclick="addTriggerToEndpoint(' + id + ')" class="text-xs text-cs-muted hover:text-cs-text cursor-pointer" style="background:transparent;border:none;padding:0;">+ Add trigger</button>'
+    + '</div>';
 }
 
 function addEndpointCard() {
@@ -2023,11 +2058,28 @@ function addEndpointCard() {
 function collectEndpointsForm() {
   const endpoints = {};
   for (const card of document.querySelectorAll('[data-ep-id]')) {
-    const name = card.querySelector('[data-role=ep-name]')?.value.trim();
-    const method = card.querySelector('[data-role=ep-method]')?.value || 'GET';
-    const path = card.querySelector('[data-role=ep-path]')?.value.trim();
-    const fn = card.querySelector('[data-role=ep-function]')?.value.trim();
-    if (name && path && fn) endpoints[name] = { method, path, function: fn };
+    const name    = card.querySelector('[data-role=ep-name]')?.value.trim();
+    const fn      = card.querySelector('[data-role=ep-function]')?.value.trim();
+    const runtime = card.querySelector('[data-role=ep-runtime]')?.value || 'js';
+    const triggers = [];
+    for (const row of card.querySelectorAll('[data-trigger-id]')) {
+      const type = row.querySelector('[data-role=tr-type]')?.value || 'http';
+      if (type === 'http') {
+        const method = row.querySelector('[data-role=tr-method]')?.value || 'GET';
+        const path   = row.querySelector('[data-role=tr-path]')?.value.trim() || '';
+        const access = row.querySelector('[data-role=tr-policy]')?.value || 'public';
+        const trigger = { type, method, path };
+        if (access !== 'public') trigger.policies = [{ access }];
+        if (path) triggers.push(trigger);
+      } else if (type === 'cron') {
+        const schedule = row.querySelector('[data-role=tr-schedule]')?.value.trim() || '';
+        if (schedule) triggers.push({ type, schedule });
+      } else if (type === 'event') {
+        const evtName = row.querySelector('[data-role=tr-event]')?.value.trim() || '';
+        if (evtName) triggers.push({ type, name: evtName });
+      }
+    }
+    if (name && fn) endpoints[name] = { runtime, function: fn, triggers };
   }
   return endpoints;
 }

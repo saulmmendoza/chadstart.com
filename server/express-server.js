@@ -12,7 +12,7 @@ const { loadYaml, saveYaml } = require('../core/yaml-loader');
 const { validateSchema } = require('../core/schema-validator');
 const { buildCore } = require('../core/entity-engine');
 const { initDb, findAll, findAllSimple, create: dbCreate } = require('../core/db');
-const { registerApiRoutes, createBackendSdk } = require('../core/api-generator');
+const { registerApiRoutes } = require('../core/api-generator');
 const { registerAuthRoutes, registerApiKeyRoutes, initApiKeys, verifyToken, omitPassword,
         createApiKey, listAllApiKeys, deleteApiKey } = require('../core/auth');
 const { initRealtime, emit } = require('../core/realtime');
@@ -22,6 +22,7 @@ const { registerUploadRoutes } = require('../core/upload');
 const { loadPlugins } = require('../core/plugin-loader');
 const { initErrorReporter, getRequestHandler, attachErrorHandler } = require('../core/error-reporter');
 const { getTelemetryConfig, initTelemetry } = require('../core/telemetry');
+const { setupFunctions, cleanup: cleanupFunctions } = require('../core/functions-engine');
 const logger = require('../utils/logger');
 
 function limiter(windowMs, max) {
@@ -138,7 +139,9 @@ async function buildApp(yamlPath, reloadFn) {
   app.use('/api', ...apiLimiters);
   registerApiRoutes(app, core, emit);
 
-  await registerCustomEndpoints(app, core);
+  // Stop any previous cron tasks / worker processes before registering new ones
+  cleanupFunctions();
+  setupFunctions(app, core.functions);
 
   const openApiSpec = generateOpenApiSpec(core);
   const showApiDocs = process.env.OPEN_API_DOCS !== undefined
@@ -152,7 +155,7 @@ async function buildApp(yamlPath, reloadFn) {
   // Admin UI — serve the SPA, vendor assets, and API endpoints
   const adminHtml = path.join(__dirname, '..', 'admin', 'index.html');
   const nodeModulesDir = path.join(__dirname, '..', 'node_modules');
-  // Vendor assets served from node_modules (HTMX, Animate.css, Tailwind browser)
+  // Vendor assets served from node_modules (HTMX, Animate.css, Tailwind browser, cronstrue)
   app.get('/admin/vendor/htmx.min.js', adminRateLimiter, (_req, res) => {
     res.sendFile(path.join(nodeModulesDir, 'htmx.org', 'dist', 'htmx.min.js'));
   });
@@ -161,6 +164,9 @@ async function buildApp(yamlPath, reloadFn) {
   });
   app.get('/admin/vendor/tailwind.js', adminRateLimiter, (_req, res) => {
     res.sendFile(path.join(nodeModulesDir, '@tailwindcss', 'browser', 'dist', 'index.global.js'));
+  });
+  app.get('/admin/vendor/cronstrue.min.js', adminRateLimiter, (_req, res) => {
+    res.sendFile(path.join(nodeModulesDir, 'cronstrue', 'dist', 'cronstrue.min.js'));
   });
   app.get('/admin', adminRateLimiter, (_req, res) => {
     if (fs.existsSync(adminHtml)) {
@@ -488,68 +494,6 @@ async function createServer(yamlPath) {
   const server = http.createServer(app);
   initRealtime(server);
   return { app, server, core };
-}
-
-async function registerCustomEndpoints(app, core) {
-  const { requireAuth, optionalAuth } = require('../core/auth');
-
-  // Create a simple backend "SDK" object for functions (mimics the JS SDK interface)
-  const manifestSdk = createBackendSdk(core);
-
-  for (const [name, ep] of Object.entries(core.functions || {})) {
-    const epPath = `/endpoints${ep.path}`;
-    const method = ep.method.toLowerCase();
-    const fnName = ep.function.endsWith('.js') ? ep.function : `${ep.function}.js`;
-    const fnFile = path.resolve(process.env.CHADSTART_FUNCTIONS_FOLDER || 'functions', fnName);
-
-    // Build middleware chain from endpoint policies (default: public)
-    const middlewares = buildEndpointPolicyMiddleware(ep);
-
-    if (fs.existsSync(fnFile)) {
-      const fn = require(fnFile);
-      app[method](epPath, ...middlewares, (req, res) => fn(req, res, manifestSdk));
-      logger.info(`  Registered endpoint: ${ep.method} ${epPath}`);
-    } else {
-      logger.warn(`  Function not found for "${name}": ${fnFile}`);
-    }
-  }
-}
-
-function buildEndpointPolicyMiddleware(ep) {
-  const { requireAuth, optionalAuth, JWT_SECRET } = require('../core/auth');
-  const jwt = require('jsonwebtoken');
-
-  const policies = ep.policies;
-  if (!policies || !policies.length) {
-    // Custom endpoints are public by default (per docs)
-    return [optionalAuth, (_req, _res, next) => next()];
-  }
-
-  const p = policies[0];
-  const access = p.access;
-  switch (access) {
-    case 'public':
-      return [optionalAuth, (_req, _res, next) => next()];
-    case 'restricted': {
-      if (!p.allow) return [requireAuth()];
-      const allowed = Array.isArray(p.allow) ? p.allow : [p.allow];
-      return [(req, res, next) => {
-        const header = req.headers.authorization;
-        if (!header || !header.startsWith('Bearer ')) return res.status(401).json({ error: 'Authorization required' });
-        try {
-          req.user = jwt.verify(header.slice(7), JWT_SECRET);
-          if (!allowed.includes(req.user.entity)) return res.status(403).json({ error: 'Access denied' });
-          next();
-        } catch { return res.status(401).json({ error: 'Invalid or expired token' }); }
-      }];
-    }
-    case 'admin':
-      return [requireAuth()];
-    case 'forbidden':
-      return [(_req, res) => res.status(403).json({ error: 'Access forbidden' })];
-    default:
-      return [(_req, _res, next) => next()];
-  }
 }
 
 async function startServer(yamlPath) {
