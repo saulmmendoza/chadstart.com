@@ -7,6 +7,7 @@ edit_uri: edit/main/docs/
 
 theme:
   name: material
+  custom_dir: docs/overrides
   palette:
     - scheme: default
       primary: deep purple
@@ -31,8 +32,12 @@ theme:
   icon:
     repo: fontawesome/brands/github
 
+extra_css:
+  - stylesheets/extra.css
+
 nav:
-  - Get Started: index.md
+  - Home: index.md
+  - Get Started: getting-started.md
   - Core:
     - Entities: entities.md
     - CRUD: crud.md

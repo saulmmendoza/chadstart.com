@@ -1,0 +1,121 @@
+{% extends "main.html" %}
+
+{% block tabs %}
+  {{ super() }}
+
+  <section class="mdx-container">
+    <div class="md-grid md-typeset">
+      <div class="mdx-hero">
+        <div class="mdx-hero__teaser">
+          <h1>Your backend.<br>One YAML file.</h1>
+          <p class="mdx-hero__description">
+            ChadStart is an open source Backend as a Service that fits in a single YAML file.
+            Define entities, auth, storage, and custom logic — then ship.
+          </p>
+          <a
+            href="{{ page.next_page.url | url }}"
+            title="Get Started"
+            class="md-button md-button--primary"
+          >
+            Get Started &nbsp;→
+          </a>
+          <a
+            href="{{ config.repo_url }}"
+            title="View on GitHub"
+            class="md-button"
+          >
+            {% include ".icons/fontawesome/brands/github.svg" %}
+            GitHub
+          </a>
+        </div>
+        <div class="mdx-hero__code">
+          <pre><code class="language-yaml"><span class="nc">entities</span>:
+  <span class="nc">Post</span>:
+    <span class="na">fields</span>:
+      <span class="na">title</span>: <span class="s">string</span>
+      <span class="na">body</span>: <span class="s">text</span>
+      <span class="na">published</span>: <span class="s">boolean</span>
+
+  <span class="nc">User</span>:
+    <span class="na">authenticable</span>: <span class="kc">true</span>
+    <span class="na">fields</span>:
+      <span class="na">username</span>: <span class="s">string</span>
+      <span class="na">avatar</span>: <span class="s">image</span>
+
+<span class="nc">rateLimits</span>:
+  <span class="na">windowMs</span>: <span class="m">60000</span>
+  <span class="na">max</span>: <span class="m">100</span></code></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+{% endblock %}
+
+{% block content %}
+  <section class="mdx-features">
+    <div class="md-grid md-typeset">
+      <h2 class="mdx-features__title">Everything your backend needs</h2>
+      <div class="mdx-features__grid">
+
+        <div class="mdx-feature-card">
+          <div class="mdx-feature-card__icon">🧠</div>
+          <h3>Zero friction setup</h3>
+          <p>One command to scaffold a project. One YAML file to define everything. No sprawling config directories.</p>
+        </div>
+
+        <div class="mdx-feature-card">
+          <div class="mdx-feature-card__icon">🔑</div>
+          <h3>Authentication built-in</h3>
+          <p>Mark any entity as <code>authenticable: true</code> to get register, login, and JWT-based auth routes instantly.</p>
+        </div>
+
+        <div class="mdx-feature-card">
+          <div class="mdx-feature-card__icon">📊</div>
+          <h3>Admin panel included</h3>
+          <p>A full-featured admin UI is generated from your schema — browse, create, update, and delete records out of the box.</p>
+        </div>
+
+        <div class="mdx-feature-card">
+          <div class="mdx-feature-card__icon">🚀</div>
+          <h3>REST API in seconds</h3>
+          <p>Full CRUD REST endpoints are automatically generated for every entity. No boilerplate, no glue code.</p>
+        </div>
+
+        <div class="mdx-feature-card">
+          <div class="mdx-feature-card__icon">🤖</div>
+          <h3>LLM-friendly</h3>
+          <p>Plain YAML is easy for AI coding assistants to read and generate. Ship faster with Cursor, Copilot, or Windsurf.</p>
+        </div>
+
+        <div class="mdx-feature-card">
+          <div class="mdx-feature-card__icon">💻</div>
+          <h3>Runs anywhere</h3>
+          <p>Deploy to any Node.js host, use Docker, or run locally. Lightweight enough for a side project, solid enough for production.</p>
+        </div>
+
+        <div class="mdx-feature-card">
+          <div class="mdx-feature-card__icon">🗂️</div>
+          <h3>File & image uploads</h3>
+          <p>Add <code>image</code> or <code>file</code> field types to get upload endpoints with optional S3 storage support.</p>
+        </div>
+
+        <div class="mdx-feature-card">
+          <div class="mdx-feature-card__icon">⚡</div>
+          <h3>Realtime & webhooks</h3>
+          <p>Built-in WebSocket support and webhook triggers let you react to data changes in real time.</p>
+        </div>
+
+        <div class="mdx-feature-card">
+          <div class="mdx-feature-card__icon">🔌</div>
+          <h3>Custom endpoints</h3>
+          <p>Drop a <code>.js</code> file in your functions folder and wire it to any HTTP route in your YAML — full Express power, zero config.</p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+{% endblock %}
+
+{% block footer %}
+  {{ super() }}
+{% endblock %}

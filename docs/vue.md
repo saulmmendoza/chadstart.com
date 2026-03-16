@@ -9,7 +9,7 @@ description: Quick start guide to create a full-stack app using Vue as a fronten
 Give a proper backend to your Vue.js app.
 
 !!! warning
-    This quick start guide focuses exclusively on the **frontend**. To ensure the functionality of this code, your ChadStart backend must be [up and running](./index.md#install-chadstart) at `http://localhost:3000`.
+    This quick start guide focuses exclusively on the **frontend**. To ensure the functionality of this code, your ChadStart backend must be [up and running](./getting-started.md#install-chadstart) at `http://localhost:3000`.
 
 ## 1. Create a Vue app
 
