@@ -66,37 +66,6 @@
 </head>
 <body class="bg-cs-bg text-cs-text min-h-screen flex" style="font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;">
 
-<!-- ── Login overlay ──────────────────────────────────────────────────────── -->
-<div id="login-overlay" class="fixed inset-0 bg-cs-bg flex items-center justify-center z-50 p-4">
-  <div class="bg-cs-surface border border-cs-border rounded p-8 w-full max-w-sm" style="box-shadow: 0 2px 16px rgba(52,177,235,.1);">
-    <div id="login-project-name" class="font-bold text-cs-text text-xl mb-0.5">Admin</div>
-    <div class="text-[11px] text-cs-muted mb-6">Powered by ChadStart.com</div>
-    <div id="login-error" class="text-red-400 text-sm mb-4 hidden"></div>
-    <div id="login-collection-section" class="hidden mb-4">
-      <label class="block text-sm text-cs-muted mb-1" data-i18n="login.collection_label">Collection</label>
-      <input type="text" id="login-collection"
-        class="w-full bg-cs-bg border border-cs-border rounded text-cs-text px-3 py-2 text-sm outline-none focus:border-cs-primary" style="transition: border-color 150ms ease;"
-        data-i18n-ph="login.collection_placeholder" placeholder="Admin collection name" autocomplete="off" />
-    </div>
-    <div class="mb-4 text-right">
-      <button type="button" id="toggle-collection-btn" onclick="toggleCollectionField()"
-        class="text-xs text-cs-muted hover:text-cs-primary cursor-pointer" style="transition: color 150ms ease; background: none; border: none; padding: 0;"
-        data-i18n="login.change_collection">
-        Change collection
-      </button>
-    </div>
-    <label class="block text-sm text-cs-muted mb-1">Email</label>
-    <input type="email" id="login-email" placeholder="admin@example.com" autocomplete="email"
-      class="w-full bg-cs-bg border border-cs-border rounded text-cs-text px-3 py-2 text-sm mb-4 outline-none focus:border-cs-primary" style="transition: border-color 150ms ease;" />
-    <label class="block text-sm text-cs-muted mb-1">Password</label>
-    <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password"
-      class="w-full bg-cs-bg border border-cs-border rounded text-cs-text px-3 py-2 text-sm mb-5 outline-none focus:border-cs-primary" style="transition: border-color 150ms ease;" />
-    <button id="login-btn" onclick="doLogin()" class="btn-glow w-full py-2 px-4 rounded text-sm cursor-pointer">
-      <span>Sign in</span>
-    </button>
-  </div>
-</div>
-
 <!-- ── Mobile sidebar backdrop ────────────────────────────────────────────── -->
 <div id="sidebar-overlay" class="fixed inset-0 bg-black/50 z-30 hidden lg:hidden" onclick="closeSidebar()"></div>
 
@@ -121,6 +90,7 @@
     <div id="nav-admin">
       <div class="nav-item" id="nav-config-item" onclick="selectConfig(this)" data-i18n="sidebar.config_editor">⚙ Config Editor</div>
       <div class="nav-item" id="nav-apikeys-item" onclick="selectApiKeys(this)" data-i18n="sidebar.api_keys">🔑 API Keys</div>
+      <div class="nav-item" id="nav-theme-item" onclick="openThemeSettings()">🎨 Theme Settings</div>
     </div>
   </nav>
   <div class="border-t border-cs-border px-4 py-3">
@@ -232,6 +202,8 @@
             class="py-1.5 px-3 text-sm border border-cs-border rounded text-cs-muted hover:text-cs-text cursor-pointer whitespace-nowrap" style="transition: color 150ms;">↓ CSV</button>
           <button onclick="exportData('json')" title="Export JSON"
             class="py-1.5 px-3 text-sm border border-cs-border rounded text-cs-muted hover:text-cs-text cursor-pointer whitespace-nowrap" style="transition: color 150ms;">↓ JSON</button>
+          <button id="btn-columns" onclick="openColumnsPanel()" title="Customize columns"
+            class="py-1.5 px-3 text-sm border border-cs-border rounded text-cs-muted hover:text-cs-text cursor-pointer whitespace-nowrap" style="transition: color 150ms;">⊞ Columns</button>
         </div>
         <!-- Advanced filter panel -->
         <div id="adv-panel" class="hidden bg-cs-surface border border-cs-border rounded p-3 mb-2">
@@ -322,6 +294,74 @@
 
 <!-- ── Toast ──────────────────────────────────────────────────────────────── -->
 <div id="toast" class="hidden fixed bottom-6 right-6 z-50"></div>
+
+<!-- ── Theme Settings modal ───────────────────────────────────────────────── -->
+<div id="theme-modal-backdrop" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden">
+  <div class="bg-cs-surface border border-cs-border rounded w-full max-w-sm" style="box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
+    <div class="flex items-center justify-between px-5 py-3 border-b border-cs-border">
+      <span class="font-medium text-sm">🎨 Theme Settings</span>
+      <button onclick="closeThemeSettings()" class="text-cs-muted hover:text-cs-text text-xl leading-none" style="transition: color 150ms ease;">×</button>
+    </div>
+    <div class="p-5 space-y-5">
+      <!-- Dark/Light mode -->
+      <div>
+        <div class="text-xs text-cs-muted mb-2">Mode</div>
+        <div class="flex gap-2">
+          <button id="theme-dark-btn" onclick="setThemeMode('dark')"
+            class="flex-1 py-2 text-sm rounded border cursor-pointer" style="transition: all 150ms;">Dark</button>
+          <button id="theme-light-btn" onclick="setThemeMode('light')"
+            class="flex-1 py-2 text-sm rounded border cursor-pointer" style="transition: all 150ms;">Light</button>
+        </div>
+      </div>
+      <!-- Primary color -->
+      <div>
+        <div class="text-xs text-cs-muted mb-2">Primary Color</div>
+        <div class="flex flex-wrap gap-2 mb-2" id="theme-palette">
+          <!-- populated by JS -->
+        </div>
+        <div class="flex items-center gap-2">
+          <input type="color" id="theme-custom-color" value="#34b1eb"
+            class="w-8 h-8 rounded cursor-pointer border border-cs-border bg-cs-bg"
+            style="padding: 1px;" oninput="onCustomColorInput(this.value)" />
+          <span class="text-xs text-cs-muted">Custom color</span>
+          <span id="theme-custom-hex" class="text-xs font-mono" style="color:#888;">#34b1eb</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Columns visibility modal ───────────────────────────────────────────── -->
+<div id="columns-modal-backdrop" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden">
+  <div class="bg-cs-surface border border-cs-border rounded w-full max-w-xs" style="box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
+    <div class="flex items-center justify-between px-5 py-3 border-b border-cs-border">
+      <span class="font-medium text-sm">⊞ Visible Columns</span>
+      <button onclick="closeColumnsPanel()" class="text-cs-muted hover:text-cs-text text-xl leading-none" style="transition: color 150ms ease;">×</button>
+    </div>
+    <div class="p-4">
+      <p class="text-xs text-cs-muted mb-3">Choose which columns to show for <strong id="columns-entity-name" class="text-cs-text"></strong>.</p>
+      <div id="columns-list" class="space-y-1.5 max-h-60 overflow-y-auto mb-4"></div>
+      <div class="flex gap-2">
+        <button onclick="saveColumnsPrefs()"
+          class="flex-1 text-sm py-1.5 rounded cursor-pointer font-medium hover:opacity-90"
+          style="background:#34b1eb;color:#121212;transition:opacity 150ms;">Apply</button>
+        <button onclick="resetColumnsPrefs()"
+          class="text-sm border border-cs-border rounded py-1.5 px-3 text-cs-muted hover:text-cs-text cursor-pointer" style="transition: color 150ms, background 150ms;">Reset</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Record lookup modal ─────────────────────────────────────────────────── -->
+<div id="lookup-modal-backdrop" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden">
+  <div class="bg-cs-surface border border-cs-border rounded w-full max-w-md max-h-[80vh] flex flex-col" style="box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
+    <div class="flex items-center justify-between px-5 py-3 border-b border-cs-border">
+      <span id="lookup-modal-title" class="font-medium text-sm">Record</span>
+      <button onclick="closeLookupModal()" class="text-cs-muted hover:text-cs-text text-xl leading-none" style="transition: color 150ms ease;">×</button>
+    </div>
+    <div id="lookup-modal-body" class="p-5 overflow-y-auto flex-1 text-xs font-mono" style="color:#e1e1e1;white-space:pre;"></div>
+  </div>
+</div>
 
 <!-- ── Impersonate modal ──────────────────────────────────────────────── -->
 <div id="impersonate-modal-backdrop" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden">
@@ -647,7 +687,6 @@
     } catch { toast(t('toast.failed_load_schema'), 'error'); return; }
 
     document.getElementById('project-name').textContent = schema.name;
-    populateLoginCollections();
     buildSidebar();
 
     if (authToken) {
@@ -661,7 +700,7 @@
       authToken = null;
       localStorage.removeItem('cs_token');
     }
-    showLogin();
+    window.location.replace('/login');
   }
 
   // ── Auth ───────────────────────────────────────────────────────────────
@@ -671,99 +710,6 @@
 
   function getNonAuthEntities() {
     return (schema.entities || []).filter(function(e) { return !e.authenticable; });
-  }
-
-  function populateLoginCollections() {
-    const cols = getAdminCollections();
-    const input = document.getElementById('login-collection');
-    if (cols.length) {
-      input.value = cols[0].name;
-    } else {
-      input.value = '';
-      const errEl = document.getElementById('login-error');
-      errEl.textContent = t('login.errors.no_admin_collections'); errEl.classList.remove('hidden');
-      document.getElementById('login-btn').disabled = true;
-    }
-  }
-
-  function toggleCollectionField() {
-    const section = document.getElementById('login-collection-section');
-    const btn = document.getElementById('toggle-collection-btn');
-    const isHidden = section.classList.contains('hidden');
-    section.classList.toggle('hidden', !isHidden);
-    btn.textContent = isHidden ? t('login.hide_collection') : t('login.change_collection');
-    if (isHidden) document.getElementById('login-collection').focus();
-  }
-
-  async function doLogin() {
-    const collectionName = document.getElementById('login-collection').value.trim().replace(/[^a-zA-Z0-9 _-]/g, '');
-    const email = document.getElementById('login-email').value.trim();
-    const password = document.getElementById('login-password').value;
-    const errEl = document.getElementById('login-error');
-    const btn = document.getElementById('login-btn');
-    const btnText = btn.querySelector('span');
-
-    errEl.classList.add('hidden');
-    if (!collectionName || !email || !password) {
-      errEl.textContent = t('login.errors.all_fields_required'); errEl.classList.remove('hidden'); return;
-    }
-
-    btn.disabled = true; btnText.textContent = t('login.signing_in');
-
-    const col = getAdminCollections().find(c => c.name === collectionName);
-    if (!col) { showLoginError(t('login.errors.collection_not_found')); return; }
-
-    try {
-      const r = await fetch(`/api/auth/${toSlug(col.name)}/login`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-      const data = await r.json();
-      if (!r.ok) { showLoginError(data.error || t('login.errors.login_failed')); return; }
-      authToken = data.token; authUser = data.user; authCollection = col.name;
-      localStorage.setItem('cs_token', authToken);
-      showApp();
-    } catch { showLoginError(t('login.errors.network_error')); }
-
-    function showLoginError(msg) {
-      errEl.textContent = msg; errEl.classList.remove('hidden');
-      btn.disabled = false; btnText.textContent = t('login.sign_in');
-    }
-  }
-
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && !document.getElementById('login-overlay').classList.contains('hidden')) doLogin();
-  });
-
-  function logout() {
-    authToken = null; authUser = null; authCollection = null;
-    localStorage.removeItem('cs_token'); currentItem = null;
-    document.getElementById('table-area').innerHTML = '';
-    document.getElementById('btn-add').classList.add('hidden');
-    document.getElementById('btn-ai').classList.add('hidden');
-    document.getElementById('btn-ai').classList.remove('flex');
-    closeAiPanel();
-    document.getElementById('page-title').textContent = t('header.select_collection');
-    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    showLogin();
-  }
-
-  function showLogin() {
-    document.getElementById('login-overlay').classList.remove('hidden');
-    document.getElementById('loading').classList.add('hidden');
-    const btn = document.getElementById('login-btn');
-    btn.disabled = false; btn.querySelector('span').textContent = t('login.sign_in');
-  }
-
-  function showApp() {
-    document.getElementById('login-overlay').classList.add('hidden');
-    const name = authUser ? (authUser.name || authUser.email || '?') : '?';
-    document.getElementById('user-name').textContent = name;
-    document.getElementById('user-collection-label').textContent = authCollection || '';
-    document.getElementById('user-avatar').textContent = name[0].toUpperCase();
-    checkAiStatus();
-    const first = document.querySelector('.nav-item');
-    if (first) first.click();
   }
 
   // ── Sidebar (mobile) ───────────────────────────────────────────────────
@@ -802,68 +748,20 @@
     loadTable(type, name);
   }
 
-function toggleCollectionField() {
-  const s = document.getElementById('login-collection-section');
-  const btn = document.getElementById('toggle-collection-btn');
-  const hidden = s.classList.contains('hidden');
-  s.classList.toggle('hidden', !hidden);
-  btn.textContent = hidden ? 'Hide collection' : 'Change collection';
-  if (hidden) document.getElementById('login-collection').focus();
-}
-
-async function doLogin() {
-  const collName = document.getElementById('login-collection').value.trim().replace(/[^a-zA-Z0-9 _-]/g, '');
-  const email = document.getElementById('login-email').value.trim();
-  const password = document.getElementById('login-password').value;
-  const errEl = document.getElementById('login-error');
-  const btn = document.getElementById('login-btn');
-  const btnText = btn.querySelector('span');
-
-  errEl.classList.add('hidden');
-  if (!collName || !email || !password) { errEl.textContent = 'All fields are required'; errEl.classList.remove('hidden'); return; }
-  btn.disabled = true; btnText.textContent = 'Signing in…';
-
-  const col = getAdminCollections().find(c => c.name === collName);
-  if (!col) { showLoginError('Collection not found'); return; }
-
-  try {
-    const r = await fetch(`/api/auth/${toSlug(col.name)}/login`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password })
-    });
-    const data = await r.json();
-    if (!r.ok) { showLoginError(data.error || 'Login failed'); return; }
-    authToken = data.token; authUser = data.user; authCollection = col.name;
-    localStorage.setItem('cs_token', authToken);
-    showApp();
-  } catch { showLoginError('Network error'); }
-
-  function showLoginError(msg) {
-    errEl.textContent = msg; errEl.classList.remove('hidden');
-    btn.disabled = false; btnText.textContent = 'Sign in';
-  }
-}
-
-document.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && !document.getElementById('login-overlay').classList.contains('hidden')) doLogin();
-});
-
 function logout() {
   authToken = null; authUser = null; authCollection = null;
   localStorage.removeItem('cs_token'); currentItem = null;
   if (rtWs) { try { rtWs.close(); } catch {} rtWs = null; }
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  showLogin();
+  window.location.replace('/login');
 }
 
 function showLogin() {
-  document.getElementById('login-overlay').classList.remove('hidden');
-  document.getElementById('loading').classList.add('hidden');
-  const btn = document.getElementById('login-btn');
-  btn.disabled = false; btn.querySelector('span').textContent = 'Sign in';
+  window.location.replace('/login');
 }
 
 function showApp() {
-  document.getElementById('login-overlay').classList.add('hidden');
+  document.getElementById('login-overlay') && document.getElementById('login-overlay').classList.add('hidden');
   const name = authUser ? (authUser.name || authUser.email || '?') : '?';
   document.getElementById('user-name').textContent = name;
   document.getElementById('user-collection-label').textContent = authCollection || '';
@@ -926,15 +824,15 @@ function closeSidebar() {
 }
 
 function buildSidebar() {
-  // Collections = authenticable entities
+  // Collections = authenticable entities (🆔 emoji)
   document.getElementById('nav-user-collections').innerHTML =
     (schema.entities || []).filter(e => e.authenticable).map(e =>
-      `<div class="nav-item" onclick="selectItem('collection','${escHtml(e.name)}',this)">${escHtml(e.name)}</div>`
+      `<div class="nav-item" onclick="selectItem('collection','${escHtml(e.name)}',this)">🆔 ${escHtml(e.name)}</div>`
     ).join('');
-  // Entities = non-authenticable
+  // Entities = non-authenticable (📁 emoji)
   document.getElementById('nav-entities').innerHTML =
     (schema.entities || []).filter(e => !e.authenticable).map(e =>
-      `<div class="nav-item" onclick="selectItem('entity','${escHtml(e.name)}',this)">${escHtml(e.name)}</div>`
+      `<div class="nav-item" onclick="selectItem('entity','${escHtml(e.name)}',this)">📁 ${escHtml(e.name)}</div>`
     ).join('');
 }
 
@@ -1033,77 +931,6 @@ async function loadDashboard() {
   } catch {
     document.getElementById('stats-grid').innerHTML = '<div class="text-xs text-red-400">Failed to load stats</div>';
   }
-}
-
-  function fieldHtml(f, value = '', pwd = false) {
-    return `<div class="mb-4">
-      <label class="block text-sm text-cs-muted mb-1">${escHtml(f.name)}</label>
-      <input type="${pwd ? 'password' : 'text'}" id="field-${f.name}" value="${escAttr(value)}" placeholder="${escAttr(f.name)}"
-        class="w-full bg-cs-bg border border-cs-border rounded text-cs-text px-3 py-2 text-sm outline-none focus:border-cs-primary" style="transition: border-color 150ms ease;"/>
-    </div>`;
-  }
-
-  function openAddModal() {
-    if (!currentItem) return;
-    editingRecord = null;
-    const isCollection = currentItem.type === 'collection';
-    document.getElementById('modal-title').textContent = t('modal.title_new', { name: currentItem.name });
-    document.getElementById('modal-body').innerHTML = getFields(isCollection).map(f => fieldHtml(f, '', f.name === 'password')).join('');
-    showModal();
-  }
-
-  function openEditModal(record) {
-    if (!currentItem) return;
-    editingRecord = record;
-    const isCollection = currentItem.type === 'collection';
-    document.getElementById('modal-title').textContent = t('modal.title_edit', { name: currentItem.name, id: record.id });
-    document.getElementById('modal-body').innerHTML =
-      getFields(isCollection).filter(f => f.name !== 'password').map(f => fieldHtml(f, String(record[f.name] ?? ''))).join('');
-    showModal();
-  }
-
-  function showModal() {
-    document.getElementById('modal-backdrop').classList.remove('hidden');
-    const btn = document.getElementById('modal-save-btn');
-    btn.disabled = false; btn.querySelector('span').textContent = t('modal.save');
-  }
-
-  function closeModal() {
-    document.getElementById('modal-backdrop').classList.add('hidden');
-    editingRecord = null;
-  }
-
-  async function saveRecord() {
-    if (!currentItem) return;
-    const isCollection = currentItem.type === 'collection';
-    const fields = getFields(isCollection);
-    const editFields = editingRecord ? fields.filter(f => f.name !== 'password') : fields;
-    const body = {};
-    for (const f of editFields) {
-      const el = document.getElementById(`field-${f.name}`);
-      if (el?.value) body[f.name] = el.value;
-    }
-    const apiPath = `/api/${toKebab(currentItem.name)}s`;
-    const btn = document.getElementById('modal-save-btn');
-    btn.disabled = true; btn.querySelector('span').textContent = t('modal.saving');
-    try {
-      let r;
-      if (editingRecord) {
-        r = await apiFetch(`${apiPath}/${editingRecord.id}`, { method: 'PATCH', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } });
-      } else if (isCollection) {
-        r = await apiFetch(`/api/auth/${toSlug(currentItem.name)}/signup`, { method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } });
-      } else {
-        r = await apiFetch(apiPath, { method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } });
-      }
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error || t('toast.save_failed', { message: '' }).replace(': ', ''));
-      toast(editingRecord ? t('toast.record_updated') : t('toast.record_created'), 'success');
-      closeModal();
-      reloadTable();
-    } catch (e) {
-      toast(e.message, 'error');
-      btn.disabled = false; btn.querySelector('span').textContent = t('modal.save');
-    }
 }
 
 function renderStatsGrid(entities) {
@@ -1210,8 +1037,11 @@ function renderTable(rows) {
     return;
   }
 
-  const cols = Object.keys(rows[0]);
-  const selectAllTh = `<th class="px-3 py-2.5 w-8"><input type="checkbox" id="select-all" onchange="toggleSelectAll()" style="accent-color:#34b1eb;cursor:pointer;" /></th>`;
+  const allCols = Object.keys(rows[0]);
+  const hiddenCols = new Set(currentItem ? getHiddenColumns(currentItem.name) : []);
+  const cols = allCols.filter(c => !hiddenCols.has(c));
+
+  const selectAllTh = `<th class="px-3 py-2.5 w-8"><input type="checkbox" id="select-all" onchange="toggleSelectAll()" style="accent-color:${currentPrimaryColor};cursor:pointer;" /></th>`;
   const actionsTh = `<th class="px-3 py-2.5 text-left text-xs font-medium whitespace-nowrap" style="color:#888;">Actions</th>`;
   const dataThs = cols.map(c => `<th class="px-3 py-2.5 text-left text-xs font-medium whitespace-nowrap" style="color:#888;">${escHtml(c)}</th>`).join('');
 
@@ -1224,7 +1054,7 @@ function renderTable(rows) {
     </div></td>`;
     const tds = cols.map(c => `<td class="px-3 py-2.5 max-w-xs truncate text-sm" style="color:#e1e1e1;" title="${escAttr(String(row[c] ?? ''))}">${escHtml(String(row[c] ?? ''))}</td>`).join('');
     return `<tr class="border-b" style="border-color:#2a2a2a;" data-idx="${idx}" data-id="${escAttr(rowId)}" onclick="handleRowClick(event,'${rowId}',${idx})">
-      <td class="px-3 py-2.5 w-8"><input type="checkbox" class="row-cb cursor-pointer" value="${escAttr(rowId)}" onchange="toggleRowSel('${rowId}')" onclick="event.stopPropagation()" style="accent-color:#34b1eb;" ${selectedIds.has(rowId) ? 'checked' : ''} /></td>
+      <td class="px-3 py-2.5 w-8"><input type="checkbox" class="row-cb cursor-pointer" value="${escAttr(rowId)}" onchange="toggleRowSel('${rowId}')" onclick="event.stopPropagation()" style="accent-color:${currentPrimaryColor};" ${selectedIds.has(rowId) ? 'checked' : ''} /></td>
       ${actions}${tds}
     </tr>`;
   }).join('');
@@ -1642,24 +1472,79 @@ function getCurrentSchema() {
 function getFields(isCollection) {
   const s = getCurrentSchema();
   if (!s) return [];
+  // For authenticable collections, email and password are always included once.
+  // Filter them out from s.properties to avoid duplication.
+  const RESERVED = new Set(isCollection ? ['email', 'password'] : []);
+  const props = (s.properties || []).filter(p => {
+    const pName = typeof p === 'string' ? p : p.name;
+    return !RESERVED.has(pName);
+  });
   const fields = isCollection
-    ? [{ name: 'email', type: 'text' }, { name: 'password', type: 'text' }, ...(s.properties || [])]
-    : [...(s.properties || [])];
+    ? [{ name: 'email', type: 'email' }, { name: 'password', type: 'password' }, ...props]
+    : [...props];
   if (!isCollection && s.belongsTo) {
     for (const rel of s.belongsTo) {
       const relName = typeof rel === 'string' ? rel : (rel.entity || rel.name || String(rel));
-      fields.push({ name: `${toSnake(relName)}_id`, type: 'integer' });
+      const relEntity = (schema.entities || []).find(e => e.name === relName);
+      fields.push({ name: `${toSnake(relName)}_id`, type: 'id', relEntity });
     }
   }
-
   return fields;
 }
 
-function fieldHtml(f, value = '', pwd = false) {
+function fieldHtml(f, value = '', forcePassword = false) {
+  const fType = f.type || 'string';
+  let inputHtml;
+  const baseCls = 'w-full bg-cs-bg border border-cs-border rounded text-cs-text px-3 py-2 text-sm outline-none focus:border-cs-primary';
+  const baseStyle = 'transition: border-color 150ms ease;';
+
+  if (forcePassword || fType === 'password') {
+    inputHtml = `<input type="password" id="field-${escAttr(f.name)}" value="${escAttr(value)}" placeholder="••••••••"
+      class="${baseCls}" style="${baseStyle}" autocomplete="new-password"/>`;
+  } else if (fType === 'email') {
+    inputHtml = `<input type="email" id="field-${escAttr(f.name)}" value="${escAttr(value)}" placeholder="${escAttr(f.name)}"
+      class="${baseCls}" style="${baseStyle}" autocomplete="email"/>`;
+  } else if (fType === 'date') {
+    inputHtml = `<input type="date" id="field-${escAttr(f.name)}" value="${escAttr(value)}"
+      class="${baseCls}" style="${baseStyle}"/>`;
+  } else if (fType === 'timestamp') {
+    // Convert ISO string to datetime-local format if needed
+    let dtVal = value;
+    if (dtVal && dtVal.includes('T')) dtVal = dtVal.slice(0, 16);
+    inputHtml = `<input type="datetime-local" id="field-${escAttr(f.name)}" value="${escAttr(dtVal)}"
+      class="${baseCls}" style="${baseStyle}"/>`;
+  } else if (fType === 'integer' || fType === 'number' || fType === 'float' || fType === 'real' || fType === 'money') {
+    inputHtml = `<input type="number" id="field-${escAttr(f.name)}" value="${escAttr(value)}" placeholder="0"
+      class="${baseCls}" style="${baseStyle}" ${fType === 'integer' ? 'step="1"' : 'step="any"'}/>`;
+  } else if (fType === 'boolean') {
+    const checked = value === 'true' || value === '1' || value === true;
+    inputHtml = `<label class="flex items-center gap-2 cursor-pointer">
+      <input type="checkbox" id="field-${escAttr(f.name)}" ${checked ? 'checked' : ''} style="accent-color:${escAttr(currentPrimaryColor)};width:16px;height:16px;" />
+      <span class="text-sm text-cs-muted">${escHtml(f.name)}</span>
+    </label>`;
+    return `<div class="mb-4">${inputHtml}</div>`;
+  } else if (fType === 'text' || fType === 'richText' || fType === 'json') {
+    inputHtml = `<textarea id="field-${escAttr(f.name)}" placeholder="${escAttr(f.name)}"
+      class="${baseCls} resize-y" style="${baseStyle} min-height:80px;">${escHtml(value)}</textarea>`;
+  } else if (fType === 'id') {
+    // ID field with click-to-lookup button
+    const relName = f.relEntity ? f.relEntity.name : f.name.replace(/_id$/, '');
+    const mainProp = f.relEntity && f.relEntity.mainProp ? f.relEntity.mainProp : 'id';
+    inputHtml = `<div class="flex gap-1">
+      <input type="text" id="field-${escAttr(f.name)}" value="${escAttr(value)}" placeholder="Record ID"
+        class="${baseCls} flex-1" style="${baseStyle}" list="dl-${escAttr(f.name)}" oninput="onIdFieldInput('${escAttr(f.name)}','${escAttr(relName)}','${escAttr(mainProp)}')"/>
+      <datalist id="dl-${escAttr(f.name)}"></datalist>
+      <button type="button" onclick="lookupIdRecord('${escAttr(f.name)}','${escAttr(relName)}')"
+        class="text-xs border border-cs-border rounded px-2 py-1 text-cs-muted hover:text-cs-text cursor-pointer" style="transition: color 150ms;" title="Look up record">🔍</button>
+    </div>`;
+  } else {
+    inputHtml = `<input type="text" id="field-${escAttr(f.name)}" value="${escAttr(value)}" placeholder="${escAttr(f.name)}"
+      class="${baseCls}" style="${baseStyle}"/>`;
+  }
+
   return `<div class="mb-4">
-    <label class="block text-sm text-cs-muted mb-1">${escHtml(f.name)}</label>
-    <input type="${pwd ? 'password' : 'text'}" id="field-${escAttr(f.name)}" value="${escAttr(value)}" placeholder="${escAttr(f.name)}"
-      class="w-full bg-cs-bg border border-cs-border rounded text-cs-text px-3 py-2 text-sm outline-none focus:border-cs-primary" style="transition: border-color 150ms ease;"/>
+    <label class="block text-sm text-cs-muted mb-1">${escHtml(f.name)}${fType !== 'string' && fType !== 'text' ? ` <span class="text-[10px] opacity-60">(${fType})</span>` : ''}</label>
+    ${inputHtml}
   </div>`;
 }
 
@@ -1668,7 +1553,7 @@ function openAddModal() {
   editingRecord = null;
   const isCollection = currentItem.type === 'collection';
   document.getElementById('modal-title').textContent = `New ${currentItem.name}`;
-  document.getElementById('modal-body').innerHTML = getFields(isCollection).map(f => fieldHtml(f, '', f.name === 'password')).join('');
+  document.getElementById('modal-body').innerHTML = getFields(isCollection).map(f => fieldHtml(f, '')).join('');
   showModal();
 }
 
@@ -1678,7 +1563,7 @@ function openEditModal(record) {
   const isCollection = currentItem.type === 'collection';
   document.getElementById('modal-title').textContent = `Edit ${currentItem.name} #${record.id}`;
   document.getElementById('modal-body').innerHTML =
-    getFields(isCollection).filter(f => f.name !== 'password').map(f => fieldHtml(f, String(record[f.name] ?? ''))).join('');
+    getFields(isCollection).filter(f => f.type !== 'password' && f.name !== 'password').map(f => fieldHtml(f, String(record[f.name] ?? ''))).join('');
   showModal();
 }
 
@@ -1693,15 +1578,27 @@ function closeModal() {
   editingRecord = null;
 }
 
+function getFieldValue(f) {
+  const el = document.getElementById(`field-${f.name}`);
+  if (!el) return undefined;
+  const fType = f.type || 'string';
+  if (fType === 'boolean') return el.checked ? true : false;
+  const val = el.value;
+  if (val === '' || val === undefined) return undefined;
+  if (fType === 'integer') return parseInt(val, 10);
+  if (fType === 'number' || fType === 'float' || fType === 'real' || fType === 'money') return parseFloat(val);
+  return val;
+}
+
 async function saveRecord() {
   if (!currentItem) return;
   const isCollection = currentItem.type === 'collection';
   const fields = getFields(isCollection);
-  const editFields = editingRecord ? fields.filter(f => f.name !== 'password') : fields;
+  const editFields = editingRecord ? fields.filter(f => f.type !== 'password' && f.name !== 'password') : fields;
   const body = {};
   for (const f of editFields) {
-    const el = document.getElementById(`field-${f.name}`);
-    if (el?.value) body[f.name] = el.value;
+    const val = getFieldValue(f);
+    if (val !== undefined) body[f.name] = val;
   }
   const btn = document.getElementById('modal-save-btn');
   btn.disabled = true; btn.querySelector('span').textContent = 'Saving…';
@@ -1721,40 +1618,6 @@ async function saveRecord() {
   } catch (err) {
     toast(err.message, 'error');
     btn.disabled = false; btn.querySelector('span').textContent = 'Save';
-  }
-
-  // Files tab: card list with bucket name, path, public checkbox
-  function renderFilesForm() {
-    _cfgFileId = 0;
-    const files = (configData && configData.files) || {};
-    let cards = '';
-    for (const key of Object.keys(files)) cards += renderFileBucketCard(key, files[key]);
-    return '<div id="cfg-files-list" class="space-y-2">' + cards + '</div>'
-      + '<button type="button" onclick="addFileBucketCard()"'
-      + ' class="mt-3 text-xs border border-cs-border rounded px-3 py-1.5 text-cs-muted hover:text-cs-text cursor-pointer"'
-      + ' style="transition:color 150ms,background 150ms;">' + t('config.files.add_bucket') + '</button>';
-  }
-
-  function renderFileBucketCard(bucketName, def) {
-    const id = _cfgFileId++;
-    return '<div class="file-bucket-card flex flex-wrap gap-3 items-end rounded border p-3"'
-      + ' style="border-color:#2a2a2a;background:#181818;" data-bucket-id="' + id + '">'
-      + '<div><label class="' + _LBL + '" style="color:#888;">' + t('config.files.name') + '</label>'
-      + '<input type="text" id="cfg-fb-name-' + id + '" value="' + escAttr(bucketName) + '" placeholder="' + escAttr(t('config.files.name_placeholder')) + '"'
-      + ' class="' + _INP + '" style="transition:border-color 150ms;width:130px;" /></div>'
-      + '<div class="flex-1"><label class="' + _LBL + '" style="color:#888;">' + t('config.files.path_label') + '</label>'
-      + '<input type="text" id="cfg-fb-path-' + id + '" value="' + escAttr(def.path || '') + '" placeholder="' + escAttr(t('config.files.path_placeholder')) + '"'
-      + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" /></div>'
-      + '<label class="flex items-center gap-1.5 text-xs cursor-pointer select-none" style="color:#888;padding-bottom:6px;">'
-      + '<input type="checkbox" id="cfg-fb-public-' + id + '"' + (def.public ? ' checked' : '') + ' /> ' + t('config.files.public') + '</label>'
-      + '<button type="button" onclick="_cfgRmFileBucketCard(this)"'
-      + ' class="text-xs px-2 py-1.5 rounded border cursor-pointer"'
-      + ' style="border-color:rgba(239,68,68,0.3);color:#f87171;background:transparent;">' + t('config.files.remove') + '</button>'
-      + '</div>';
-  }
-
-  function addFileBucketCard() {
-    document.getElementById('cfg-files-list').insertAdjacentHTML('beforeend', renderFileBucketCard('', {}));
   }
 }
 
@@ -2184,7 +2047,184 @@ async function saveConfig() {
 
 function resetConfigTab() { showConfigTab(configActiveTab); }
 
+// ── Theme Settings ────────────────────────────────────────────────────────────
+const THEME_PALETTE_COLORS = ['#34b1eb','#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981','#ef4444','#f97316'];
+
+/** Validate a CSS hex color string — accepts #RGB or #RRGGBB. Returns safe fallback on invalid input. */
+function sanitizeColor(raw, fallback) {
+  if (typeof raw === 'string' && /^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(raw.trim())) return raw.trim();
+  return fallback || '#34b1eb';
+}
+
+let currentPrimaryColor = sanitizeColor(localStorage.getItem('cs_primary_color'), '#34b1eb');
+let currentThemeMode = (localStorage.getItem('cs_theme_mode') === 'light') ? 'light' : 'dark';
+
+function applyTheme() {
+  const root = document.documentElement;
+  if (currentThemeMode === 'light') {
+    root.style.setProperty('--color-cs-bg', '#f8f9fa');
+    root.style.setProperty('--color-cs-surface', '#ffffff');
+    root.style.setProperty('--color-cs-border', '#e2e8f0');
+    root.style.setProperty('--color-cs-text', '#1a202c');
+    root.style.setProperty('--color-cs-muted', '#64748b');
+  } else {
+    root.style.setProperty('--color-cs-bg', '#121212');
+    root.style.setProperty('--color-cs-surface', '#1e1e1e');
+    root.style.setProperty('--color-cs-border', '#2a2a2a');
+    root.style.setProperty('--color-cs-text', '#e1e1e1');
+    root.style.setProperty('--color-cs-muted', '#888888');
+  }
+  root.style.setProperty('--color-cs-primary', currentPrimaryColor);
+  // Also update inline glow animation and btn colors to reflect new primary
+  document.querySelectorAll('.btn-glow').forEach(el => {
+    el.style.background = `linear-gradient(var(--color-cs-surface),var(--color-cs-surface)) padding-box, conic-gradient(from var(--glow-a),${currentPrimaryColor} 0%,${currentPrimaryColor}88 40%,transparent 60%,${currentPrimaryColor} 100%) border-box`;
+    el.style.color = currentPrimaryColor;
+  });
+}
+
+function openThemeSettings() {
+  // Build palette
+  const pal = document.getElementById('theme-palette');
+  pal.innerHTML = THEME_PALETTE_COLORS.map(c =>
+    `<button onclick="setPrimaryColor('${c}')" title="${c}"
+      style="width:24px;height:24px;border-radius:50%;background:${c};border:2px solid ${c === currentPrimaryColor ? '#fff' : 'transparent'};cursor:pointer;transition:border-color 150ms;"></button>`
+  ).join('');
+  // Set current color picker
+  document.getElementById('theme-custom-color').value = currentPrimaryColor;
+  document.getElementById('theme-custom-hex').textContent = currentPrimaryColor;
+  // Set mode buttons
+  const isDark = currentThemeMode === 'dark';
+  document.getElementById('theme-dark-btn').style.cssText = isDark
+    ? `border-color:${currentPrimaryColor};color:${currentPrimaryColor};background:rgba(52,177,235,.1);`
+    : 'border-color:#2a2a2a;color:#888;background:transparent;';
+  document.getElementById('theme-light-btn').style.cssText = !isDark
+    ? `border-color:${currentPrimaryColor};color:${currentPrimaryColor};background:rgba(52,177,235,.1);`
+    : 'border-color:#2a2a2a;color:#888;background:transparent;';
+  document.getElementById('theme-modal-backdrop').classList.remove('hidden');
+}
+
+function closeThemeSettings() {
+  document.getElementById('theme-modal-backdrop').classList.add('hidden');
+}
+
+function setThemeMode(mode) {
+  currentThemeMode = mode;
+  localStorage.setItem('cs_theme_mode', mode);
+  applyTheme();
+  openThemeSettings(); // re-render to update button states
+}
+
+function setPrimaryColor(color) {
+  currentPrimaryColor = sanitizeColor(color, '#34b1eb');
+  localStorage.setItem('cs_primary_color', currentPrimaryColor);
+  applyTheme();
+  openThemeSettings(); // re-render palette
+}
+
+function onCustomColorInput(color) {
+  const safe = sanitizeColor(color, '#34b1eb');
+  document.getElementById('theme-custom-hex').textContent = safe;
+  setPrimaryColor(safe);
+}
+
+// ── Column Visibility ─────────────────────────────────────────────────────────
+function getColumnPrefsKey(entityName) {
+  return `cs_cols_${entityName}`;
+}
+
+function getHiddenColumns(entityName) {
+  try {
+    const raw = localStorage.getItem(getColumnPrefsKey(entityName));
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+function openColumnsPanel() {
+  if (!currentItem) return;
+  const entityName = currentItem.name;
+  const s = (schema.entities || []).find(e => e.name === entityName);
+  const hiddenCols = getHiddenColumns(entityName);
+  const allCols = ['id', 'createdAt', 'updatedAt'];
+  if (s) {
+    for (const p of s.properties || []) allCols.push(typeof p === 'string' ? p : p.name);
+    if (s.authenticable) { if (!allCols.includes('email')) allCols.push('email'); }
+  }
+  document.getElementById('columns-entity-name').textContent = entityName;
+  document.getElementById('columns-list').innerHTML = allCols.map(col =>
+    `<label class="flex items-center gap-2 cursor-pointer text-sm" style="color:#e1e1e1;">
+      <input type="checkbox" class="col-vis-cb" value="${escAttr(col)}" ${hiddenCols.includes(col) ? '' : 'checked'}
+        style="accent-color:${escAttr(currentPrimaryColor)};width:14px;height:14px;" />
+      ${escHtml(col)}
+    </label>`
+  ).join('');
+  document.getElementById('columns-modal-backdrop').classList.remove('hidden');
+}
+
+function closeColumnsPanel() {
+  document.getElementById('columns-modal-backdrop').classList.add('hidden');
+}
+
+function saveColumnsPrefs() {
+  if (!currentItem) return;
+  const hidden = [];
+  document.querySelectorAll('.col-vis-cb').forEach(cb => {
+    if (!cb.checked) hidden.push(cb.value);
+  });
+  localStorage.setItem(getColumnPrefsKey(currentItem.name), JSON.stringify(hidden));
+  closeColumnsPanel();
+  reloadTable();
+}
+
+function resetColumnsPrefs() {
+  if (!currentItem) return;
+  localStorage.removeItem(getColumnPrefsKey(currentItem.name));
+  closeColumnsPanel();
+  reloadTable();
+}
+
+// ── ID Field helpers (autocomplete + lookup) ──────────────────────────────────
+async function onIdFieldInput(fieldName, relEntityName, mainProp) {
+  const el = document.getElementById(`field-${fieldName}`);
+  if (!el) return;
+  const dl = document.getElementById(`dl-${fieldName}`);
+  if (!dl) return;
+  const q = el.value.trim();
+  if (q.length < 1) { dl.innerHTML = ''; return; }
+  try {
+    const r = await apiFetch(`/admin/data?type=entity&name=${encodeURIComponent(relEntityName)}&perPage=10&search=${encodeURIComponent(q)}`);
+    if (!r.ok) return;
+    const data = await r.json();
+    dl.innerHTML = (data.data || []).map(row => {
+      const label = row[mainProp] || row.name || row.title || row.email || row.id;
+      return `<option value="${escAttr(String(row.id))}" label="${escAttr(String(label))}"></option>`;
+    }).join('');
+  } catch { /* ignore */ }
+}
+
+async function lookupIdRecord(fieldName, relEntityName) {
+  const el = document.getElementById(`field-${fieldName}`);
+  if (!el) return;
+  const id = el.value.trim();
+  if (!id) { toast('Enter an ID to look up', 'info'); return; }
+  try {
+    const r = await apiFetch(`/admin/data?type=entity&name=${encodeURIComponent(relEntityName)}&perPage=1&id_eq=${encodeURIComponent(id)}`);
+    if (!r.ok) { toast('Record not found', 'error'); return; }
+    const data = await r.json();
+    const record = data.data && data.data[0];
+    if (!record) { toast('Record not found', 'error'); return; }
+    document.getElementById('lookup-modal-title').textContent = `${relEntityName} #${id}`;
+    document.getElementById('lookup-modal-body').textContent = JSON.stringify(record, null, 2);
+    document.getElementById('lookup-modal-backdrop').classList.remove('hidden');
+  } catch (e) { toast('Lookup failed: ' + e.message, 'error'); }
+}
+
+function closeLookupModal() {
+  document.getElementById('lookup-modal-backdrop').classList.add('hidden');
+}
+
 // ── Start ─────────────────────────────────────────────────────────────────────
+// Apply saved theme on load
+applyTheme();
 init();
 
   function collectFormData() {
@@ -2659,7 +2699,6 @@ init();
     }
   }
 
-  init();
 </script>
 </body>
 </html>

@@ -17,8 +17,7 @@ You can implement one or several throttler definitions to limit API calls in the
 ```yaml title="chadstart.yaml"
 name: my app
 
-settings:
-  rateLimits:
-    - { name: 'short', limit: 2, ttl: 1000 } # 2 requests per second
-    - { name: 'medium', limit: 50, ttl: 60000 } # 50 requests per minute.
+rateLimits:
+  - { name: 'short', limit: 2, ttl: 1000 } # 2 requests per second
+  - { name: 'medium', limit: 50, ttl: 60000 } # 50 requests per minute.
 ```

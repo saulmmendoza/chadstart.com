@@ -9,9 +9,9 @@ describe('schema-validator', () => {
 
   it('accepts valid minimal config', () => assert.strictEqual(validateSchema({ name: 'Test' }), true));
   it('rejects missing name', () => assert.throws(() => validateSchema({}), /name/i));
-  it('rejects non-string name', () => assert.throws(() => validateSchema({ name: 42 }), /name/i));
+  it('rejects non-string name', () => assert.throws(() => validateSchema({ name: 42 }), /must be string/i));
   it('accepts entities map', () => assert.strictEqual(validateSchema({ name: 'App', entities: { Post: { properties: ['title'] } } }), true));
-  it('rejects entities as array', () => assert.throws(() => validateSchema({ name: 'App', entities: [] }), /entities/i));
+  it('rejects entities as array', () => assert.throws(() => validateSchema({ name: 'App', entities: [] }), /must be object/i));
   it('rejects unknown property type', () => {
     assert.throws(() => validateSchema({ name: 'App', entities: { Post: { properties: [{ name: 'x', type: 'banana' }] } } }));
   });
@@ -41,6 +41,22 @@ describe('schema-validator', () => {
   it('rejects invalid plugin', () => assert.throws(() => validateSchema({ name: 'App', plugins: [{ name: 'bad' }] })));
   it('accepts emoji access', () => assert.strictEqual(validateSchema({ name: 'App', entities: { Post: { policies: { read: [{ access: '🌐' }] } } } }), true));
   it('rejects unknown top-level key', () => assert.throws(() => validateSchema({ name: 'App', userCollections: { Admin: {} } })));
+  it('error message names the unknown top-level property', () => {
+    try { validateSchema({ name: 'App', settings: {} }); assert.fail('should throw'); }
+    catch (e) { assert.match(e.message, /unknown property 'settings'/); }
+  });
+  it('error message names the unknown nested property', () => {
+    try { validateSchema({ name: 'App', telemetry: { enabled: true, secret: 'x' } }); assert.fail('should throw'); }
+    catch (e) { assert.match(e.message, /unknown property 'secret'/); }
+  });
+  it('error message lists allowed enum values on type violation', () => {
+    try { validateSchema({ name: 'App', entities: { U: { properties: [{ name: 'a', type: 'badtype' }] } } }); assert.fail('should throw'); }
+    catch (e) { assert.match(e.message, /string, text/); }
+  });
+  it('suppresses redundant oneOf noise from error message', () => {
+    try { validateSchema({ name: 'App', entities: { U: { properties: [{ name: 'a', type: 'badtype' }] } } }); assert.fail('should throw'); }
+    catch (e) { assert.doesNotMatch(e.message, /oneOf/); }
+  });
   it('accepts sentry config with environment and tracesSampleRate', () => assert.strictEqual(validateSchema({ name: 'App', sentry: { environment: 'production', tracesSampleRate: 0.5 } }), true));
   it('accepts sentry config with debug flag', () => assert.strictEqual(validateSchema({ name: 'App', sentry: { debug: true } }), true));
   it('rejects sentry tracesSampleRate greater than 1', () => assert.throws(() => validateSchema({ name: 'App', sentry: { tracesSampleRate: 2 } })));

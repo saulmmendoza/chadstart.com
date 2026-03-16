@@ -21,9 +21,11 @@ services:
         required: false    # optional — defaults are safe for local dev
     environment:
       NODE_ENV: production
+      JWT_SECRET: changeme_asdklanion2iorn1i2n9qjw0m90m129qmd920
     volumes:
       - ./chadstart.yaml:/app/chadstart.yaml:ro
       - ./data:/app/data
       - ./public:/app/public
+      - ./uploads:/app/uploads
       - ./functions:/app/functions:ro
     restart: unless-stopped

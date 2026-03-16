@@ -17,10 +17,7 @@ name: Todo App
 port: 3000
 database: ./data/todo.db
 
-# ── Entities ──────────────────────────────────────────────────────────────────
-
 entities:
-
   User:
     authenticable: true
     mainProp: name
@@ -69,7 +66,7 @@ entities:
       create:
         - { access: restricted, allow: User, condition: self }   # Set owner on create
       read:
-        - access: public                         # Anyone can list / view todos
+        - { access: restricted, allow: User, condition: self }
       update:
         - { access: restricted, allow: User, condition: self }
       delete:
@@ -83,22 +80,10 @@ entities:
         isOptional: true
         isIn: [low, medium, high]
 
-# ── Realtime ──────────────────────────────────────────────────────────────────
-# WebSocket events are broadcast automatically for every entity CRUD operation.
-# Connect to ws://<host>/ws in the front-end to receive live updates.
-
-# ── Static public folder ──────────────────────────────────────────────────────
-# Serves demo/public/ at the root path — the Todo SPA lives here.
-
 public:
   folder: ./public
 
-# ── Custom functions ──────────────────────────────────────────────────────────
-# One function per supported runtime — all exposed via HTTP triggers so you
-# can call them from the SPA or via curl.
-
 functions:
-
   # JS (default runtime) — returns per-status todo counts.
   stats:
     runtime: js
@@ -182,17 +167,12 @@ functions:
       - type: event
         name: todo.created
 
-# ── File buckets ──────────────────────────────────────────────────────────────
-
 files:
   uploads:
     path: ./uploads
     public: true
 
-# ── Global settings ───────────────────────────────────────────────────────────
-
-settings:
-  rateLimits:
-    - name: default
-      limit: 200
-      ttl: 60000
+rateLimits:
+  - name: default
+    limit: 200
+    ttl: 60000

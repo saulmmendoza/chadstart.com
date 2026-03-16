@@ -55,35 +55,50 @@
       "type": "array",
       "items": { "$ref": "#/$defs/plugin" }
     },
-    "settings": {
+    "admin": {
       "type": "object",
-      "description": "Global application settings.",
+      "description": "Admin UI and Admin entity configuration.",
       "additionalProperties": false,
       "properties": {
-        "rateLimits": {
-          "type": "array",
-          "description": "Rate limit definitions applied to API routes.",
-          "items": { "$ref": "#/$defs/rateLimit" }
+        "enable_app": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable the Admin UI at /admin. Default: true."
         },
-        "telemetry": {
-          "type": "object",
-          "description": "OpenTelemetry tracing configuration. Secret values (auth headers / API keys) must be supplied via environment variables only — never put secrets in this file.",
-          "additionalProperties": false,
-          "properties": {
-            "enabled": {
-              "type": "boolean",
-              "default": false,
-              "description": "Enable OpenTelemetry tracing. Also configurable via OTEL_ENABLED=true env var."
-            },
-            "serviceName": {
-              "type": "string",
-              "description": "Service name reported to the OTLP collector. Overridable via OTEL_SERVICE_NAME env var."
-            },
-            "endpoint": {
-              "type": "string",
-              "description": "OTLP collector base URL (e.g. http://localhost:4318). Overridable via OTEL_EXPORTER_OTLP_ENDPOINT env var."
-            }
-          }
+        "enable_entity": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable the built-in Admin entity (email + password authenticable entity). Default: true."
+        },
+        "policies": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/policy" },
+          "description": "Access policies for the /admin route. Default: [{ access: admin }]."
+        }
+      }
+    },
+    "rateLimits": {
+      "type": "array",
+      "description": "Rate limit definitions applied to API routes.",
+      "items": { "$ref": "#/$defs/rateLimit" }
+    },
+    "telemetry": {
+      "type": "object",
+      "description": "OpenTelemetry tracing configuration. Secret values (auth headers / API keys) must be supplied via environment variables only — never put secrets in this file.",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable OpenTelemetry tracing. Also configurable via OTEL_ENABLED=true env var."
+        },
+        "serviceName": {
+          "type": "string",
+          "description": "Service name reported to the OTLP collector. Overridable via OTEL_SERVICE_NAME env var."
+        },
+        "endpoint": {
+          "type": "string",
+          "description": "OTLP collector base URL (e.g. http://localhost:4318). Overridable via OTEL_EXPORTER_OTLP_ENDPOINT env var."
         }
       }
     },

@@ -368,27 +368,43 @@ plugins:
   - path: ./my-local-plugin                                 # Local directory
     name: my-local-plugin                                   # Optional display name
 
-# ── Global settings ───────────────────────────────────────────────────────────
+# ── Admin UI & Admin Entity ───────────────────────────────────────────────────
+# Control the built-in Admin UI and Admin entity (superuser access).
+#
+# By default:
+#   - An Admin entity is auto-created with email + password (authenticable).
+#   - The Admin UI is available at /admin (login page at /login).
+#   - The admin UI requires admin-level access.
+#
+# If you define entities.Admin in your YAML, it will be merged with the default.
 
-settings:
-  # Rate limiting — protect your API from abuse.
-  rateLimits:
-    - name: default
-      limit: 100              # Max requests allowed in the time window
-      ttl: 60000              # Time window in milliseconds (60 s here)
-    - name: strict
-      limit: 10
-      ttl: 60000
+admin:
+  enable_app: true          # Serve the Admin UI at /admin. Default: true
+  enable_entity: true       # Create the built-in Admin entity. Default: true
+  policies:
+    - access: admin         # Who can access /admin. Default: access: admin
 
-  # OpenTelemetry tracing.
-  # Non-secret values can be set here; secret values (auth headers / API keys)
-  # must be set via environment variables only — see .env.example.
-  telemetry:
-    enabled: false            # Also configurable via OTEL_ENABLED env var
-    serviceName: my-app       # Overridable via OTEL_SERVICE_NAME env var
-    endpoint: http://localhost:4318  # Overridable via OTEL_EXPORTER_OTLP_ENDPOINT env var
-    # Auth headers (e.g., "authorization=Bearer <token>") must be set via
-    # OTEL_EXPORTER_OTLP_HEADERS env var — never place secrets in this file.
+# ── Rate limiting ─────────────────────────────────────────────────────────────
+# Protect your API from abuse.
+
+rateLimits:
+  - name: default
+    limit: 100              # Max requests allowed in the time window
+    ttl: 60000              # Time window in milliseconds (60 s here)
+  - name: strict
+    limit: 10
+    ttl: 60000
+
+# ── OpenTelemetry tracing ──────────────────────────────────────────────────────
+# Non-secret values can be set here; secret values (auth headers / API keys)
+# must be set via environment variables only — see .env.example.
+
+telemetry:
+  enabled: false            # Also configurable via OTEL_ENABLED env var
+  serviceName: my-app       # Overridable via OTEL_SERVICE_NAME env var
+  endpoint: http://localhost:4318  # Overridable via OTEL_EXPORTER_OTLP_ENDPOINT env var
+  # Auth headers (e.g., "authorization=Bearer <token>") must be set via
+  # OTEL_EXPORTER_OTLP_HEADERS env var — never place secrets in this file.
 
 # ── Error reporting (Sentry / Bugsink) ────────────────────────────────────────
 # Set SENTRY_DSN in your .env to enable. The DSN is a secret — never put it here.
