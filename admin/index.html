@@ -1519,7 +1519,7 @@ function fieldHtml(f, value = '', forcePassword = false) {
   } else if (fType === 'boolean') {
     const checked = value === 'true' || value === '1' || value === true;
     inputHtml = `<label class="flex items-center gap-2 cursor-pointer">
-      <input type="checkbox" id="field-${escAttr(f.name)}" ${checked ? 'checked' : ''} style="accent-color:#34b1eb;width:16px;height:16px;" />
+      <input type="checkbox" id="field-${escAttr(f.name)}" ${checked ? 'checked' : ''} style="accent-color:${escAttr(currentPrimaryColor)};width:16px;height:16px;" />
       <span class="text-sm text-cs-muted">${escHtml(f.name)}</span>
     </label>`;
     return `<div class="mb-4">${inputHtml}</div>`;
@@ -2049,8 +2049,15 @@ function resetConfigTab() { showConfigTab(configActiveTab); }
 
 // ── Theme Settings ────────────────────────────────────────────────────────────
 const THEME_PALETTE_COLORS = ['#34b1eb','#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981','#ef4444','#f97316'];
-let currentPrimaryColor = localStorage.getItem('cs_primary_color') || '#34b1eb';
-let currentThemeMode = localStorage.getItem('cs_theme_mode') || 'dark';
+
+/** Validate a CSS hex color string — accepts #RGB or #RRGGBB. Returns safe fallback on invalid input. */
+function sanitizeColor(raw, fallback) {
+  if (typeof raw === 'string' && /^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(raw.trim())) return raw.trim();
+  return fallback || '#34b1eb';
+}
+
+let currentPrimaryColor = sanitizeColor(localStorage.getItem('cs_primary_color'), '#34b1eb');
+let currentThemeMode = (localStorage.getItem('cs_theme_mode') === 'light') ? 'light' : 'dark';
 
 function applyTheme() {
   const root = document.documentElement;
@@ -2108,15 +2115,16 @@ function setThemeMode(mode) {
 }
 
 function setPrimaryColor(color) {
-  currentPrimaryColor = color;
-  localStorage.setItem('cs_primary_color', color);
+  currentPrimaryColor = sanitizeColor(color, '#34b1eb');
+  localStorage.setItem('cs_primary_color', currentPrimaryColor);
   applyTheme();
   openThemeSettings(); // re-render palette
 }
 
 function onCustomColorInput(color) {
-  document.getElementById('theme-custom-hex').textContent = color;
-  setPrimaryColor(color);
+  const safe = sanitizeColor(color, '#34b1eb');
+  document.getElementById('theme-custom-hex').textContent = safe;
+  setPrimaryColor(safe);
 }
 
 // ── Column Visibility ─────────────────────────────────────────────────────────
@@ -2145,7 +2153,7 @@ function openColumnsPanel() {
   document.getElementById('columns-list').innerHTML = allCols.map(col =>
     `<label class="flex items-center gap-2 cursor-pointer text-sm" style="color:#e1e1e1;">
       <input type="checkbox" class="col-vis-cb" value="${escAttr(col)}" ${hiddenCols.includes(col) ? '' : 'checked'}
-        style="accent-color:${currentPrimaryColor};width:14px;height:14px;" />
+        style="accent-color:${escAttr(currentPrimaryColor)};width:14px;height:14px;" />
       ${escHtml(col)}
     </label>`
   ).join('');
