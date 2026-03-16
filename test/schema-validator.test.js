@@ -9,9 +9,9 @@ describe('schema-validator', () => {
 
   it('accepts valid minimal config', () => assert.strictEqual(validateSchema({ name: 'Test' }), true));
   it('rejects missing name', () => assert.throws(() => validateSchema({}), /name/i));
-  it('rejects non-string name', () => assert.throws(() => validateSchema({ name: 42 }), /name/i));
+  it('rejects non-string name', () => assert.throws(() => validateSchema({ name: 42 }), /must be string/i));
   it('accepts entities map', () => assert.strictEqual(validateSchema({ name: 'App', entities: { Post: { properties: ['title'] } } }), true));
-  it('rejects entities as array', () => assert.throws(() => validateSchema({ name: 'App', entities: [] }), /entities/i));
+  it('rejects entities as array', () => assert.throws(() => validateSchema({ name: 'App', entities: [] }), /must be object/i));
   it('rejects unknown property type', () => {
     assert.throws(() => validateSchema({ name: 'App', entities: { Post: { properties: [{ name: 'x', type: 'banana' }] } } }));
   });
