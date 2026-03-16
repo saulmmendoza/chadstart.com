@@ -19,14 +19,13 @@ const validate = ajv.compile(schema);
  * @returns {string}
  */
 function formatError(e) {
-  const loc = e.instancePath || '/';
   switch (e.keyword) {
     case 'additionalProperties':
-      return `${loc}: unknown property '${e.params.additionalProperty}'`;
+      return `unknown property '${e.params.additionalProperty}'`;
     case 'enum':
-      return `${loc}: ${e.message} (${e.params.allowedValues.join(', ')})`;
+      return `${e.message} (${e.params.allowedValues.join(', ')})`;
     default:
-      return `${loc}: ${e.message}`;
+      return `${e.message}`;
   }
 }
 
