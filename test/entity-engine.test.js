@@ -149,3 +149,45 @@ describe('entity-engine – branches', () => {
     assert.deepStrictEqual(core.entities.Tag.properties, []);
   });
 });
+
+describe('entity-engine – default Admin entity', () => {
+  it('buildCore includes a default Admin entity when no entities defined', () => {
+    const core = buildCore({ name: 'App' });
+    assert.ok(core.entities.Admin, 'Default Admin entity should be created');
+    assert.ok(core.entities.Admin.authenticable, 'Admin entity should be authenticable');
+    assert.strictEqual(core.entities.Admin.slug, 'admin');
+  });
+
+  it('buildCore merges YAML Admin entity with default (authenticable always true)', () => {
+    const core = buildCore({ name: 'App', entities: { Admin: { properties: ['role'] } } });
+    assert.ok(core.entities.Admin.authenticable, 'Admin should always be authenticable after merge');
+    assert.ok(core.entities.Admin.properties.some(p => (typeof p === 'string' ? p : p.name) === 'role'));
+  });
+
+  it('buildCore does not add Admin entity when admin.enable_entity is false', () => {
+    const core = buildCore({ name: 'App', admin: { enable_entity: false } });
+    assert.strictEqual(core.entities.Admin, undefined);
+  });
+
+  it('buildCore exposes admin config with defaults', () => {
+    const core = buildCore({ name: 'App' });
+    assert.ok(core.admin);
+    assert.strictEqual(core.admin.enable_app, true);
+    assert.strictEqual(core.admin.enable_entity, true);
+    assert.deepStrictEqual(core.admin.policies, [{ access: 'admin' }]);
+  });
+
+  it('buildCore admin config merges with YAML admin settings', () => {
+    const core = buildCore({ name: 'App', admin: { enable_app: false, policies: [{ access: 'public' }] } });
+    assert.strictEqual(core.admin.enable_app, false);
+    assert.deepStrictEqual(core.admin.policies, [{ access: 'public' }]);
+  });
+
+  it('schema accepts admin property', () => {
+    const { validateSchema } = require('../core/schema-validator');
+    assert.strictEqual(validateSchema({
+      name: 'App',
+      admin: { enable_app: true, enable_entity: true, policies: [{ access: 'admin' }] },
+    }), true);
+  });
+});

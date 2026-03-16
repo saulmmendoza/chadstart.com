@@ -18,6 +18,16 @@ describe('settings.rateLimits', () => {
     }), true);
   });
 
+  it('schema accepts top-level rateLimits', () => {
+    assert.strictEqual(validateSchema({
+      name: 'App',
+      rateLimits: [
+        { name: 'short',  limit: 2,  ttl: 1000 },
+        { name: 'medium', limit: 50, ttl: 60000 },
+      ],
+    }), true);
+  });
+
   it('schema rejects rateLimit missing required name', () => {
     assert.throws(() => validateSchema({ name: 'App', settings: { rateLimits: [{ limit: 2, ttl: 1000 }] } }));
   });
@@ -50,6 +60,27 @@ describe('settings.rateLimits', () => {
     assert.strictEqual(core.settings.rateLimits[0].limit, 2);
     assert.strictEqual(core.settings.rateLimits[0].ttl,   1000);
     assert.strictEqual(core.settings.rateLimits[1].name,  'medium');
+  });
+
+  it('buildCore exposes top-level rateLimits', () => {
+    const core = buildCore({
+      name: 'App',
+      rateLimits: [
+        { name: 'short',  limit: 2,  ttl: 1000 },
+      ],
+    });
+    assert.ok(core.rateLimits);
+    assert.strictEqual(core.rateLimits.length, 1);
+    assert.strictEqual(core.rateLimits[0].name, 'short');
+  });
+
+  it('top-level rateLimits takes precedence over settings.rateLimits', () => {
+    const core = buildCore({
+      name: 'App',
+      rateLimits: [{ name: 'top', limit: 5, ttl: 1000 }],
+      settings: { rateLimits: [{ name: 'settings', limit: 10, ttl: 2000 }] },
+    });
+    assert.strictEqual(core.rateLimits[0].name, 'top');
   });
 
   it('buildCore sets settings to null when not provided', () => {
@@ -88,7 +119,7 @@ describe('buildApiLimiters', () => {
     assert.strictEqual(typeof limiters[0], 'function');
   });
 
-  it('returns one limiter per configured rateLimit entry', () => {
+  it('returns one limiter per configured rateLimit entry (settings)', () => {
     const core = buildCore({
       name: 'App',
       settings: {
@@ -97,6 +128,19 @@ describe('buildApiLimiters', () => {
           { name: 'medium', limit: 50, ttl: 60000 },
         ],
       },
+    });
+    const limiters = buildApiLimiters(core);
+    assert.strictEqual(limiters.length, 2);
+    assert.ok(limiters.every((l) => typeof l === 'function'));
+  });
+
+  it('returns one limiter per configured top-level rateLimit entry', () => {
+    const core = buildCore({
+      name: 'App',
+      rateLimits: [
+        { name: 'short',  limit: 2,  ttl: 1000 },
+        { name: 'medium', limit: 50, ttl: 60000 },
+      ],
     });
     const limiters = buildApiLimiters(core);
     assert.strictEqual(limiters.length, 2);

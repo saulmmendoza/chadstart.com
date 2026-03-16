@@ -69,11 +69,11 @@ const authLimiter  = limiter(15 * 60 * 1000, 30);
 const adminRateLimiter = limiter(60 * 1000, 100);
 
 /**
- * Build the API rate limiters from settings.rateLimits (if configured)
- * or fall back to the default single limiter.
+ * Build the API rate limiters from core.rateLimits (top-level, preferred),
+ * falling back to settings.rateLimits for backward compat, or the default.
  */
 function buildApiLimiters(core) {
-  const configured = core.settings && core.settings.rateLimits;
+  const configured = core.rateLimits || (core.settings && core.settings.rateLimits);
   if (configured && configured.length > 0) {
     return configured.map((rl) => limiter(rl.ttl, rl.limit));
   }
@@ -96,7 +96,8 @@ async function buildApp(yamlPath, reloadFn) {
   logger.info(`Loading "${core.name}"...`);
 
   // Initialize OpenTelemetry (singleton — no-op on hot reload)
-  const telConfig = getTelemetryConfig(core.settings);
+  // Use top-level telemetry config (preferred) with fallback to settings.telemetry
+  const telConfig = getTelemetryConfig(core.telemetry ? { telemetry: core.telemetry } : core.settings);
   await initTelemetry(telConfig);
 
   const dbPath = core.database
@@ -154,6 +155,7 @@ async function buildApp(yamlPath, reloadFn) {
 
   // Admin UI — serve the SPA, vendor assets, and API endpoints
   const adminHtml = path.join(__dirname, '..', 'admin', 'index.html');
+  const loginHtml = path.join(__dirname, '..', 'admin', 'login.html');
   const nodeModulesDir = path.join(__dirname, '..', 'node_modules');
   // Vendor assets served from node_modules (HTMX, Animate.css, Tailwind browser, cronstrue)
   app.get('/admin/vendor/htmx.min.js', adminRateLimiter, (_req, res) => {
@@ -167,6 +169,17 @@ async function buildApp(yamlPath, reloadFn) {
   });
   app.get('/admin/vendor/cronstrue.min.js', adminRateLimiter, (_req, res) => {
     res.sendFile(path.join(nodeModulesDir, 'cronstrue', 'dist', 'cronstrue.min.js'));
+  });
+  // Public login page
+  app.get('/login', adminRateLimiter, (_req, res) => {
+    if (fs.existsSync(loginHtml)) {
+      res.sendFile(loginHtml);
+    } else if (fs.existsSync(adminHtml)) {
+      // Fallback: serve the main admin app if login.html doesn't exist yet
+      res.sendFile(adminHtml);
+    } else {
+      res.status(404).send('Login page not found');
+    }
   });
   app.get('/admin', adminRateLimiter, (_req, res) => {
     if (fs.existsSync(adminHtml)) {
@@ -193,6 +206,7 @@ async function buildApp(yamlPath, reloadFn) {
       name: core.name,
       entities: allEntities,
       userCollections: allEntities.filter((e) => e.authenticable),
+      adminConfig: core.admin,
     });
   });
 

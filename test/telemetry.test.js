@@ -190,6 +190,13 @@ describe('schema: settings.telemetry', () => {
     assert.strictEqual(validateSchema({ name: 'App', settings: { telemetry: { enabled: true } } }), true);
   });
 
+  it('schema accepts top-level telemetry', () => {
+    assert.strictEqual(validateSchema({
+      name: 'App',
+      telemetry: { enabled: true, serviceName: 'my-service', endpoint: 'http://localhost:4318' },
+    }), true);
+  });
+
   it('schema accepts telemetry with all non-secret fields', () => {
     assert.strictEqual(validateSchema({
       name: 'App',
@@ -235,6 +242,25 @@ describe('buildCore: settings.telemetry passthrough', () => {
     assert.strictEqual(core.settings.telemetry.enabled, true);
     assert.strictEqual(core.settings.telemetry.serviceName, 'svc');
     assert.strictEqual(core.settings.telemetry.endpoint, 'http://host:4318');
+  });
+
+  it('exposes top-level telemetry when provided', () => {
+    const core = buildCore({
+      name: 'App',
+      telemetry: { enabled: true, serviceName: 'top-svc', endpoint: 'http://host:4318' },
+    });
+    assert.ok(core.telemetry);
+    assert.strictEqual(core.telemetry.enabled, true);
+    assert.strictEqual(core.telemetry.serviceName, 'top-svc');
+  });
+
+  it('top-level telemetry takes precedence over settings.telemetry', () => {
+    const core = buildCore({
+      name: 'App',
+      telemetry: { enabled: true, serviceName: 'top' },
+      settings: { telemetry: { enabled: false, serviceName: 'settings' } },
+    });
+    assert.strictEqual(core.telemetry.serviceName, 'top');
   });
 
   it('settings is null when not provided (telemetry not configured)', () => {

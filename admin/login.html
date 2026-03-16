@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en" id="html-root">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign in — ChadStart Admin</title>
+  <script src="/admin/vendor/tailwind.js"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-cs-bg: #121212;
+      --color-cs-surface: #1e1e1e;
+      --color-cs-border: #2a2a2a;
+      --color-cs-primary: #34b1eb;
+      --color-cs-accent: #03dac6;
+      --color-cs-text: #e1e1e1;
+      --color-cs-muted: #888888;
+    }
+  </style>
+  <style>
+    /* ── Animated glowing border button ────────────────────────────── */
+    @property --glow-a { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+    @keyframes spin-glow { to { --glow-a: 360deg; } }
+    .btn-glow {
+      border: 2px solid transparent;
+      background:
+        linear-gradient(#1e1e1e, #1e1e1e) padding-box,
+        conic-gradient(from var(--glow-a), #34b1eb 0%, #0e7fc4 40%, transparent 60%, #34b1eb 100%) border-box;
+      animation: spin-glow 2s linear infinite;
+      color: #34b1eb; font-weight: 500;
+      transition: opacity 150ms ease;
+    }
+    .btn-glow:hover { opacity: 0.8; }
+    .btn-glow:disabled { opacity: 0.4; animation: none; }
+  </style>
+</head>
+<body class="bg-cs-bg text-cs-text min-h-screen flex items-center justify-center p-4"
+  style="font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;">
+
+<div class="bg-cs-surface border border-cs-border rounded p-8 w-full max-w-sm" style="box-shadow: 0 2px 16px rgba(52,177,235,.1);">
+  <div id="login-project-name" class="font-bold text-cs-text text-xl mb-0.5">Admin</div>
+  <div class="text-[11px] text-cs-muted mb-6">Powered by ChadStart.com</div>
+
+  <div id="login-error" class="text-red-400 text-sm mb-4 hidden"></div>
+
+  <div id="login-collection-section" class="hidden mb-4">
+    <label class="block text-sm text-cs-muted mb-1">Collection</label>
+    <input type="text" id="login-collection"
+      class="w-full bg-cs-bg border border-cs-border rounded text-cs-text px-3 py-2 text-sm outline-none focus:border-cs-primary"
+      style="transition: border-color 150ms ease;"
+      placeholder="Admin collection name" autocomplete="off" />
+  </div>
+  <div class="mb-4 text-right">
+    <button type="button" id="toggle-collection-btn" onclick="toggleCollectionField()"
+      class="text-xs text-cs-muted hover:text-cs-primary cursor-pointer"
+      style="transition: color 150ms ease; background: none; border: none; padding: 0;">
+      Change collection
+    </button>
+  </div>
+
+  <label class="block text-sm text-cs-muted mb-1">Email</label>
+  <input type="email" id="login-email" placeholder="admin@example.com" autocomplete="email"
+    class="w-full bg-cs-bg border border-cs-border rounded text-cs-text px-3 py-2 text-sm mb-4 outline-none focus:border-cs-primary"
+    style="transition: border-color 150ms ease;" />
+
+  <label class="block text-sm text-cs-muted mb-1">Password</label>
+  <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password"
+    class="w-full bg-cs-bg border border-cs-border rounded text-cs-text px-3 py-2 text-sm mb-5 outline-none focus:border-cs-primary"
+    style="transition: border-color 150ms ease;" />
+
+  <button id="login-btn" onclick="doLogin()" class="btn-glow w-full py-2 px-4 rounded text-sm cursor-pointer">
+    <span>Sign in</span>
+  </button>
+</div>
+
+<script>
+  // ── State ──────────────────────────────────────────────────────────────
+  let schema = null;
+
+  function toSlug(name) {
+    return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  // ── Bootstrap ──────────────────────────────────────────────────────────
+  async function init() {
+    // If already authenticated, redirect to admin
+    const token = localStorage.getItem('cs_token');
+    if (token) {
+      // Verify token is still valid before redirect
+      try {
+        const schema = await fetch('/admin/schema').then(r => r.json());
+        const cols = getAdminCollections(schema);
+        if (cols.length) {
+          const r = await fetch(`/api/auth/${toSlug(cols[0].name)}/me`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (r.ok) {
+            window.location.replace('/admin');
+            return;
+          }
+        }
+      } catch { /* fall through to show login */ }
+      localStorage.removeItem('cs_token');
+    }
+
+    // Load schema for collection selection
+    try {
+      schema = await fetch('/admin/schema').then(r => r.json());
+      if (schema.name) {
+        document.getElementById('login-project-name').textContent = schema.name;
+        document.title = `Sign in — ${escHtml(schema.name)}`;
+      }
+      populateLoginCollections();
+    } catch { /* ignore */ }
+  }
+
+  function getAdminCollections(s) {
+    const src = s || schema;
+    return (src && src.userCollections) || [];
+  }
+
+  function populateLoginCollections() {
+    const cols = getAdminCollections();
+    const input = document.getElementById('login-collection');
+    const errEl = document.getElementById('login-error');
+    const btn = document.getElementById('login-btn');
+    if (cols.length) {
+      input.value = cols[0].name;
+    } else {
+      input.value = '';
+      errEl.textContent = 'No admin collections found. Please configure an authenticable entity.';
+      errEl.classList.remove('hidden');
+      btn.disabled = true;
+    }
+  }
+
+  function toggleCollectionField() {
+    const section = document.getElementById('login-collection-section');
+    const btn = document.getElementById('toggle-collection-btn');
+    const isHidden = section.classList.contains('hidden');
+    section.classList.toggle('hidden', !isHidden);
+    btn.textContent = isHidden ? 'Hide collection' : 'Change collection';
+    if (isHidden) document.getElementById('login-collection').focus();
+  }
+
+  async function doLogin() {
+    const collectionName = document.getElementById('login-collection').value.trim().replace(/[^a-zA-Z0-9 _-]/g, '');
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    const errEl = document.getElementById('login-error');
+    const btn = document.getElementById('login-btn');
+    const btnText = btn.querySelector('span');
+
+    errEl.classList.add('hidden');
+    if (!collectionName || !email || !password) {
+      errEl.textContent = 'All fields are required';
+      errEl.classList.remove('hidden');
+      return;
+    }
+
+    btn.disabled = true;
+    btnText.textContent = 'Signing in…';
+
+    const cols = getAdminCollections();
+    const col = cols.find(c => c.name === collectionName);
+    if (!col) {
+      showLoginError('Collection not found');
+      return;
+    }
+
+    try {
+      const r = await fetch(`/api/auth/${toSlug(col.name)}/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        showLoginError(data.error || 'Login failed');
+        return;
+      }
+      localStorage.setItem('cs_token', data.token);
+      localStorage.setItem('cs_collection', col.name);
+      window.location.replace('/admin');
+    } catch {
+      showLoginError('Network error');
+    }
+
+    function showLoginError(msg) {
+      errEl.textContent = msg;
+      errEl.classList.remove('hidden');
+      btn.disabled = false;
+      btnText.textContent = 'Sign in';
+    }
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter') doLogin();
+  });
+
+  init();
+</script>
+</body>
+</html>

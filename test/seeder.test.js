@@ -119,6 +119,7 @@ describe('seeder', () => {
   it('seedAll does not create duplicate admin user when one already exists', async () => {
     const dupCore = buildCore({
       name: 'DupAdminTest',
+      admin: { enable_entity: false },
       entities: {
         Member: {
           authenticable: true,

@@ -92,8 +92,58 @@ function toKebabCase(str) {
   return str.replace(/([A-Z])/g, (m, p, o) => (o > 0 ? '-' : '') + p.toLowerCase()).replace(/^-/, '');
 }
 
+/** Default Admin entity definition — email + password authenticable entity. */
+const DEFAULT_ADMIN_ENTITY = {
+  authenticable: true,
+  mainProp: 'email',
+  properties: [],
+};
+
+/**
+ * Build the Admin entity for the built-in admin access.
+ * Always included unless admin.enable_entity is explicitly false.
+ * If the user defines an "Admin" entity in their YAML, it is merged with the default.
+ */
+function buildAdminEntity(config) {
+  const adminCfg = config.admin || {};
+  if (adminCfg.enable_entity === false) return null;
+
+  const userDef = (config.entities || {}).Admin || {};
+  const merged = {
+    ...DEFAULT_ADMIN_ENTITY,
+    ...userDef,
+    // Always authenticable
+    authenticable: true,
+    // Merge properties: user-defined takes precedence (email/password are handled by auth system)
+    properties: userDef.properties || DEFAULT_ADMIN_ENTITY.properties,
+  };
+  return merged;
+}
+
 function buildCore(config) {
-  const entities = buildEntities(config);
+  const adminCfg = config.admin || {};
+
+  // Inject the default Admin entity into entities map before building
+  const rawEntities = { ...(config.entities || {}) };
+  const adminEntityDef = buildAdminEntity(config);
+  if (adminEntityDef && !rawEntities.Admin) {
+    rawEntities.Admin = adminEntityDef;
+  } else if (adminEntityDef && rawEntities.Admin) {
+    // Merge: user-defined fields override defaults, but authenticable is always true
+    rawEntities.Admin = {
+      ...DEFAULT_ADMIN_ENTITY,
+      ...rawEntities.Admin,
+      authenticable: true,
+    };
+  }
+
+  const entities = buildEntities({ ...config, entities: rawEntities });
+
+  // Top-level rateLimits (preferred) with fallback to settings.rateLimits
+  const rateLimits = config.rateLimits || (config.settings && config.settings.rateLimits) || null;
+  // Top-level telemetry (preferred) with fallback to settings.telemetry
+  const telemetry = config.telemetry || (config.settings && config.settings.telemetry) || null;
+
   return {
     name: config.name,
     database: config.database || null,
@@ -106,6 +156,13 @@ function buildCore(config) {
     public: config.public || null,
     port: parseInt(process.env.CHADSTART_PORT || process.env.PORT || config.port || 3000, 10),
     settings: config.settings || null,
+    rateLimits,
+    telemetry,
+    admin: {
+      enable_app: adminCfg.enable_app !== false,
+      enable_entity: adminCfg.enable_entity !== false,
+      policies: adminCfg.policies || [{ access: 'admin' }],
+    },
   };
 }
 
