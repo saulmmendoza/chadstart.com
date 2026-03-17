@@ -20,14 +20,14 @@
     /* ── Sidebar nav items ─────────────────────────────────────────── */
     .nav-item {
       display: block; padding: 7px 16px; font-size: .875rem; cursor: pointer;
-      color: #888; border-left: 2px solid transparent;
+      color: var(--color-cs-muted); border-left: 2px solid transparent;
       transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    .nav-item:hover { background: rgba(255,255,255,.04); color: #e1e1e1; }
+    .nav-item:hover { background: rgba(128,128,128,.08); color: var(--color-cs-text); }
     .nav-item.active { background: rgba(52,177,235,.07); border-left-color: #34b1eb; color: #34b1eb; }
     /* ── Thin sidebar scrollbar ────────────────────────────────────── */
-    .sidebar-nav { scrollbar-width: thin; scrollbar-color: #2a2a2a transparent; }
+    .sidebar-nav { scrollbar-width: thin; scrollbar-color: var(--color-cs-border) transparent; }
     /* ── Config editor tab active state ────────────────────────────── */
     .cfg-tab.active { background: rgba(52,177,235,.12); border-color: #34b1eb; color: #34b1eb; }
 
@@ -37,7 +37,7 @@
     .btn-glow {
       border: 2px solid transparent;
       background:
-        linear-gradient(#1e1e1e, #1e1e1e) padding-box,
+        linear-gradient(var(--color-cs-surface), var(--color-cs-surface)) padding-box,
         conic-gradient(from var(--glow-a), #34b1eb 0%, #0e7fc4 40%, transparent 60%, #34b1eb 100%) border-box;
       animation: spin-glow 2s linear infinite;
       color: #34b1eb; font-weight: 500;
@@ -47,11 +47,11 @@
     .btn-glow:disabled { opacity: 0.4; animation: none; }
 
     /* ── Tab buttons ──────────────────────────────────────────────── */
-    .tab-btn { padding: 5px 14px; font-size: 12px; border: 1px solid #2a2a2a; border-radius: 4px; cursor: pointer; color: #888; background: transparent; transition: all 150ms; }
+    .tab-btn { padding: 5px 14px; font-size: 12px; border: 1px solid var(--color-cs-border); border-radius: 4px; cursor: pointer; color: var(--color-cs-muted); background: transparent; transition: all 150ms; }
     .tab-btn.active { border-color: #34b1eb; color: #34b1eb; background: rgba(52,177,235,.08); }
 
     /* ── Code block ───────────────────────────────────────────────── */
-    .code-block { background: #0d0d0d; border: 1px solid #2a2a2a; border-radius: 6px; padding: 12px 14px; font-family: monospace; font-size: 12px; color: #e1e1e1; white-space: pre; overflow-x: auto; line-height: 1.6; }
+    .code-block { background: var(--color-cs-bg); border: 1px solid var(--color-cs-border); border-radius: 6px; padding: 12px 14px; font-family: monospace; font-size: 12px; color: var(--color-cs-text); white-space: pre; overflow-x: auto; line-height: 1.6; }
 
     /* ── Activity feed ────────────────────────────────────────────── */
     .activity-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
@@ -241,7 +241,7 @@
     <!-- ── API Keys Panel ────────────────────────────────────────── -->
     <div id="api-keys-area" class="hidden">
       <div class="flex items-center justify-between mb-4">
-        <p class="text-xs" style="color:#888;">Manage API keys for programmatic access. Keys are shown only at creation time.</p>
+        <p class="text-xs" style="color:var(--color-cs-muted);">Manage API keys for programmatic access. Keys are shown only at creation time.</p>
         <button onclick="openCreateApiKeyModal()"
           class="text-xs border border-cs-border rounded px-3 py-1.5 text-cs-muted hover:text-cs-text cursor-pointer" style="transition:color 150ms,background 150ms;">+ Create API Key</button>
       </div>
@@ -260,12 +260,12 @@
         <button onclick="showConfigTab('settings')"  id="cfg-tab-settings"  class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;" data-i18n="config.tabs.settings">Settings</button>
         <button onclick="showConfigTab('all')"       id="cfg-tab-all"       class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;" data-i18n="config.tabs.all">All</button>
       </div>
-      <p id="cfg-section-desc" class="text-xs mb-3" style="color:#888;"></p>
+      <p id="cfg-section-desc" class="text-xs mb-3" style="color:var(--color-cs-muted);"></p>
       <div id="cfg-form" class="hidden mb-6"></div>
       <div id="cfg-json-section" class="hidden">
         <div class="flex items-center justify-between mb-2">
-          <span class="text-xs font-medium" style="color:#888;" id="cfg-json-label">Full Configuration JSON</span>
-          <span class="text-xs" style="color:#555;" id="cfg-json-hint"></span>
+          <span class="text-xs font-medium" style="color:var(--color-cs-muted);" id="cfg-json-label">Full Configuration JSON</span>
+          <span class="text-xs" style="color:var(--color-cs-muted);" id="cfg-json-hint"></span>
         </div>
         <textarea id="cfg-editor"
           class="w-full bg-cs-bg border border-cs-border rounded text-cs-text px-3 py-2.5 text-xs font-mono outline-none focus:border-cs-primary resize-y"
@@ -279,10 +279,10 @@
         <button onclick="resetConfigTab()"
           class="text-sm border border-cs-border rounded py-1.5 px-4 text-cs-muted hover:text-cs-text hover:bg-cs-border" style="transition:color 150ms,background 150ms;"
           data-i18n="config.reset_btn">Reset</button>
-        <span id="cfg-status" class="text-xs" style="color:#888;"></span>
+        <span id="cfg-status" class="text-xs" style="color:var(--color-cs-muted);"></span>
       </div>
-      <div id="cfg-s3-note" class="hidden mt-4 p-3 rounded border text-xs" style="border-color:#2a2a2a;color:#888;">
-        <strong style="color:#e1e1e1;">S3 Storage</strong> is configured via environment variables:<br>
+      <div id="cfg-s3-note" class="hidden mt-4 p-3 rounded border text-xs" style="border-color:var(--color-cs-border);color:var(--color-cs-muted);">
+        <strong style="color:var(--color-cs-text);">S3 Storage</strong> is configured via environment variables:<br>
         <code style="color:#34b1eb;">S3_BUCKET</code>, <code style="color:#34b1eb;">S3_ENDPOINT</code>,
         <code style="color:#34b1eb;">S3_REGION</code>, <code style="color:#34b1eb;">S3_ACCESS_KEY_ID</code>,
         <code style="color:#34b1eb;">S3_SECRET_ACCESS_KEY</code>.<br>
@@ -324,7 +324,7 @@
             class="w-8 h-8 rounded cursor-pointer border border-cs-border bg-cs-bg"
             style="padding: 1px;" oninput="onCustomColorInput(this.value)" />
           <span class="text-xs text-cs-muted">Custom color</span>
-          <span id="theme-custom-hex" class="text-xs font-mono" style="color:#888;">#34b1eb</span>
+          <span id="theme-custom-hex" class="text-xs font-mono" style="color:var(--color-cs-muted);">#34b1eb</span>
         </div>
       </div>
     </div>
@@ -359,7 +359,7 @@
       <span id="lookup-modal-title" class="font-medium text-sm">Record</span>
       <button onclick="closeLookupModal()" class="text-cs-muted hover:text-cs-text text-xl leading-none" style="transition: color 150ms ease;">×</button>
     </div>
-    <div id="lookup-modal-body" class="p-5 overflow-y-auto flex-1 text-xs font-mono" style="color:#e1e1e1;white-space:pre;"></div>
+    <div id="lookup-modal-body" class="p-5 overflow-y-auto flex-1 text-xs font-mono" style="color:var(--color-cs-text);white-space:pre;"></div>
   </div>
 </div>
 
@@ -371,9 +371,9 @@
       <button onclick="closeImpersonateModal()" class="text-cs-muted hover:text-cs-text text-xl leading-none" style="transition: color 150ms ease;">×</button>
     </div>
     <div class="p-5">
-      <p class="text-xs mb-3" style="color:#888;">A short-lived token (1 hour) has been generated for this user. Use it to test API requests as this user.</p>
-      <div id="impersonate-user-info" class="mb-3 text-xs" style="color:#888;"></div>
-      <label class="block text-xs mb-1" style="color:#888;">Token</label>
+      <p class="text-xs mb-3" style="color:var(--color-cs-muted);">A short-lived token (1 hour) has been generated for this user. Use it to test API requests as this user.</p>
+      <div id="impersonate-user-info" class="mb-3 text-xs" style="color:var(--color-cs-muted);"></div>
+      <label class="block text-xs mb-1" style="color:var(--color-cs-muted);">Token</label>
       <textarea id="impersonate-token" readonly
         class="w-full bg-cs-bg border border-cs-border rounded text-cs-text px-3 py-2 text-xs font-mono outline-none resize-none"
         style="height:80px;line-height:1.5;" spellcheck="false"></textarea>
@@ -398,7 +398,7 @@
       <!-- Result (shown after creation) -->
       <div id="apikey-result" class="hidden">
         <p class="text-xs mb-2" style="color:#03dac6;">✓ API key created. Copy it now — it will not be shown again.</p>
-        <label class="block text-xs mb-1" style="color:#888;">Your API Key</label>
+        <label class="block text-xs mb-1" style="color:var(--color-cs-muted);">Your API Key</label>
         <div class="flex gap-2">
           <input type="text" id="apikey-result-value" readonly
             class="flex-1 bg-cs-bg border border-cs-border rounded text-cs-text px-2 py-1.5 text-xs font-mono outline-none" />
@@ -411,36 +411,36 @@
       <div id="apikey-form">
         <div class="space-y-3">
           <div>
-            <label class="block text-xs mb-1" style="color:#888;">Name</label>
+            <label class="block text-xs mb-1" style="color:var(--color-cs-muted);">Name</label>
             <input type="text" id="apikey-name" placeholder="My API Key"
               class="w-full bg-cs-bg border border-cs-border rounded text-cs-text px-2 py-1.5 text-sm outline-none focus:border-cs-primary" style="transition:border-color 150ms;" />
           </div>
           <div>
-            <label class="block text-xs mb-1" style="color:#888;">User (for admin creation)</label>
+            <label class="block text-xs mb-1" style="color:var(--color-cs-muted);">User (for admin creation)</label>
             <select id="apikey-user-entity" class="w-full bg-cs-bg border border-cs-border rounded text-cs-text px-2 py-1.5 text-sm outline-none focus:border-cs-primary" style="transition:border-color 150ms;">
               <option value="">— Create for myself —</option>
             </select>
           </div>
           <div id="apikey-user-id-row" class="hidden">
-            <label class="block text-xs mb-1" style="color:#888;">User ID</label>
+            <label class="block text-xs mb-1" style="color:var(--color-cs-muted);">User ID</label>
             <input type="text" id="apikey-user-id" placeholder="user-uuid"
               class="w-full bg-cs-bg border border-cs-border rounded text-cs-text px-2 py-1.5 text-sm outline-none focus:border-cs-primary" style="transition:border-color 150ms;" />
           </div>
           <div>
-            <label class="block text-xs mb-1" style="color:#888;">Permissions <span style="color:#555;">(leave empty for full access)</span></label>
+            <label class="block text-xs mb-1" style="color:var(--color-cs-muted);">Permissions <span style="color:var(--color-cs-muted);">(leave empty for full access)</span></label>
             <div class="flex flex-wrap gap-3">
-              <label class="flex items-center gap-1.5 text-xs cursor-pointer select-none" style="color:#888;"><input type="checkbox" class="apikey-perm" value="create" /> create</label>
-              <label class="flex items-center gap-1.5 text-xs cursor-pointer select-none" style="color:#888;"><input type="checkbox" class="apikey-perm" value="read" /> read</label>
-              <label class="flex items-center gap-1.5 text-xs cursor-pointer select-none" style="color:#888;"><input type="checkbox" class="apikey-perm" value="update" /> update</label>
-              <label class="flex items-center gap-1.5 text-xs cursor-pointer select-none" style="color:#888;"><input type="checkbox" class="apikey-perm" value="delete" /> delete</label>
+              <label class="flex items-center gap-1.5 text-xs cursor-pointer select-none" style="color:var(--color-cs-muted);"><input type="checkbox" class="apikey-perm" value="create" /> create</label>
+              <label class="flex items-center gap-1.5 text-xs cursor-pointer select-none" style="color:var(--color-cs-muted);"><input type="checkbox" class="apikey-perm" value="read" /> read</label>
+              <label class="flex items-center gap-1.5 text-xs cursor-pointer select-none" style="color:var(--color-cs-muted);"><input type="checkbox" class="apikey-perm" value="update" /> update</label>
+              <label class="flex items-center gap-1.5 text-xs cursor-pointer select-none" style="color:var(--color-cs-muted);"><input type="checkbox" class="apikey-perm" value="delete" /> delete</label>
             </div>
           </div>
           <div>
-            <label class="block text-xs mb-1" style="color:#888;">Entity access <span style="color:#555;">(leave empty for all entities)</span></label>
+            <label class="block text-xs mb-1" style="color:var(--color-cs-muted);">Entity access <span style="color:var(--color-cs-muted);">(leave empty for all entities)</span></label>
             <div id="apikey-entities-list" class="flex flex-wrap gap-2"></div>
           </div>
           <div>
-            <label class="block text-xs mb-1" style="color:#888;">Expiration date <span style="color:#555;">(optional)</span></label>
+            <label class="block text-xs mb-1" style="color:var(--color-cs-muted);">Expiration date <span style="color:var(--color-cs-muted);">(optional)</span></label>
             <input type="datetime-local" id="apikey-expires"
               class="bg-cs-bg border border-cs-border rounded text-cs-text px-2 py-1.5 text-sm outline-none focus:border-cs-primary" style="transition:border-color 150ms;" />
           </div>
@@ -1032,7 +1032,7 @@ function renderTable(rows) {
     document.getElementById('table-area').innerHTML = `
       <div class="flex flex-col items-center justify-center py-20 text-center">
         <div class="text-4xl mb-3" aria-hidden="true">&#128237;</div>
-        <p class="text-sm" style="color:#888;">No records found. Click <span style="color:#e1e1e1;">+ New record</span> to create one.</p>
+        <p class="text-sm" style="color:var(--color-cs-muted);">No records found. Click <span style="color:var(--color-cs-text);">+ New record</span> to create one.</p>
       </div>`;
     return;
   }
@@ -1042,27 +1042,27 @@ function renderTable(rows) {
   const cols = allCols.filter(c => !hiddenCols.has(c));
 
   const selectAllTh = `<th class="px-3 py-2.5 w-8"><input type="checkbox" id="select-all" onchange="toggleSelectAll()" style="accent-color:${currentPrimaryColor};cursor:pointer;" /></th>`;
-  const actionsTh = `<th class="px-3 py-2.5 text-left text-xs font-medium whitespace-nowrap" style="color:#888;">Actions</th>`;
-  const dataThs = cols.map(c => `<th class="px-3 py-2.5 text-left text-xs font-medium whitespace-nowrap" style="color:#888;">${escHtml(c)}</th>`).join('');
+  const actionsTh = `<th class="px-3 py-2.5 text-left text-xs font-medium whitespace-nowrap" style="color:var(--color-cs-muted);">Actions</th>`;
+  const dataThs = cols.map(c => `<th class="px-3 py-2.5 text-left text-xs font-medium whitespace-nowrap" style="color:var(--color-cs-muted);">${escHtml(c)}</th>`).join('');
 
   const trs = rows.map((row, idx) => {
     const safeJson = JSON.stringify(row).replace(/&/g,'\\u0026').replace(/'/g,'\\u0027').replace(/</g,'\\u003c').replace(/>/g,'\\u003e');
     const rowId = String(row.id);
     const actions = `<td class="px-3 py-2.5"><div class="flex gap-1">
-      <button class="text-xs border rounded px-2 py-0.5 cursor-pointer hover:opacity-80" style="border-color:#2a2a2a;color:#e1e1e1;" onclick='openEditModal(${safeJson})'>Edit</button>
+      <button class="text-xs border rounded px-2 py-0.5 cursor-pointer hover:opacity-80" style="border-color:var(--color-cs-border);color:var(--color-cs-text);" onclick='openEditModal(${safeJson})'>Edit</button>
       <button class="text-xs border rounded px-2 py-0.5 cursor-pointer hover:opacity-80" style="border-color:rgba(239,68,68,.4);color:#f87171;" onclick="deleteRecord('${rowId}')">Delete</button>
     </div></td>`;
-    const tds = cols.map(c => `<td class="px-3 py-2.5 max-w-xs truncate text-sm" style="color:#e1e1e1;" title="${escAttr(String(row[c] ?? ''))}">${escHtml(String(row[c] ?? ''))}</td>`).join('');
-    return `<tr class="border-b" style="border-color:#2a2a2a;" data-idx="${idx}" data-id="${escAttr(rowId)}" onclick="handleRowClick(event,'${rowId}',${idx})">
+    const tds = cols.map(c => `<td class="px-3 py-2.5 max-w-xs truncate text-sm" style="color:var(--color-cs-text);" title="${escAttr(String(row[c] ?? ''))}">${escHtml(String(row[c] ?? ''))}</td>`).join('');
+    return `<tr class="border-b" style="border-color:var(--color-cs-border);" data-idx="${idx}" data-id="${escAttr(rowId)}" onclick="handleRowClick(event,'${rowId}',${idx})">
       <td class="px-3 py-2.5 w-8"><input type="checkbox" class="row-cb cursor-pointer" value="${escAttr(rowId)}" onchange="toggleRowSel('${rowId}')" onclick="event.stopPropagation()" style="accent-color:${currentPrimaryColor};" ${selectedIds.has(rowId) ? 'checked' : ''} /></td>
       ${actions}${tds}
     </tr>`;
   }).join('');
 
   document.getElementById('table-area').innerHTML = `
-    <div class="overflow-x-auto border rounded" style="border-color:#2a2a2a;">
-      <table class="w-full text-sm" style="color:#e1e1e1;">
-        <thead style="background:#1e1e1e;"><tr class="border-b" style="border-color:#2a2a2a;">${selectAllTh}${actionsTh}${dataThs}</tr></thead>
+    <div class="overflow-x-auto border rounded" style="border-color:var(--color-cs-border);">
+      <table class="w-full text-sm" style="color:var(--color-cs-text);">
+        <thead style="background:var(--color-cs-surface);"><tr class="border-b" style="border-color:var(--color-cs-border);">${selectAllTh}${actionsTh}${dataThs}</tr></thead>
         <tbody>${trs}</tbody>
       </table>
     </div>`;
@@ -1090,7 +1090,7 @@ function renderPagination(result) {
     const b = document.createElement('button');
     b.textContent = i; b.onclick = () => goPage(i);
     b.className = 'px-2 py-1 text-xs border rounded cursor-pointer';
-    b.style.cssText = i === curPage ? 'border-color:#34b1eb;color:#34b1eb;background:rgba(52,177,235,.08);' : 'border-color:#2a2a2a;color:#888;';
+    b.style.cssText = i === curPage ? 'border-color:#34b1eb;color:#34b1eb;background:rgba(52,177,235,.08);' : 'border-color:var(--color-cs-border);color:var(--color-cs-muted);';
     btns.appendChild(b);
   }
   document.getElementById('pg-first').disabled = curPage <= 1;
@@ -1426,7 +1426,7 @@ document.addEventListener('keydown', e => {
       + ' class="flex-1 ' + _INP_XS + ' prop-name" style="transition:border-color 150ms;" />'
       + _propTypeSelect(_INP_XS + ' prop-type', type)
       + '<button type="button" onclick="_cfgRmPropRow(this)"'
-      + ' class="text-xs px-1.5 rounded cursor-pointer" style="color:#555;background:transparent;" title="' + escAttr(t('config.entities.remove')) + '">\xd7</button>'
+      + ' class="text-xs px-1.5 rounded cursor-pointer" style="color:var(--color-cs-muted);background:transparent;" title="' + escAttr(t('config.entities.remove')) + '">\xd7</button>'
       + '</div>';
   }
 
@@ -1706,10 +1706,10 @@ function renderGeneralForm() {
   const d = configData || {}, pub = d.public || {};
   function fld(label, id, val, ph, type, hint) {
     return '<div>'
-      + '<label class="' + _LBL + '" style="color:#888;">' + label + '</label>'
+      + '<label class="' + _LBL + '" style="color:var(--color-cs-muted);">' + label + '</label>'
       + '<input type="' + (type || 'text') + '" id="' + id + '" value="' + escAttr(String(val != null ? val : '')) + '" placeholder="' + escAttr(ph) + '"'
       + ' class="w-full ' + _INP + '" style="transition:border-color 150ms;" />'
-      + (hint ? '<p class="text-xs mt-1" style="color:#666;">' + hint + '</p>' : '')
+      + (hint ? '<p class="text-xs mt-1" style="color:var(--color-cs-muted);">' + hint + '</p>' : '')
       + '</div>';
   }
   return '<div class="space-y-4 max-w-lg">'
@@ -1857,7 +1857,7 @@ function renderTriggerRow(epId, tId, trigger) {
     '<option value="' + m + '"' + (m === method ? ' selected' : '') + '>' + m + '</option>').join('');
   const policyOpts = ['public','restricted','admin','forbidden'].map(a =>
     '<option value="' + a + '"' + (a === policy ? ' selected' : '') + '>' + a + '</option>').join('');
-  return '<div class="flex flex-wrap gap-1.5 items-center p-2 rounded" style="background:#0d0d0d;border:1px solid #2a2a2a;" data-trigger-id="' + tId + '">'
+  return '<div class="flex flex-wrap gap-1.5 items-center p-2 rounded" style="background:var(--color-cs-bg);border:1px solid var(--color-cs-border);" data-trigger-id="' + tId + '">'
     + '<select data-role="tr-type" onchange="_onTrTypeChange(this)" class="' + _INP_XS + '" style="width:64px;">' + typeOpts + '</select>'
     // HTTP fields
     + '<select data-role="tr-method" class="' + _INP_XS + '" style="width:74px;' + (type !== 'http' ? 'display:none;' : '') + '">' + methodOpts + '</select>'
@@ -2096,10 +2096,10 @@ function openThemeSettings() {
   const isDark = currentThemeMode === 'dark';
   document.getElementById('theme-dark-btn').style.cssText = isDark
     ? `border-color:${currentPrimaryColor};color:${currentPrimaryColor};background:rgba(52,177,235,.1);`
-    : 'border-color:#2a2a2a;color:#888;background:transparent;';
+    : 'border-color:var(--color-cs-border);color:var(--color-cs-muted);background:transparent;';
   document.getElementById('theme-light-btn').style.cssText = !isDark
     ? `border-color:${currentPrimaryColor};color:${currentPrimaryColor};background:rgba(52,177,235,.1);`
-    : 'border-color:#2a2a2a;color:#888;background:transparent;';
+    : 'border-color:var(--color-cs-border);color:var(--color-cs-muted);background:transparent;';
   document.getElementById('theme-modal-backdrop').classList.remove('hidden');
 }
 
@@ -2151,7 +2151,7 @@ function openColumnsPanel() {
   }
   document.getElementById('columns-entity-name').textContent = entityName;
   document.getElementById('columns-list').innerHTML = allCols.map(col =>
-    `<label class="flex items-center gap-2 cursor-pointer text-sm" style="color:#e1e1e1;">
+    `<label class="flex items-center gap-2 cursor-pointer text-sm" style="color:var(--color-cs-text);">
       <input type="checkbox" class="col-vis-cb" value="${escAttr(col)}" ${hiddenCols.includes(col) ? '' : 'checked'}
         style="accent-color:${escAttr(currentPrimaryColor)};width:14px;height:14px;" />
       ${escHtml(col)}
@@ -2414,34 +2414,34 @@ init();
 
   function renderApiKeysList(keys) {
     if (!keys.length) {
-      return '<div class="flex flex-col items-center justify-center py-16 text-center"><p class="text-sm" style="color:#888;">No API keys yet. Click <span style="color:#e1e1e1;">+ Create API Key</span> to add one.</p></div>';
+      return '<div class="flex flex-col items-center justify-center py-16 text-center"><p class="text-sm" style="color:var(--color-cs-muted);">No API keys yet. Click <span style="color:var(--color-cs-text);">+ Create API Key</span> to add one.</p></div>';
     }
     const rows = keys.map(function(k) {
       const perms = (k.permissions && k.permissions.length) ? k.permissions.join(', ') : 'all';
       const ents  = (k.entities && k.entities.length)       ? k.entities.join(', ')     : 'all';
       const exp   = k.expiresAt ? new Date(k.expiresAt).toLocaleDateString() : '—';
-      return '<tr class="border-b" style="border-color:#2a2a2a;">'
-        + '<td class="px-4 py-2.5 text-sm" style="color:#e1e1e1;">' + escHtml(k.name) + '</td>'
-        + '<td class="px-4 py-2.5 text-xs" style="color:#888;">' + escHtml(k.userEntity) + '</td>'
-        + '<td class="px-4 py-2.5 text-xs" style="color:#888;" title="' + escHtml(k.userId) + '">' + escHtml(k.userId.substring(0, 8)) + '…</td>'
-        + '<td class="px-4 py-2.5 text-xs" style="color:#888;">' + escHtml(perms) + '</td>'
-        + '<td class="px-4 py-2.5 text-xs" style="color:#888;">' + escHtml(ents) + '</td>'
-        + '<td class="px-4 py-2.5 text-xs" style="color:#888;">' + escHtml(exp) + '</td>'
-        + '<td class="px-4 py-2.5 text-xs" style="color:#888;">' + escHtml(k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleDateString() : '—') + '</td>'
+      return '<tr class="border-b" style="border-color:var(--color-cs-border);">'
+        + '<td class="px-4 py-2.5 text-sm" style="color:var(--color-cs-text);">' + escHtml(k.name) + '</td>'
+        + '<td class="px-4 py-2.5 text-xs" style="color:var(--color-cs-muted);">' + escHtml(k.userEntity) + '</td>'
+        + '<td class="px-4 py-2.5 text-xs" style="color:var(--color-cs-muted);" title="' + escHtml(k.userId) + '">' + escHtml(k.userId.substring(0, 8)) + '…</td>'
+        + '<td class="px-4 py-2.5 text-xs" style="color:var(--color-cs-muted);">' + escHtml(perms) + '</td>'
+        + '<td class="px-4 py-2.5 text-xs" style="color:var(--color-cs-muted);">' + escHtml(ents) + '</td>'
+        + '<td class="px-4 py-2.5 text-xs" style="color:var(--color-cs-muted);">' + escHtml(exp) + '</td>'
+        + '<td class="px-4 py-2.5 text-xs" style="color:var(--color-cs-muted);">' + escHtml(k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleDateString() : '—') + '</td>'
         + '<td class="px-4 py-2.5"><button class="text-xs border rounded px-2 py-1 hover:opacity-80" style="border-color:rgba(239,68,68,0.4);color:#f87171;background:transparent;" onclick="deleteApiKeyAdmin(' + "'" + escHtml(k.id) + "'" + ')">Delete</button></td>'
         + '</tr>';
     }).join('');
-    return '<div class="overflow-x-auto border rounded" style="border-color:#2a2a2a;">'
-      + '<table class="w-full text-sm" style="color:#e1e1e1;">'
-      + '<thead style="background:#1e1e1e;"><tr class="border-b" style="border-color:#2a2a2a;">'
-      + '<th class="px-4 py-2.5 text-left text-xs font-medium" style="color:#888;">Name</th>'
-      + '<th class="px-4 py-2.5 text-left text-xs font-medium" style="color:#888;">Collection</th>'
-      + '<th class="px-4 py-2.5 text-left text-xs font-medium" style="color:#888;">User ID</th>'
-      + '<th class="px-4 py-2.5 text-left text-xs font-medium" style="color:#888;">Permissions</th>'
-      + '<th class="px-4 py-2.5 text-left text-xs font-medium" style="color:#888;">Entities</th>'
-      + '<th class="px-4 py-2.5 text-left text-xs font-medium" style="color:#888;">Expires</th>'
-      + '<th class="px-4 py-2.5 text-left text-xs font-medium" style="color:#888;">Last Used</th>'
-      + '<th class="px-4 py-2.5 text-left text-xs font-medium" style="color:#888;">Actions</th>'
+    return '<div class="overflow-x-auto border rounded" style="border-color:var(--color-cs-border);">'
+      + '<table class="w-full text-sm" style="color:var(--color-cs-text);">'
+      + '<thead style="background:var(--color-cs-surface);"><tr class="border-b" style="border-color:var(--color-cs-border);">'
+      + '<th class="px-4 py-2.5 text-left text-xs font-medium" style="color:var(--color-cs-muted);">Name</th>'
+      + '<th class="px-4 py-2.5 text-left text-xs font-medium" style="color:var(--color-cs-muted);">Collection</th>'
+      + '<th class="px-4 py-2.5 text-left text-xs font-medium" style="color:var(--color-cs-muted);">User ID</th>'
+      + '<th class="px-4 py-2.5 text-left text-xs font-medium" style="color:var(--color-cs-muted);">Permissions</th>'
+      + '<th class="px-4 py-2.5 text-left text-xs font-medium" style="color:var(--color-cs-muted);">Entities</th>'
+      + '<th class="px-4 py-2.5 text-left text-xs font-medium" style="color:var(--color-cs-muted);">Expires</th>'
+      + '<th class="px-4 py-2.5 text-left text-xs font-medium" style="color:var(--color-cs-muted);">Last Used</th>'
+      + '<th class="px-4 py-2.5 text-left text-xs font-medium" style="color:var(--color-cs-muted);">Actions</th>'
       + '</tr></thead><tbody>' + rows + '</tbody></table></div>';
   }
 
@@ -2468,7 +2468,7 @@ init();
     // Populate entity access checkboxes
     const entList = document.getElementById('apikey-entities-list');
     entList.innerHTML = getNonAuthEntities().map(function(e) {
-      return '<label class="flex items-center gap-1.5 text-xs cursor-pointer select-none" style="color:#888;">'
+      return '<label class="flex items-center gap-1.5 text-xs cursor-pointer select-none" style="color:var(--color-cs-muted);">'
         + '<input type="checkbox" class="apikey-entity-cb" value="' + escAttr(e.slug) + '" /> ' + escHtml(e.name) + '</label>';
     }).join('');
 
@@ -2619,7 +2619,7 @@ init();
 
   function renderAiWelcome() {
     const el = document.getElementById('ai-messages');
-    el.innerHTML = '<div class="text-xs text-center py-6" style="color:#555;">Ask me anything about your data, API routes, entity config, or how ChadStart works.</div>';
+    el.innerHTML = '<div class="text-xs text-center py-6" style="color:var(--color-cs-muted);">Ask me anything about your data, API routes, entity config, or how ChadStart works.</div>';
   }
 
   function appendAiMessage(role, content) {
@@ -2634,8 +2634,8 @@ init();
     const inner = document.createElement('div');
     inner.className = 'max-w-[85%] rounded px-3 py-2 text-sm';
     inner.style.cssText = isUser
-      ? 'background:rgba(187,134,252,0.15);color:#e1e1e1;border:1px solid rgba(187,134,252,0.25);'
-      : 'background:#1e1e1e;color:#e1e1e1;border:1px solid #2a2a2a;white-space:pre-wrap;';
+      ? 'background:rgba(187,134,252,0.15);color:var(--color-cs-text);border:1px solid rgba(187,134,252,0.25);'
+      : 'background:var(--color-cs-surface);color:var(--color-cs-text);border:1px solid var(--color-cs-border);white-space:pre-wrap;';
     inner.textContent = content;
     bubble.appendChild(inner);
     container.appendChild(bubble);
@@ -2647,7 +2647,7 @@ init();
     const bubble = document.createElement('div');
     bubble.id = 'ai-thinking';
     bubble.className = 'flex justify-start';
-    bubble.innerHTML = '<div class="rounded px-3 py-2 text-sm" style="background:#1e1e1e;color:#555;border:1px solid #2a2a2a;">Thinking…</div>';
+    bubble.innerHTML = '<div class="rounded px-3 py-2 text-sm" style="background:var(--color-cs-surface);color:var(--color-cs-muted);border:1px solid var(--color-cs-border);">Thinking…</div>';
     container.appendChild(bubble);
     container.scrollTop = container.scrollHeight;
   }
