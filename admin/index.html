@@ -90,7 +90,7 @@
     <div id="nav-admin">
       <div class="nav-item" id="nav-config-item" onclick="selectConfig(this)" data-i18n="sidebar.config_editor">⚙ Config Editor</div>
       <div class="nav-item" id="nav-apikeys-item" onclick="selectApiKeys(this)" data-i18n="sidebar.api_keys">🔑 API Keys</div>
-      <div class="nav-item" id="nav-theme-item" onclick="openThemeSettings()">🎨 Theme Settings</div>
+
     </div>
   </nav>
   <div class="border-t border-cs-border px-4 py-3">
@@ -122,6 +122,8 @@
     </div>
     <div id="header-actions" class="flex items-center gap-2">
       <!-- Table-only buttons -->
+      <button onclick="openThemeSettings()" title="Theme Settings"
+        class="py-1.5 px-3 rounded text-sm cursor-pointer border border-cs-border text-cs-muted hover:text-cs-text" style="transition: color 150ms,background 150ms;">🎨 Theme</button>
       <button id="btn-share" onclick="shareView()" title="Share current view"
         class="hidden py-1.5 px-3 rounded text-sm cursor-pointer border border-cs-border text-cs-muted hover:text-cs-text" style="transition: color 150ms,background 150ms;">🔗 Share</button>
       <button id="btn-devs" onclick="openDevsModal()"
@@ -360,6 +362,22 @@
       <button onclick="closeLookupModal()" class="text-cs-muted hover:text-cs-text text-xl leading-none" style="transition: color 150ms ease;">×</button>
     </div>
     <div id="lookup-modal-body" class="p-5 overflow-y-auto flex-1 text-xs font-mono" style="color:var(--color-cs-text);white-space:pre;"></div>
+  </div>
+</div>
+
+<!-- ── ID Picker modal ──────────────────────────────────────────────────────── -->
+<div id="id-picker-backdrop" class="fixed inset-0 bg-black/60 z-100 flex items-center justify-center p-4 hidden">
+  <div class="bg-cs-surface border border-cs-border rounded w-full max-w-lg max-h-[80vh] flex flex-col" style="box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
+    <div class="flex items-center justify-between px-5 py-3 border-b border-cs-border">
+      <span id="id-picker-title" class="font-medium text-sm">Select Record</span>
+      <button onclick="closeIdPicker()" class="text-cs-muted hover:text-cs-text text-xl leading-none" style="transition: color 150ms ease;">×</button>
+    </div>
+    <div class="px-4 py-2 border-b border-cs-border">
+      <input id="id-picker-search" type="search" placeholder="Search…"
+        class="w-full bg-cs-bg border border-cs-border rounded text-cs-text px-3 py-1.5 text-sm outline-none focus:border-cs-primary"
+        style="transition: border-color 150ms;" oninput="onIdPickerSearch()" />
+    </div>
+    <div id="id-picker-list" class="overflow-y-auto flex-1 p-2 space-y-0.5"></div>
   </div>
 </div>
 
@@ -1049,6 +1067,7 @@ function renderTable(rows) {
     const safeJson = JSON.stringify(row).replace(/&/g,'\\u0026').replace(/'/g,'\\u0027').replace(/</g,'\\u003c').replace(/>/g,'\\u003e');
     const rowId = String(row.id);
     const actions = `<td class="px-3 py-2.5"><div class="flex gap-1">
+      <button class="text-xs border rounded px-2 py-0.5 cursor-pointer hover:opacity-80" style="border-color:var(--color-cs-border);color:var(--color-cs-muted);" onclick='viewRecord(${safeJson})'>View</button>
       <button class="text-xs border rounded px-2 py-0.5 cursor-pointer hover:opacity-80" style="border-color:var(--color-cs-border);color:var(--color-cs-text);" onclick='openEditModal(${safeJson})'>Edit</button>
       <button class="text-xs border rounded px-2 py-0.5 cursor-pointer hover:opacity-80" style="border-color:rgba(239,68,68,.4);color:#f87171;" onclick="deleteRecord('${rowId}')">Delete</button>
     </div></td>`;
@@ -1237,13 +1256,21 @@ function getApiPath(id) {
 // ── Export ────────────────────────────────────────────────────────────────────
 async function exportData(format) {
   if (!currentItem) return;
-  const params = new URLSearchParams({ type: currentItem.type, name: currentItem.name, page: 1, perPage: 10000, orderBy: curOrderBy, order: curOrder });
-  if (curSearch) params.set('search', curSearch);
-  for (const f of advFilters) if (f.col && f.val !== '') params.set(`${f.col}${f.op}`, f.val);
+  let rows;
+  // If there is an active selection, export only selected records from the current page
+  if (selectedIds.size > 0) {
+    rows = tableRows.filter(r => selectedIds.has(String(r.id)));
+  } else {
+    const params = new URLSearchParams({ type: currentItem.type, name: currentItem.name, page: 1, perPage: 10000, orderBy: curOrderBy, order: curOrder });
+    if (curSearch) params.set('search', curSearch);
+    for (const f of advFilters) if (f.col && f.val !== '') params.set(`${f.col}${f.op}`, f.val);
+    try {
+      const r = await apiFetch('/admin/data?' + params.toString());
+      const result = await r.json();
+      rows = result.data || [];
+    } catch (e) { toast('Export failed: ' + e.message, 'error'); return; }
+  }
   try {
-    const r = await apiFetch('/admin/data?' + params.toString());
-    const result = await r.json();
-    const rows = result.data || [];
     let content, mime, ext;
     if (format === 'json') {
       content = JSON.stringify(rows, null, 2); mime = 'application/json'; ext = 'json';
@@ -1527,15 +1554,15 @@ function fieldHtml(f, value = '', forcePassword = false) {
     inputHtml = `<textarea id="field-${escAttr(f.name)}" placeholder="${escAttr(f.name)}"
       class="${baseCls} resize-y" style="${baseStyle} min-height:80px;">${escHtml(value)}</textarea>`;
   } else if (fType === 'id') {
-    // ID field with click-to-lookup button
+    // ID field with click-to-select picker button
     const relName = f.relEntity ? f.relEntity.name : f.name.replace(/_id$/, '');
     const mainProp = f.relEntity && f.relEntity.mainProp ? f.relEntity.mainProp : 'id';
     inputHtml = `<div class="flex gap-1">
       <input type="text" id="field-${escAttr(f.name)}" value="${escAttr(value)}" placeholder="Record ID"
         class="${baseCls} flex-1" style="${baseStyle}" list="dl-${escAttr(f.name)}" oninput="onIdFieldInput('${escAttr(f.name)}','${escAttr(relName)}','${escAttr(mainProp)}')"/>
       <datalist id="dl-${escAttr(f.name)}"></datalist>
-      <button type="button" onclick="lookupIdRecord('${escAttr(f.name)}','${escAttr(relName)}')"
-        class="text-xs border border-cs-border rounded px-2 py-1 text-cs-muted hover:text-cs-text cursor-pointer" style="transition: color 150ms;" title="Look up record">🔍</button>
+      <button type="button" onclick="openIdPicker('${escAttr(f.name)}','${escAttr(relName)}','${escAttr(mainProp)}')"
+        class="text-xs border border-cs-border rounded px-2 py-1 text-cs-muted hover:text-cs-text cursor-pointer whitespace-nowrap" style="transition: color 150ms;" title="Select record">Select</button>
     </div>`;
   } else {
     inputHtml = `<input type="text" id="field-${escAttr(f.name)}" value="${escAttr(value)}" placeholder="${escAttr(f.name)}"
@@ -1553,7 +1580,18 @@ function openAddModal() {
   editingRecord = null;
   const isCollection = currentItem.type === 'collection';
   document.getElementById('modal-title').textContent = `New ${currentItem.name}`;
-  document.getElementById('modal-body').innerHTML = getFields(isCollection).map(f => fieldHtml(f, '')).join('');
+  const fields = getFields(isCollection);
+  document.getElementById('modal-body').innerHTML = fields.map(f => fieldHtml(f, '')).join('');
+  // Autofill ID fields that refer to an authenticable (user) entity with the logged-in user's ID
+  if (authUser && authUser.id) {
+    const userCollectionNames = new Set((schema.userCollections || []).map(uc => uc.name));
+    for (const f of fields) {
+      if (f.type === 'id' && f.relEntity && (f.relEntity.authenticable || userCollectionNames.has(f.relEntity.name))) {
+        const el = document.getElementById(`field-${f.name}`);
+        if (el && !el.value) el.value = String(authUser.id);
+      }
+    }
+  }
   showModal();
 }
 
@@ -2222,6 +2260,71 @@ function closeLookupModal() {
   document.getElementById('lookup-modal-backdrop').classList.add('hidden');
 }
 
+// ── View Record (table action) ─────────────────────────────────────────────────
+function viewRecord(record) {
+  const entityName = currentItem ? currentItem.name : 'Record';
+  document.getElementById('lookup-modal-title').textContent = `${entityName} #${record.id}`;
+  document.getElementById('lookup-modal-body').textContent = JSON.stringify(record, null, 2);
+  document.getElementById('lookup-modal-backdrop').classList.remove('hidden');
+}
+
+// ── ID Picker (select related entity record) ──────────────────────────────────
+let _idPickerField = '', _idPickerEntity = '', _idPickerMainProp = '', _idPickerDebounce = null;
+
+async function openIdPicker(fieldName, relEntityName, mainProp) {
+  _idPickerField = fieldName;
+  _idPickerEntity = relEntityName;
+  _idPickerMainProp = mainProp || 'id';
+  document.getElementById('id-picker-title').textContent = `Select ${relEntityName}`;
+  document.getElementById('id-picker-search').value = '';
+  document.getElementById('id-picker-list').innerHTML = '';
+  document.getElementById('id-picker-backdrop').classList.remove('hidden');
+  await loadIdPickerResults('');
+}
+
+function closeIdPicker() {
+  document.getElementById('id-picker-backdrop').classList.add('hidden');
+}
+
+function onIdPickerSearch() {
+  clearTimeout(_idPickerDebounce);
+  _idPickerDebounce = setTimeout(async () => {
+    const q = document.getElementById('id-picker-search').value.trim();
+    await loadIdPickerResults(q);
+  }, 250);
+}
+
+async function loadIdPickerResults(q) {
+  const listEl = document.getElementById('id-picker-list');
+  listEl.innerHTML = '<div class="text-xs text-cs-muted text-center py-4">Loading…</div>';
+  try {
+    const params = new URLSearchParams({ type: 'entity', name: _idPickerEntity, perPage: 20 });
+    if (q) params.set('search', q);
+    const r = await apiFetch('/admin/data?' + params.toString());
+    if (!r.ok) throw new Error('Failed to load');
+    const data = await r.json();
+    const rows = data.data || [];
+    if (!rows.length) { listEl.innerHTML = '<div class="text-xs text-cs-muted text-center py-4">No records found</div>'; return; }
+    listEl.innerHTML = rows.map(row => {
+      const humanLabel = (_idPickerMainProp !== 'id' && row[_idPickerMainProp]) || row.title || row.name || row.email;
+      const label = humanLabel || row.id;
+      const safeId = escAttr(String(row.id));
+      const safeLabel = escHtml(String(label));
+      return `<button type="button" onclick="selectIdPickerRow('${safeId}')"
+        class="w-full text-left px-3 py-2 rounded text-sm hover:bg-cs-border cursor-pointer flex items-center justify-between gap-2" style="transition: background 150ms;">
+        <span style="color:var(--color-cs-text);">${safeLabel}</span>
+        <span class="text-xs shrink-0" style="color:var(--color-cs-muted);">#${safeId}</span>
+      </button>`;
+    }).join('');
+  } catch (e) { listEl.innerHTML = '<div class="text-xs text-red-400 text-center py-4">' + escHtml(e.message) + '</div>'; }
+}
+
+function selectIdPickerRow(id) {
+  const el = document.getElementById(`field-${_idPickerField}`);
+  if (el) el.value = id;
+  closeIdPicker();
+}
+
 // ── Start ─────────────────────────────────────────────────────────────────────
 // Apply saved theme on load
 applyTheme();
@@ -2283,25 +2386,20 @@ init();
     const jsonLabel   = document.getElementById('cfg-json-label');
     const jsonHint    = document.getElementById('cfg-json-hint');
 
-    // Always populate the JSON textarea with the full config
-    editorEl.value = JSON.stringify(configData || {}, null, 2);
-    jsonSection.classList.remove('hidden');
-
     if (CFG_FORM_TABS.has(tab)) {
-      // Show form above the JSON (read-only reference)
+      // Show form only — hide the JSON reference section
       formEl.classList.remove('hidden');
       formEl.innerHTML = renderFormTab(tab);
-      editorEl.readOnly = true;
-      editorEl.style.opacity = '0.6';
-      jsonLabel.textContent = t('config.json_label') || 'Full Configuration JSON';
-      jsonHint.textContent = t('config.json_hint') || '(read-only reference — switch to the All tab to edit directly)';
+      jsonSection.classList.add('hidden');
     } else {
       // All tab: JSON only, fully editable
       formEl.classList.add('hidden');
+      editorEl.value = JSON.stringify(configData || {}, null, 2);
       editorEl.readOnly = false;
       editorEl.style.opacity = '';
       jsonLabel.textContent = t('config.json_label_edit') || 'Full Configuration JSON';
       jsonHint.textContent = t('config.json_hint_edit') || '(edit directly — changes are saved on Save)';
+      jsonSection.classList.remove('hidden');
     }
   }
 
