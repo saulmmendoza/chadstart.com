@@ -425,7 +425,7 @@ The following operations can be done on [singles](./entities.md#singles) entitie
 
 ### Update an item
 
-This operation will replace an existing item by the payload provided in the request. Unlike [partial updates](#patch-an-item-1), this operation will replace the whole item by the new one. Missing or empty properties will delete the previous ones.
+This operation will replace an existing item by the payload provided in the request. Unlike [partial updates](#patch-an-item_1), this operation will replace the whole item by the new one. Missing or empty properties will delete the previous ones.
 === "REST API"
     **Request URL**: `PUT /api/singles/:slug`
 
@@ -464,7 +464,7 @@ This operation will replace an existing item by the payload provided in the requ
 
 ### Patch an item
 
-This operation will partially replace an existing item. Unlike [fully replacement](#update-an-item-1), this operation will only modify the properties provided in the payload an leave the other ones as they are.
+This operation will partially replace an existing item. Unlike [fully replacement](#update-an-item_1), this operation will only modify the properties provided in the payload and leave the other ones as they are.
 
 === "REST API"
     **Request URL**: `PATCH /api/singles/:slug`

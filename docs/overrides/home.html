@@ -3,31 +3,61 @@
 {% block tabs %}
   {{ super() }}
 
+  <!-- ═══════════════════════════════════════════════════════════
+       HERO / PARALLAX SECTION
+       ═══════════════════════════════════════════════════════════ -->
   <section class="mdx-container">
+
+    <!-- Tech grid background overlay -->
+    <div class="mdx-tech-bg" aria-hidden="true"></div>
+
+    <!-- Floating warrior mascots (parallax) -->
+    <div class="mdx-mascot mdx-mascot--left" aria-hidden="true">
+      <img
+        src="https://github.com/user-attachments/assets/9fc6de81-e30f-4f4d-becd-6b332cd5b208"
+        alt="ChadStart warrior mascot"
+        loading="lazy"
+      >
+    </div>
+    <div class="mdx-mascot mdx-mascot--right" aria-hidden="true">
+      <img
+        src="https://github.com/user-attachments/assets/1060a160-bfc2-471c-8503-5cbd71783d20"
+        alt="ChadStart warrior mascot"
+        loading="lazy"
+      >
+    </div>
+
     <div class="md-grid md-typeset">
       <div class="mdx-hero">
+
+        <!-- Left column: headline + CTA -->
         <div class="mdx-hero__teaser">
-          <h1>Your backend.<br>One YAML file.</h1>
+          <h1>Your backend.<br><span class="mdx-hero__accent">One YAML file.</span></h1>
           <p class="mdx-hero__description">
-            ChadStart is an open source Backend as a Service that fits in a single YAML file.
-            Define entities, auth, storage, and custom logic — then ship.
+            ChadStart is an open-source Backend as a Service that fits in a
+            single YAML file. Define entities, auth, storage, and custom logic — then ship.
           </p>
-          <a
-            href="{{ page.next_page.url | url }}"
-            title="Get Started"
-            class="md-button md-button--primary"
-          >
-            Get Started &nbsp;→
-          </a>
-          <a
-            href="{{ config.repo_url }}"
-            title="View on GitHub"
-            class="md-button"
-          >
-            {% include ".icons/fontawesome/brands/github.svg" %}
-            GitHub
-          </a>
+
+          <div class="mdx-cta-group">
+            <a
+              href="{{ page.next_page.url | url }}"
+              title="Get Started"
+              class="mdx-cta mdx-cta--primary"
+            >
+              <span>Get Started &nbsp;→</span>
+            </a>
+            <a
+              href="{{ config.repo_url }}"
+              title="View on GitHub"
+              class="mdx-cta mdx-cta--ghost"
+            >
+              {% include ".icons/fontawesome/brands/github.svg" %}
+              <span>GitHub</span>
+            </a>
+          </div>
         </div>
+
+        <!-- Right column: YAML preview -->
         <div class="mdx-hero__code">
           <pre><code class="language-yaml"><span class="nc">entities</span>:
   <span class="nc">Post</span>:
@@ -46,15 +76,74 @@
   <span class="na">windowMs</span>: <span class="m">60000</span>
   <span class="na">max</span>: <span class="m">100</span></code></pre>
         </div>
+
       </div>
     </div>
   </section>
 {% endblock %}
 
 {% block content %}
+
+  <!-- ═══════════════════════════════════════════════════════════
+       GETTING STARTED — quick commands
+       ═══════════════════════════════════════════════════════════ -->
+  <section class="mdx-getting-started">
+    <div class="md-grid md-typeset">
+      <h2 class="mdx-section-title">Get started in seconds</h2>
+
+      <div class="mdx-gs-steps">
+
+        <div class="mdx-gs-step">
+          <div class="mdx-gs-step__num">1</div>
+          <div class="mdx-gs-step__body">
+            <p class="mdx-gs-step__label">Create your project</p>
+            <div class="mdx-gs-step__code">
+              <pre><code>npx chadstart my-project --cursor</code></pre>
+              <span class="mdx-gs-step__note">
+                Replace <code>--cursor</code> with <code>--copilot</code>,
+                <code>--windsurf</code>, or omit entirely.
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="mdx-gs-step">
+          <div class="mdx-gs-step__num">2</div>
+          <div class="mdx-gs-step__body">
+            <p class="mdx-gs-step__label">Start the server</p>
+            <div class="mdx-gs-step__code">
+              <pre><code>cd my-project &amp;&amp; npm run start</code></pre>
+              <span class="mdx-gs-step__note">
+                Admin panel at <code>http://localhost:3000</code>
+                &nbsp;·&nbsp; REST API at <code>/api</code>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="mdx-gs-step">
+          <div class="mdx-gs-step__num">3</div>
+          <div class="mdx-gs-step__body">
+            <p class="mdx-gs-step__label">Edit <code>chadstart.yaml</code> and ship</p>
+            <div class="mdx-gs-step__code">
+              <pre><code>npm run deploy</code></pre>
+              <span class="mdx-gs-step__note">
+                Deploy to any Node.js host or Docker container.
+              </span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       ALL FEATURES GRID
+       ═══════════════════════════════════════════════════════════ -->
   <section class="mdx-features">
     <div class="md-grid md-typeset">
-      <h2 class="mdx-features__title">Everything your backend needs</h2>
+      <h2 class="mdx-section-title">Everything your backend needs</h2>
       <div class="mdx-features__grid">
 
         <div class="mdx-feature-card">
@@ -95,13 +184,13 @@
 
         <div class="mdx-feature-card">
           <div class="mdx-feature-card__icon">🗂️</div>
-          <h3>File & image uploads</h3>
+          <h3>File &amp; image uploads</h3>
           <p>Add <code>image</code> or <code>file</code> field types to get upload endpoints with optional S3 storage support.</p>
         </div>
 
         <div class="mdx-feature-card">
           <div class="mdx-feature-card__icon">⚡</div>
-          <h3>Realtime & webhooks</h3>
+          <h3>Realtime &amp; webhooks</h3>
           <p>Built-in WebSocket support and webhook triggers let you react to data changes in real time.</p>
         </div>
 
@@ -111,9 +200,82 @@
           <p>Drop a <code>.js</code> file in your functions folder and wire it to any HTTP route in your YAML — full Express power, zero config.</p>
         </div>
 
+        <div class="mdx-feature-card">
+          <div class="mdx-feature-card__icon">🛡️</div>
+          <h3>Access policies</h3>
+          <p>Control who can read, create, update, or delete each entity with a simple policy array — public, restricted, or admin-only.</p>
+        </div>
+
+        <div class="mdx-feature-card">
+          <div class="mdx-feature-card__icon">✅</div>
+          <h3>Validation</h3>
+          <p>Add field-level validation rules in YAML — min/max length, regex, required, and more. Invalid requests are automatically rejected.</p>
+        </div>
+
+        <div class="mdx-feature-card">
+          <div class="mdx-feature-card__icon">🌊</div>
+          <h3>Rate limiting</h3>
+          <p>Protect your API from abuse with configurable rate limits. Set <code>windowMs</code> and <code>max</code> with two lines of YAML.</p>
+        </div>
+
+        <div class="mdx-feature-card">
+          <div class="mdx-feature-card__icon">☁️</div>
+          <h3>S3 storage</h3>
+          <p>Plug in any S3-compatible provider for file uploads with a few environment variables. Works with AWS, Cloudflare R2, and more.</p>
+        </div>
+
+        <div class="mdx-feature-card">
+          <div class="mdx-feature-card__icon">🔀</div>
+          <h3>Middlewares</h3>
+          <p>Inject custom logic before or after any route. Great for logging, request transformations, or custom auth flows.</p>
+        </div>
+
+        <div class="mdx-feature-card">
+          <div class="mdx-feature-card__icon">👥</div>
+          <h3>Groups</h3>
+          <p>Assign users to groups to implement role-based access control. Define which groups can access which entities and operations.</p>
+        </div>
+
+        <div class="mdx-feature-card">
+          <div class="mdx-feature-card__icon">🔐</div>
+          <h3>Security hardening</h3>
+          <p>Helmet.js headers, CORS configuration, JWT secrets, and bcrypt password hashing — security best practices out of the box.</p>
+        </div>
+
+        <div class="mdx-feature-card">
+          <div class="mdx-feature-card__icon">📡</div>
+          <h3>OpenTelemetry</h3>
+          <p>Built-in observability with OpenTelemetry. Send traces and metrics to any OTLP-compatible backend like Grafana or Datadog.</p>
+        </div>
+
+        <div class="mdx-feature-card">
+          <div class="mdx-feature-card__icon">🗝️</div>
+          <h3>API keys</h3>
+          <p>Generate and manage API keys per entity. Control per-key permissions: create, read, update, delete for each collection.</p>
+        </div>
+
+        <div class="mdx-feature-card">
+          <div class="mdx-feature-card__icon">⌨️</div>
+          <h3>CLI</h3>
+          <p>The <code>chadstart</code> CLI scaffolds new projects in seconds, pre-configured for your favorite AI coding assistant.</p>
+        </div>
+
+        <div class="mdx-feature-card">
+          <div class="mdx-feature-card__icon">🧩</div>
+          <h3>Plugins</h3>
+          <p>Extend ChadStart with community or custom plugins. Add new field types, routes, or behaviors without forking the core.</p>
+        </div>
+
+        <div class="mdx-feature-card">
+          <div class="mdx-feature-card__icon">⚛️</div>
+          <h3>Framework integrations</h3>
+          <p>Official guides and SDK helpers for React, Vue, Angular, Svelte, and Astro. Drop in and start calling your API immediately.</p>
+        </div>
+
       </div>
     </div>
   </section>
+
 {% endblock %}
 
 {% block footer %}

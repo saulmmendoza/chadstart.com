@@ -48,7 +48,7 @@ With **local storage**, files are saved on disk but will be lost when the contai
 
 With **S3 storage**, files are stored externally, ensuring they are persistent and accessible.
 
-Follow the [S3 Storage documentation](./s3-storage) to set it up.
+Follow the [S3 Storage documentation](./s3-storage.md) to set it up.
 
 ### Environment variables
 
