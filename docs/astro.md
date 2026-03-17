@@ -9,7 +9,7 @@ description: Quick start guide to create a full-stack app using Astro as a front
 Connect your ChadStart backend to your Astro app.
 
 !!! warning
-    This quick start guide focuses exclusively on the **frontend**. To ensure the functionality of this code, your ChadStart backend must be [up and running](./index.md#install-chadstart) at `http://localhost:3000`.
+    This quick start guide focuses exclusively on the **frontend**. To ensure the functionality of this code, your ChadStart backend must be [up and running](./getting-started.md#install-chadstart) at `http://localhost:3000`.
 
 ## 1. Create a Astro app
 

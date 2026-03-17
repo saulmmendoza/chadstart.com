@@ -1,0 +1,188 @@
+/* ============================================================
+   Landing page hero section
+   ============================================================ */
+
+.mdx-container {
+  padding-top: 1rem;
+  background: linear-gradient(
+    to bottom,
+    var(--md-primary-fg-color),
+    hsla(var(--md-hue), 15%, 21%, 1) 99%,
+    var(--md-default-bg-color) 99%
+  );
+}
+
+.mdx-hero {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3rem;
+  align-items: center;
+  padding: 4rem 0 5rem;
+  color: var(--md-primary-bg-color);
+}
+
+@media screen and (max-width: 76.25em) {
+  .mdx-hero {
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+
+  .mdx-hero__code {
+    display: none;
+  }
+}
+
+.mdx-hero h1 {
+  font-size: 2.8rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--md-primary-bg-color);
+  margin-bottom: 1rem;
+}
+
+.mdx-hero__description {
+  font-size: 1.15rem;
+  line-height: 1.7;
+  opacity: 0.9;
+  margin-bottom: 2rem;
+  max-width: 480px;
+}
+
+@media screen and (max-width: 76.25em) {
+  .mdx-hero__description {
+    max-width: 100%;
+  }
+}
+
+.mdx-hero .md-button {
+  margin-top: 0.5rem;
+  margin-right: 0.75rem;
+  border-radius: 0.3rem;
+  font-size: 0.9rem;
+  padding: 0.65em 1.4em;
+}
+
+.mdx-hero .md-button--primary {
+  background-color: var(--md-primary-bg-color);
+  color: var(--md-primary-fg-color);
+  border-color: var(--md-primary-bg-color);
+}
+
+.mdx-hero .md-button--primary:hover {
+  background-color: var(--md-accent-fg-color);
+  border-color: var(--md-accent-fg-color);
+  color: var(--md-primary-bg-color);
+}
+
+.mdx-hero .md-button:not(.md-button--primary) {
+  background-color: transparent;
+  border-color: rgba(255, 255, 255, 0.4);
+  color: var(--md-primary-bg-color);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+}
+
+.mdx-hero .md-button:not(.md-button--primary):hover {
+  border-color: var(--md-primary-bg-color);
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.mdx-hero .md-button svg {
+  width: 1em;
+  height: 1em;
+  fill: currentColor;
+  vertical-align: middle;
+}
+
+/* Code block in hero */
+.mdx-hero__code {
+  background-color: hsla(0, 0%, 0%, 0.4);
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  overflow: auto;
+}
+
+.mdx-hero__code pre {
+  margin: 0;
+  background: transparent;
+  padding: 0;
+  overflow: visible;
+}
+
+.mdx-hero__code code {
+  font-size: 0.85rem;
+  line-height: 1.7;
+  color: #e0e0e0;
+}
+
+/* YAML syntax highlighting colours in hero */
+.mdx-hero__code .nc { color: #82b1ff; font-weight: 600; }  /* class names / keys */
+.mdx-hero__code .na { color: #80cbc4; }                     /* attribute names */
+.mdx-hero__code .s  { color: #c3e88d; }                     /* strings */
+.mdx-hero__code .kc { color: #f78c6c; }                     /* keyword constants */
+.mdx-hero__code .m  { color: #f78c6c; }                     /* numbers */
+
+/* ============================================================
+   Features section
+   ============================================================ */
+
+.mdx-features {
+  padding: 4rem 0;
+}
+
+.mdx-features__title {
+  text-align: center;
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin-bottom: 2.5rem;
+}
+
+.mdx-features__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+@media screen and (max-width: 76.25em) {
+  .mdx-features__grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media screen and (max-width: 44.9375em) {
+  .mdx-features__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.mdx-feature-card {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.mdx-feature-card:hover {
+  border-color: var(--md-accent-fg-color);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.mdx-feature-card__icon {
+  font-size: 2rem;
+  margin-bottom: 0.75rem;
+}
+
+.mdx-feature-card h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+}
+
+.mdx-feature-card p {
+  font-size: 0.875rem;
+  line-height: 1.65;
+  color: var(--md-default-fg-color--light);
+  margin: 0;
+}
