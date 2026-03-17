@@ -281,3 +281,70 @@
 {% block footer %}
   {{ super() }}
 {% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+  <script>
+    (function () {
+      'use strict';
+
+      document.addEventListener('DOMContentLoaded', function () {
+        var hero        = document.querySelector('.mdx-container');
+        var mascotLeft  = document.querySelector('.mdx-mascot--left');
+        var mascotRight = document.querySelector('.mdx-mascot--right');
+
+        if (!hero || (!mascotLeft && !mascotRight)) return;
+
+        var scrollY    = 0;
+        var mouseX     = 0.5;   /* normalised 0-1, centred */
+        var mouseY     = 0.5;
+        var rafPending = false;
+
+        function applyParallax() {
+          var heroH    = hero.offsetHeight;
+          var progress = Math.min(scrollY / (heroH || 1), 1);
+
+          /* Scroll: mascots drift upward (foreground is faster than background) */
+          var scrollOffset = progress * 60;
+
+          /* Mouse: subtle lateral + vertical nudge gives depth illusion */
+          var mx = (mouseX - 0.5) * 30;   /* ±15 px */
+          var my = (mouseY - 0.5) * 15;   /* ±7.5 px */
+
+          /* Apply to the wrapper div; CSS float-animation lives on the img
+             so these two transforms never interfere with each other. */
+          if (mascotLeft) {
+            mascotLeft.style.transform =
+              'translate(' + (-mx) + 'px, ' + (-(scrollOffset + my)) + 'px)';
+          }
+          if (mascotRight) {
+            mascotRight.style.transform =
+              'translate(' + mx + 'px, ' + (-(scrollOffset + my)) + 'px)';
+          }
+
+          rafPending = false;
+        }
+
+        /* rAF batching: coalesces rapid scroll/mousemove events into one
+           paint-cycle update, capping work to ~60 fps automatically. */
+        function scheduleUpdate() {
+          if (!rafPending) {
+            rafPending = true;
+            requestAnimationFrame(applyParallax);
+          }
+        }
+
+        window.addEventListener('scroll', function () {
+          scrollY = window.scrollY || window.pageYOffset;
+          scheduleUpdate();
+        }, { passive: true });
+
+        document.addEventListener('mousemove', function (e) {
+          mouseX = e.clientX / window.innerWidth;
+          mouseY = e.clientY / window.innerHeight;
+          scheduleUpdate();
+        }, { passive: true });
+      });
+    }());
+  </script>
+{% endblock %}
