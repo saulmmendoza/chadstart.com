@@ -42,13 +42,13 @@ We recommend switching to [PostgreSQL](https://www.postgresql.org/) or [MySQL](h
 
 | Variable      | Default                | Description                                                               | Applies To         |
 | ------------- | ---------------------- | ------------------------------------------------------------------------- | ------------------ |
-| DB_CONNECTION | `sqlite`               | Choose `postgres` switching to PostgreSQL or `mysql` for MySQL or MariaDB | All                |
-| DB_PATH       | `/.chadstart/db.sqlite` | Path of the database. Your server should have access to this path locally | SQLite             |
+| DB_ENGINE     | `sqlite`               | Choose `postgres` switching to PostgreSQL or `mysql` for MySQL or MariaDB | All                |
+| DB_PATH       | `/data/chadstart.db`   | Path of the database. Your server should have access to this path locally | SQLite             |
 | DB_HOST       | `localhost`            | Database host                                                             | PostgreSQL / MySQL |
 | DB_PORT       | `5432`                 | Database port                                                             | PostgreSQL / MySQL |
 | DB_USERNAME   | `postgres`             | Database username                                                         | PostgreSQL / MySQL |
 | DB_PASSWORD   | `postgres`             | Database password                                                         | PostgreSQL / MySQL |
-| DB_DATABASE   | `chadstart`             | Database name                                                             | PostgreSQL / MySQL |
+| DB_DATABASE   | `manifest`             | Database name                                                             | PostgreSQL / MySQL |
 | DB_SSL        | `false`                | Require SSL for DB connection. Set to true if using remote DB.            | PostgreSQL / MySQL |
 
 ### Example configurations
@@ -58,16 +58,16 @@ Here are examples of `.env` files for different database connections:
 === "SQLite"
     ```env
 
-     DB_CONNECTION=sqlite
+     DB_ENGINE=sqlite
 
-     DB_PATH=/.chadstart/db.sqlite
+     DB_PATH=/data/chadstart.db
 
      ```
 
 === "PostgreSQL"
     ```env
 
-     DB_CONNECTION=postgres
+     DB_ENGINE=postgres
 
      DB_HOST=my-host.com
      DB_USERNAME=owner
@@ -80,12 +80,12 @@ Here are examples of `.env` files for different database connections:
 === "MySQL / MariaDB"
     ```env
 
-    DB_CONNECTION=mysql
+    DB_ENGINE=mysql
 
     DB_USERNAME=xxxxx
     DB_PASSWORD=xxxxx
     DB_HOST=my-host.com
-    DB_PORT=25060
+    DB_PORT=3306
     DB_DATABASE=my_app
     DB_SSL=true # Required for remote managed DBs, remove if local
 

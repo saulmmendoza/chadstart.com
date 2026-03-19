@@ -192,7 +192,7 @@ async function seedAll(core) {
       }
 
       try {
-        const created = create(entity.tableName, record);
+        const created = await create(entity.tableName, record);
         ids.push(created.id);
       } catch (err) {
         logger.warn(`Seed: failed to create record for ${entityName}:`, err.message);
@@ -206,7 +206,7 @@ async function seedAll(core) {
   // Create the admin@chadstart.com user in every authenticable entity
   const adminUsers = [];
   for (const entity of Object.values(core.authenticableEntities || {})) {
-    const existing = findAllSimple(entity.tableName, { email: ADMIN_EMAIL });
+    const existing = await findAllSimple(entity.tableName, { email: ADMIN_EMAIL });
     if (existing.length === 0) {
       const extraProps = entity.properties.reduce((acc, prop) => {
         // Skip email and password — they are handled separately for authenticable entities
@@ -216,7 +216,7 @@ async function seedAll(core) {
         }
         return acc;
       }, {});
-      create(entity.tableName, {
+      await create(entity.tableName, {
         email: ADMIN_EMAIL,
         password: bcrypt.hashSync(ADMIN_PASSWORD, 10),
         ...extraProps,

@@ -38,17 +38,17 @@ function createBackendSdk(core) {
       if (!entity) throw new Error(`Single entity not found for slug: ${slug}`);
       const table = entity.tableName;
       return {
-        get() {
-          const rows = db.findAllSimple(table);
+        async get() {
+          const rows = await db.findAllSimple(table);
           return rows[0] || null;
         },
-        update(data) {
-          const rows = db.findAllSimple(table);
+        async update(data) {
+          const rows = await db.findAllSimple(table);
           if (!rows[0]) return null;
           return db.update(table, rows[0].id, data);
         },
-        patch(data) {
-          const rows = db.findAllSimple(table);
+        async patch(data) {
+          const rows = await db.findAllSimple(table);
           if (!rows[0]) return null;
           return db.update(table, rows[0].id, data);
         },
@@ -82,9 +82,9 @@ function registerApiRoutes(app, core, emit) {
       };
 
       // GET single
-      router.get(base, mw.read, (_req, res) => {
+      router.get(base, mw.read, async (_req, res) => {
         try {
-          const rows = db.findAllSimple(table);
+          const rows = await db.findAllSimple(table);
           const row = rows[0];
           if (!row) return res.status(404).json({ error: 'Not found' });
           res.json(hide(row));
@@ -94,7 +94,7 @@ function registerApiRoutes(app, core, emit) {
       // PUT single (full replace)
       router.put(base, mw.update, async (req, res) => {
         try {
-          const rows = db.findAllSimple(table);
+          const rows = await db.findAllSimple(table);
           const row = rows[0];
           if (!row) return res.status(404).json({ error: 'Not found' });
           if (!await runMiddlewares('beforeUpdate', entity, req, res, sdk)) return;
@@ -102,7 +102,7 @@ function registerApiRoutes(app, core, emit) {
           if (v.errors) return res.status(400).json(v.errors);
           fireWebhooks(entity, 'beforeUpdate', req.body);
           const sanitized = sanitizeBody(req.body, entity, true);
-          const updated = db.update(table, row.id, sanitized);
+          const updated = await db.update(table, row.id, sanitized);
           fireWebhooks(entity, 'afterUpdate', updated);
           await runMiddlewares('afterUpdate', entity, req, res, sdk);
           emit(`${entity.name}.updated`, hide(updated));
@@ -113,14 +113,14 @@ function registerApiRoutes(app, core, emit) {
       // PATCH single (partial)
       router.patch(base, mw.update, async (req, res) => {
         try {
-          const rows = db.findAllSimple(table);
+          const rows = await db.findAllSimple(table);
           const row = rows[0];
           if (!row) return res.status(404).json({ error: 'Not found' });
           if (!await runMiddlewares('beforeUpdate', entity, req, res, sdk)) return;
           const v = validateBody(req.body, entity, core.groups, { partial: true });
           if (v.errors) return res.status(400).json(v.errors);
           fireWebhooks(entity, 'beforeUpdate', req.body);
-          const updated = db.update(table, row.id, sanitizeBody(req.body, entity));
+          const updated = await db.update(table, row.id, sanitizeBody(req.body, entity));
           fireWebhooks(entity, 'afterUpdate', updated);
           await runMiddlewares('afterUpdate', entity, req, res, sdk);
           emit(`${entity.name}.updated`, hide(updated));
@@ -140,37 +140,37 @@ function registerApiRoutes(app, core, emit) {
       };
 
       // GET list (paginated)
-      router.get(base, mw.read, (req, res) => {
+      router.get(base, mw.read, async (req, res) => {
         try {
           // Ownership filter: condition: self forces a FK filter on the current user
           const query = req._selfFilter
             ? { ...req.query, [req._selfFilter.fk]: req._selfFilter.userId }
             : req.query;
-          const result = db.findAll(table, query, {
+          const result = await db.findAll(table, query, {
             page: req.query.page,
             perPage: req.query.perPage,
             orderBy: req.query.orderBy,
             order: req.query.order,
           });
           const relations = req.query.relations;
-          result.data = result.data.map((row) => {
-            if (relations) db.loadRelations(row, entity, relations);
-            return hide(row);
-          });
+          for (const row of result.data) {
+            if (relations) await db.loadRelations(row, entity, relations);
+          }
+          result.data = result.data.map((row) => hide(row));
           res.json(result);
         } catch (e) { res.status(500).json({ error: e.message }); }
       });
 
       // GET single by id
-      router.get(`${base}/:id`, mw.read, (req, res) => {
+      router.get(`${base}/:id`, mw.read, async (req, res) => {
         try {
-          const row = db.findById(table, req.params.id);
+          const row = await db.findById(table, req.params.id);
           if (!row) return res.status(404).json({ error: 'Not found' });
           // Ownership check for read with condition: self
           if (req._selfFilter && row[req._selfFilter.fk] !== req._selfFilter.userId) {
             return res.status(403).json({ error: 'Access denied' });
           }
-          if (req.query.relations) db.loadRelations(row, entity, req.query.relations);
+          if (req.query.relations) await db.loadRelations(row, entity, req.query.relations);
           res.json(hide(row));
         } catch (e) { res.status(500).json({ error: e.message }); }
       });
@@ -183,8 +183,8 @@ function registerApiRoutes(app, core, emit) {
           const v = validateBody(body, entity, core.groups);
           if (v.errors) return res.status(400).json(v.errors);
           fireWebhooks(entity, 'beforeCreate', body);
-          const row = db.create(table, sanitizeBody(body, entity));
-          db.saveBelongsToMany(entity, row.id, req.body);
+          const row = await db.create(table, sanitizeBody(body, entity));
+          await db.saveBelongsToMany(entity, row.id, req.body);
           fireWebhooks(entity, 'afterCreate', row);
           await runMiddlewares('afterCreate', entity, req, res, sdk);
           emit(`${entity.name}.created`, hide(row));
@@ -195,14 +195,14 @@ function registerApiRoutes(app, core, emit) {
       // PUT full replace
       router.put(`${base}/:id`, mw.update, async (req, res) => {
         try {
-          if (!db.findById(table, req.params.id)) return res.status(404).json({ error: 'Not found' });
+          if (!await db.findById(table, req.params.id)) return res.status(404).json({ error: 'Not found' });
           if (!await runMiddlewares('beforeUpdate', entity, req, res, sdk)) return;
           const v = validateBody(req.body, entity, core.groups);
           if (v.errors) return res.status(400).json(v.errors);
           fireWebhooks(entity, 'beforeUpdate', req.body);
           const sanitized = sanitizeBody(req.body, entity, true);
-          const row = db.update(table, req.params.id, sanitized);
-          db.saveBelongsToMany(entity, row.id, req.body);
+          const row = await db.update(table, req.params.id, sanitized);
+          await db.saveBelongsToMany(entity, row.id, req.body);
           fireWebhooks(entity, 'afterUpdate', row);
           await runMiddlewares('afterUpdate', entity, req, res, sdk);
           emit(`${entity.name}.updated`, hide(row));
@@ -213,13 +213,13 @@ function registerApiRoutes(app, core, emit) {
       // PATCH partial update
       router.patch(`${base}/:id`, mw.update, async (req, res) => {
         try {
-          if (!db.findById(table, req.params.id)) return res.status(404).json({ error: 'Not found' });
+          if (!await db.findById(table, req.params.id)) return res.status(404).json({ error: 'Not found' });
           if (!await runMiddlewares('beforeUpdate', entity, req, res, sdk)) return;
           const v = validateBody(req.body, entity, core.groups, { partial: true });
           if (v.errors) return res.status(400).json(v.errors);
           fireWebhooks(entity, 'beforeUpdate', req.body);
-          const row = db.update(table, req.params.id, sanitizeBody(req.body, entity));
-          db.saveBelongsToMany(entity, row.id, req.body);
+          const row = await db.update(table, req.params.id, sanitizeBody(req.body, entity));
+          await db.saveBelongsToMany(entity, row.id, req.body);
           fireWebhooks(entity, 'afterUpdate', row);
           await runMiddlewares('afterUpdate', entity, req, res, sdk);
           emit(`${entity.name}.updated`, hide(row));
@@ -230,11 +230,11 @@ function registerApiRoutes(app, core, emit) {
       // DELETE
       router.delete(`${base}/:id`, mw.delete, async (req, res) => {
         try {
-          const existing = db.findById(table, req.params.id);
+          const existing = await db.findById(table, req.params.id);
           if (!existing) return res.status(404).json({ error: 'Not found' });
           if (!await runMiddlewares('beforeDelete', entity, req, res, sdk)) return;
           fireWebhooks(entity, 'beforeDelete', existing);
-          const row = db.remove(table, req.params.id);
+          const row = await db.remove(table, req.params.id);
           fireWebhooks(entity, 'afterDelete', row);
           await runMiddlewares('afterDelete', entity, req, res, sdk);
           emit(`${entity.name}.deleted`, hide(row));
@@ -267,8 +267,8 @@ function policyMiddleware(rule, entity, core) {
         break;
       }
       const allowed = Array.isArray(p.allow) ? p.allow : [p.allow];
-      middlewares = [(req, res, next) => {
-        const { user, apiKeyPermissions, error } = resolveAuthHeader(req.headers.authorization);
+      middlewares = [async (req, res, next) => {
+        const { user, apiKeyPermissions, error } = await resolveAuthHeader(req.headers.authorization);
         if (!user) return res.status(401).json({ error: 'Authorization required' });
         if (error === 'invalid_token') return res.status(401).json({ error: 'Invalid or expired token' });
         if (!allowed.includes(user.entity)) return res.status(403).json({ error: 'Access denied' });
@@ -277,7 +277,7 @@ function policyMiddleware(rule, entity, core) {
         try {
           // Ownership-based access: condition: self
           if (p.condition === 'self') {
-            enforceSelfCondition(rule, entity, req, core);
+            await enforceSelfCondition(rule, entity, req, core);
           }
           next();
         } catch (e) {
@@ -328,7 +328,7 @@ function _apiKeyPermGuard(operation, entity) {
  * - update: ensure the record belongs to the user, disallow ownership change
  * - delete: ensure the record belongs to the user
  */
-function enforceSelfCondition(rule, entity, req, core) {
+async function enforceSelfCondition(rule, entity, req, core) {
   const userId = req.user.id;
   const userEntity = req.user.entity;
 
@@ -351,7 +351,7 @@ function enforceSelfCondition(rule, entity, req, core) {
   } else if (rule === 'update' || rule === 'delete') {
     // Verify the record belongs to the user
     if (req.params && req.params.id) {
-      const row = db.findById(entity.tableName, req.params.id);
+      const row = await db.findById(entity.tableName, req.params.id);
       if (row && row[fk] !== userId) {
         const err = new Error('Access denied: record does not belong to you');
         err.status = 403;

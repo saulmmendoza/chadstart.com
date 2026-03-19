@@ -158,9 +158,9 @@ describe('groups – seeder generates group values', () => {
     },
   });
 
-  before(() => {
+  before(async () => {
     tmp = path.join(os.tmpdir(), `chadstart-group-seed-${Date.now()}.db`);
-    dbModule.initDb(groupSeedCore, tmp);
+    await dbModule.initDb(groupSeedCore, tmp);
   });
 
   after(() => { fs.unlinkSync(tmp); });
@@ -170,7 +170,7 @@ describe('groups – seeder generates group values', () => {
     const result = await seedAll(groupSeedCore);
     assert.strictEqual(result.summary.Service, 3);
 
-    const rows = dbModule.findAll('service', {}, { perPage: 100 });
+    const rows = await dbModule.findAll('service', {}, { perPage: 100 });
     assert.strictEqual(rows.total, 3);
 
     for (const row of rows.data) {
@@ -201,10 +201,10 @@ describe('groups – seeder generates group values', () => {
       groups: {},
     });
     const tmpNoGroup = path.join(os.tmpdir(), `chadstart-nogrp-${Date.now()}.db`);
-    dbModule.initDb(coreNoGroupDef, tmpNoGroup);
+    await dbModule.initDb(coreNoGroupDef, tmpNoGroup);
     const result = await seedAll(coreNoGroupDef);
     assert.strictEqual(result.summary.Item, 1);
-    const rows = dbModule.findAll('item', {}, { perPage: 10 });
+    const rows = await dbModule.findAll('item', {}, { perPage: 10 });
     assert.ok(typeof rows.data[0].stuff === 'string');
     assert.deepStrictEqual(JSON.parse(rows.data[0].stuff), []);
     fs.unlinkSync(tmpNoGroup);

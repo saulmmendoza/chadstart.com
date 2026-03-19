@@ -74,19 +74,19 @@ describe('access-policies – read condition: self', () => {
     assert.strictEqual(req._selfFilter.userId, 'user-42');
   });
 
-  it('read condition:self – DB list is filtered to the owning user', () => {
+  it('read condition:self – DB list is filtered to the owning user', async () => {
     const tmp = path.join(os.tmpdir(), `chadstart-selfread-${Date.now()}.db`);
-    dbModule.initDb(selfReadCore, tmp);
+    await dbModule.initDb(selfReadCore, tmp);
 
-    const user1 = dbModule.create('user', { name: 'Alice', email: 'alice@example.com', password: bcrypt.hashSync('pass1', 1) });
-    const user2 = dbModule.create('user', { name: 'Bob',   email: 'bob@example.com',   password: bcrypt.hashSync('pass2', 1) });
-    dbModule.create('project', { title: 'Alice Project 1', user_id: user1.id });
-    dbModule.create('project', { title: 'Alice Project 2', user_id: user1.id });
-    dbModule.create('project', { title: 'Bob Project',     user_id: user2.id });
+    const user1 = await dbModule.create('user', { name: 'Alice', email: 'alice@example.com', password: bcrypt.hashSync('pass1', 1) });
+    const user2 = await dbModule.create('user', { name: 'Bob',   email: 'bob@example.com',   password: bcrypt.hashSync('pass2', 1) });
+    await dbModule.create('project', { title: 'Alice Project 1', user_id: user1.id });
+    await dbModule.create('project', { title: 'Alice Project 2', user_id: user1.id });
+    await dbModule.create('project', { title: 'Bob Project',     user_id: user2.id });
 
     const selfFilter = { fk: 'user_id', userId: user1.id };
     const query = { [selfFilter.fk]: selfFilter.userId };
-    const result = dbModule.findAll('project', query, { perPage: 100 });
+    const result = await dbModule.findAll('project', query, { perPage: 100 });
 
     assert.strictEqual(result.total, 2, 'only Alice\'s projects returned');
     assert.ok(result.data.every((r) => r.user_id === user1.id));

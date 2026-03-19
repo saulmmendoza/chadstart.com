@@ -101,8 +101,8 @@ async function buildApp(yamlPath, reloadFn) {
   const dbPath = core.database
     ? path.resolve(path.dirname(yamlPath), core.database)
     : undefined;
-  initDb(core, dbPath);
-  initApiKeys();
+  await initDb(core, dbPath);
+  await initApiKeys();
 
   initErrorReporter(core);
 
@@ -300,7 +300,7 @@ async function buildApp(yamlPath, reloadFn) {
   });
 
   // HTMX table partial – returns an HTML fragment used by the Admin UI
-  app.get('/admin/partials/table', adminRateLimiter, (req, res) => {
+  app.get('/admin/partials/table', adminRateLimiter, async (req, res) => {
     const header = req.headers.authorization;
     if (!header || !header.startsWith('Bearer ')) {
       return res.status(401).send('<p class="text-red-400 p-4">Unauthorized</p>');
@@ -317,7 +317,7 @@ async function buildApp(yamlPath, reloadFn) {
     const lang = parseLang(req.headers['accept-language']);
     const locale = loadLocale(lang);
     try {
-      let rows = findAllSimple(item.tableName);
+      let rows = await findAllSimple(item.tableName);
       if (type === 'collection') rows = rows.map(omitPassword);
       res.send(renderAdminTable(rows, name, type === 'collection', item.name, locale));
     } catch (err) {
@@ -325,7 +325,7 @@ async function buildApp(yamlPath, reloadFn) {
     }
   });
   // ── Admin stats endpoint ────────────────────────────────────────────
-  app.get('/admin/stats', adminRateLimiter, (req, res) => {
+  app.get('/admin/stats', adminRateLimiter, async (req, res) => {
     const header = req.headers.authorization;
     if (!header || !header.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorized' });
     try { verifyToken(header.slice(7)); } catch { return res.status(401).json({ error: 'Invalid token' }); }
@@ -338,7 +338,7 @@ async function buildApp(yamlPath, reloadFn) {
       const allRecords = [];
       for (const entity of allEntities) {
         try {
-          const rows = findAllSimple(entity.tableName);
+          const rows = await findAllSimple(entity.tableName);
           const total = rows.length;
           const lastWeek = rows.filter((r) => r.createdAt && new Date(r.createdAt) >= oneWeekAgo).length;
           const lastMonth = rows.filter((r) => r.createdAt && new Date(r.createdAt) >= oneMonthAgo).length;
@@ -368,7 +368,7 @@ async function buildApp(yamlPath, reloadFn) {
   });
 
   // ── Admin seed endpoint ─────────────────────────────────────────────
-  app.post('/admin/seed', adminRateLimiter, (req, res) => {
+  app.post('/admin/seed', adminRateLimiter, async (req, res) => {
     const header = req.headers.authorization;
     if (!header || !header.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorized' });
     try { verifyToken(header.slice(7)); } catch { return res.status(401).json({ error: 'Invalid token' }); }
@@ -393,7 +393,7 @@ async function buildApp(yamlPath, reloadFn) {
             default: record[pName] = `Sample ${pName} ${i}`;
           }
         }
-        try { const row = dbCreate(tableName, record); emit(`${name}.created`, row); created++; } catch (e) { logger.warn(`Seed: failed to create record for ${name}:`, e.message); }
+        try { const row = await dbCreate(tableName, record); emit(`${name}.created`, row); created++; } catch (e) { logger.warn(`Seed: failed to create record for ${name}:`, e.message); }
       }
       results.push({ name, created });
     }
@@ -401,7 +401,7 @@ async function buildApp(yamlPath, reloadFn) {
   });
 
   // ── Admin data endpoint (unified, auth-bypassing) ───────────────────
-  app.get('/admin/data', adminRateLimiter, (req, res) => {
+  app.get('/admin/data', adminRateLimiter, async (req, res) => {
     const header = req.headers.authorization;
     if (!header || !header.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorized' });
     try { verifyToken(header.slice(7)); } catch { return res.status(401).json({ error: 'Invalid token' }); }
@@ -423,7 +423,7 @@ async function buildApp(yamlPath, reloadFn) {
           query[`${colName}_like`] = `%${search}%`;
         }
       }
-      const result = findAll(item.tableName, query, { page, perPage, orderBy, order });
+      const result = await findAll(item.tableName, query, { page, perPage, orderBy, order });
       if (type === 'collection') result.data = result.data.map(omitPassword);
       res.json(result);
     } catch (err) {
@@ -441,18 +441,18 @@ async function buildApp(yamlPath, reloadFn) {
   }
 
   // GET /admin/api-keys — list all API keys
-  app.get('/admin/api-keys', adminRateLimiter, (req, res) => {
+  app.get('/admin/api-keys', adminRateLimiter, async (req, res) => {
     if (!requireAdminToken(req, res)) return;
-    try { res.json(listAllApiKeys()); } catch (e) { res.status(500).json({ error: e.message }); }
+    try { res.json(await listAllApiKeys()); } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
   // POST /admin/api-keys — create an API key for any user
-  app.post('/admin/api-keys', adminRateLimiter, (req, res) => {
+  app.post('/admin/api-keys', adminRateLimiter, async (req, res) => {
     if (!requireAdminToken(req, res)) return;
     const { userId, userEntity, name, permissions, entities: keyEntities, expiresAt } = req.body || {};
     if (!userId || !userEntity) return res.status(400).json({ error: 'userId and userEntity are required' });
     try {
-      const result = createApiKey(userId, userEntity, {
+      const result = await createApiKey(userId, userEntity, {
         name: name || 'API Key',
         permissions: Array.isArray(permissions) ? permissions : [],
         entities: Array.isArray(keyEntities) ? keyEntities : [],
@@ -463,13 +463,13 @@ async function buildApp(yamlPath, reloadFn) {
   });
 
   // DELETE /admin/api-keys/:id — delete any API key
-  app.delete('/admin/api-keys/:id', adminRateLimiter, (req, res) => {
+  app.delete('/admin/api-keys/:id', adminRateLimiter, async (req, res) => {
     if (!requireAdminToken(req, res)) return;
-    try { deleteApiKey(req.params.id); res.json({ success: true }); } catch (e) { res.status(500).json({ error: e.message }); }
+    try { await deleteApiKey(req.params.id); res.json({ success: true }); } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
   // POST /admin/impersonate — generate a short-lived token as a user (for admin preview)
-  app.post('/admin/impersonate', adminRateLimiter, (req, res) => {
+  app.post('/admin/impersonate', adminRateLimiter, async (req, res) => {
     const header = req.headers.authorization;
     if (!header || !header.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorized' });
     let adminPayload;
@@ -479,7 +479,7 @@ async function buildApp(yamlPath, reloadFn) {
     const entity = Object.values(core.authenticableEntities || {}).find((e) => e.name === userEntity);
     if (!entity) return res.status(404).json({ error: 'User collection not found' });
     const { findById } = require('../core/db');
-    const user = findById(entity.tableName, userId);
+    const user = await findById(entity.tableName, userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
     const { signToken } = require('../core/auth');
     const token = signToken(
