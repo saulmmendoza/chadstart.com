@@ -184,7 +184,7 @@ function runBuild() {
 
     console.log(`\n✅ Config is valid\n`);
     console.log(`Project: ${core.name}`);
-    console.log(`Port:     ${core.port}`);
+    console.log(`Port:    ${core.port}`);
 
     if (Object.keys(core.authenticableEntities).length > 0) {
       console.log(`\nUser Collections:`);
