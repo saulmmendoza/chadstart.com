@@ -1,9 +1,8 @@
-name: NPM create-chadstart
+name: NPM chadstart
 
 on:
   push:
-    paths:
-      - 'packages/create-chadstart/**'
+    branches: [main]
 
 jobs:
   publish:
@@ -23,6 +22,6 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - name: Publish to npm
-        run: cd packages/create-chadstart && npm publish --access public --provenance
+        run: npm publish --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

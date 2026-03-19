@@ -5,9 +5,19 @@ ChadStart includes a CLI for common development and production tasks.
 ## Commands
 
 ```
+npx chadstart create [path]                     # Create a new ChadStart project
 npx chadstart dev [--config path] [--port N]    # Hot-reload dev server
 npx chadstart start [--config path] [--port N]  # Production server
 npx chadstart build [--config path]             # Validate & summarize config
+```
+
+## `create`
+
+Create a new ChadStart project
+
+```bash
+npx chadstart create
+npx chadstart create new-folder-name
 ```
 
 ## `dev`
