@@ -1,0 +1,176 @@
+# chadstart.yaml
+# ─────────────────────────────────────────────────────────────────────────────
+# ChadStart Todo App — demonstration of a complete chadstart.yaml config.
+# Shows: entities, access policies, realtime, CRUD, and functions in every
+# supported runtime (js, bash, python, go, ruby, c++).
+#
+# To run locally:
+#   npx chadstart dev
+#
+# To run with Docker Compose:
+#   docker compose up --build
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: Todo App
+port: 3000
+database: ./data/todo.db
+
+entities:
+  User:
+    authenticable: true
+    mainProp: name
+    seedCount: 5
+    properties:
+      - name
+      - { name: email, type: email }
+      - { name: password, type: password }
+    policies:
+      create:
+        - access: public          # Anyone can sign up
+      read:
+        - access: restricted
+          allow: User
+          condition: self         # Users can only read their own profile
+      update:
+        - access: restricted
+          allow: User
+          condition: self
+      delete:
+        - access: admin
+      signup:
+        - access: public
+    validation:
+      name:
+        required: true
+        isNotEmpty: true
+        minLength: 2
+        maxLength: 100
+      email:
+        required: true
+        isEmail: true
+
+  Todo:
+    mainProp: title
+    seedCount: 20
+    belongsTo:
+      - User
+    properties:
+      - title
+      - { name: description, type: text }
+      - { name: completed,   type: boolean, default: false }
+      - { name: priority,    type: choice,  options: { values: [low, medium, high] } }
+      - { name: dueDate,     type: date }
+    policies:
+      create:
+        - { access: restricted, allow: User, condition: self }   # Set owner on create
+      read:
+        - { access: restricted, allow: User, condition: self }
+      update:
+        - { access: restricted, allow: User, condition: self }
+      delete:
+        - { access: restricted, allow: User, condition: self }
+    validation:
+      title:
+        required: true
+        isNotEmpty: true
+        maxLength: 255
+      priority:
+        isOptional: true
+        isIn: [low, medium, high]
+
+public:
+  folder: ./public
+
+functions:
+  # JS (default runtime) — returns per-status todo counts.
+  stats:
+    runtime: js
+    function: stats.js
+    description: Returns todo statistics (total, completed, pending).
+    triggers:
+      - type: http
+        method: GET
+        path: /api/fn/stats
+        policies:
+          - access: public
+
+  # Bash — simple health/ping endpoint.
+  ping:
+    runtime: bash
+    function: ping.sh
+    description: Health check / ping — returns pong.
+    triggers:
+      - type: http
+        method: GET
+        path: /api/fn/ping
+        policies:
+          - access: public
+      - type: cron
+        schedule: "@hourly"    # Log a heartbeat every hour
+
+  # Python — greets the caller by name.
+  greetPython:
+    runtime: python
+    function: hello.py
+    description: Returns a greeting from the Python runtime.
+    triggers:
+      - type: http
+        method: GET
+        path: /api/fn/greet/python
+        policies:
+          - access: public
+
+  # Go — greets the caller from the Go runtime.
+  greetGo:
+    runtime: go
+    function: greet.go
+    description: Returns a greeting from the Go runtime.
+    triggers:
+      - type: http
+        method: GET
+        path: /api/fn/greet/go
+        policies:
+          - access: public
+
+  # Ruby — greets the caller from the Ruby runtime.
+  greetRuby:
+    runtime: ruby
+    function: hello.rb
+    description: Returns a greeting from the Ruby runtime.
+    triggers:
+      - type: http
+        method: GET
+        path: /api/fn/greet/ruby
+        policies:
+          - access: public
+
+  # C++ — greets the caller from the C++ runtime.
+  greetCpp:
+    runtime: c++
+    function: hello.cpp
+    description: Returns a greeting from the C++ runtime.
+    triggers:
+      - type: http
+        method: GET
+        path: /api/fn/greet/cpp
+        policies:
+          - access: public
+
+  # Event-driven — fires when a new todo is created (via the event bus).
+  onTodoCreated:
+    runtime: js
+    function: onTodoCreated.js
+    description: Runs after a new Todo is created (event trigger demo).
+    triggers:
+      - type: event
+        name: todo.created
+
+files:
+  uploads:
+    path: ./uploads
+    public: true
+
+rateLimits:
+  - name: default
+    limit: 200
+    ttl: 60000

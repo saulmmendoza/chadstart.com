@@ -1,0 +1,31 @@
+{
+  "name": "create-chadstart",
+  "version": "1.0.0",
+  "description": "Scaffold a new ChadStart project",
+  "main": "index.js",
+  "bin": {
+    "create-chadstart": "./index.js"
+  },
+  "scripts": {
+    "test": "node test.js"
+  },
+  "keywords": [
+    "chadstart",
+    "scaffold",
+    "create"
+  ],
+  "author": "",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/saulmmendoza/chadstart.com.git",
+    "directory": "packages/create-chadstart"
+  },
+  "bugs": {
+    "url": "https://github.com/saulmmendoza/chadstart.com/issues"
+  },
+  "homepage": "https://github.com/saulmmendoza/chadstart.com#readme",
+  "engines": {
+    "node": ">=16"
+  }
+}

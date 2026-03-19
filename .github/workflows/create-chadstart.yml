@@ -1,0 +1,33 @@
+name: create-chadstart
+
+on:
+  push:
+    paths:
+      - 'packages/create-chadstart/**'
+  pull_request:
+    paths:
+      - 'packages/create-chadstart/**'
+
+jobs:
+  test:
+    name: Test create-chadstart
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    defaults:
+      run:
+        working-directory: packages/create-chadstart
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run tests
+        run: node test.js
