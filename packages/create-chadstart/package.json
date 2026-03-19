@@ -6,15 +6,14 @@
   "bin": {
     "create-chadstart": "./index.js"
   },
-  "scripts": {
-    "test": "node test.js"
-  },
   "keywords": [
+    "chadstart.com",
     "chadstart",
+    "bootstrap",
     "scaffold",
     "create"
   ],
-  "author": "",
+  "author": "wildcapybara",
   "license": "ISC",
   "repository": {
     "type": "git",
