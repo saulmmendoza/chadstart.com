@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 
+const readline = require('readline');
 const path = require('path');
 const fs = require('fs');
 
@@ -42,7 +43,9 @@ if (!command || command === 'help' || command === '--help' || command === '-h') 
   process.exit(0);
 }
 
-if (command === 'dev') {
+if (command === 'create') {
+  runCreate();
+} else if (command === 'dev') {
   runDev();
 } else if (command === 'start') {
   runStart();
@@ -57,6 +60,50 @@ if (command === 'dev') {
 }
 
 // ─── Commands ────────────────────────────────────────────────────────────────
+
+
+async function runCreate() {
+  let folderName = process.argv[3];
+  if (!folderName) {
+    folderName = await askFolderName();
+  }
+
+  if (!folderName) {
+    console.error('Error: folder name is required.');
+    process.exit(1);
+  }
+
+  const targetDir = path.resolve(process.cwd(), folderName);
+
+  if (fs.existsSync(targetDir)) {
+    console.error(`Error: directory "${folderName}" already exists.`);
+    process.exit(1);
+  }
+
+  fs.mkdirSync(targetDir, { recursive: true });
+
+  const templateFile = path.join(__dirname, '../demo', 'chadstart.yaml');
+  const destFile = path.join(targetDir, 'chadstart.yaml');
+  fs.copyFileSync(templateFile, destFile);
+
+  console.log(`\nCreated project in ${targetDir}`);
+  console.log('\nNext steps:');
+  console.log(`  cd ${folderName}`);
+  console.log('  npx chadstart dev\n');
+
+  async function askFolderName() {
+    return new Promise((resolve) => {
+      const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+      });
+      rl.question('Enter the project folder name: ', (answer) => {
+        rl.close();
+        resolve(answer.trim());
+      });
+    });
+  }
+}
 
 async function runSeed() {
   if (!fs.existsSync(yamlPath)) {
@@ -184,7 +231,7 @@ function runBuild() {
 
     console.log(`\n✅ Config is valid\n`);
     console.log(`Project: ${core.name}`);
-    console.log(`Port:     ${core.port}`);
+    console.log(`Port:    ${core.port}`);
 
     if (Object.keys(core.authenticableEntities).length > 0) {
       console.log(`\nUser Collections:`);

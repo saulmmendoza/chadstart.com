@@ -1,0 +1,27 @@
+name: NPM chadstart
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  publish:
+    name: NPM Publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write  # required for npm provenance
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Publish to npm
+        run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

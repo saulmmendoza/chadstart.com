@@ -530,7 +530,7 @@ async function startServer(yamlPath) {
   const { core } = await reload();
 
   server.listen(core.port, () => {
-    logger.info(`\n🚀 ${core.name} is running at http://localhost:${core.port}`);
+    logger.info(`Backend is running at http://localhost:${core.port}`);
     logger.info(`   API docs:  http://localhost:${core.port}/docs`);
     logger.info(`   Admin UI:  http://localhost:${core.port}/admin`);
     logger.info(`   Health:    http://localhost:${core.port}/health\n`);

@@ -1,5 +1,5 @@
 {
-  "name": "@chadstart/sdk",
+  "name": "chadstart-sdk",
   "version": "1.0.0",
   "description": "Official JavaScript/TypeScript SDK for Chadstart BaaS",
   "keywords": ["chadstart", "sdk", "baas", "backend", "rest", "crud"],

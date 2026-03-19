@@ -60,14 +60,14 @@ entities:
 
 | Option            | Default                    | Type     | Description                                                                                              |
 | ----------------- | -------------------------- | -------- | -------------------------------------------------------------------------------------------------------- |
-| **authenticable** | false                      | boolean  | Whether the entity is [authenticable](auth.md#authenticable-entities) or not                             |
-| **mainProp**      | _first string field_       | string   | Identifier prop. Used widely on the admin panel                                                          |
-| **nameSingular**  | _singular lower case name_ | string   | The singular lowercase name of your entity. Used widely on the admin panel.                              |
-| **namePlural**    | _plural lower case name_   | string   | The plural lowercase name of your entity. Used widely on the admin panel Default: plural lowercase name. |
+| **authenticable** | false                      | Boolean  | Whether the entity is [authenticable](auth.md#authenticable-entities) or not                             |
+| **mainProp**      | _first string field_       | String   | Identifier prop. Used widely on the admin panel                                                          |
+| **nameSingular**  | _singular lower case name_ | String   | The singular lowercase name of your entity. Used widely on the admin panel.                              |
+| **namePlural**    | _plural lowercase name_    | String   | The plural lowercase name of your entity. Used widely on the admin panel. |
 | **policies**      | -                          | Policies | The [access control policies](./access-policies.md) of your entity                                       |
 | **properties**    | `[]`                       | Array    | The [properties](./entities.md#properties) of your entity                                                |
-| **seedCount**     | `50`                       | number   | the number of entities to seed when running the seed command.                                            |
-| **slug**          | _plural dasherized name_   | string   | The kebab-case slug of the entity that will define API endpoints.                                        |
+| **seedCount**     | `50`                       | Number   | The number of entities to seed when running the seed command.                                            |
+| **slug**          | _plural kebab-case name_   | String   | The kebab-case slug of the entity that will define API endpoints.                                        |
 
 ## Singles
 
