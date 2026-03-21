@@ -55,6 +55,11 @@ function idColType() {
   return DB_ENGINE === 'mysql' ? 'VARCHAR(36)' : 'TEXT';
 }
 
+// Auth string column type — MySQL requires bounded VARCHAR for UNIQUE-indexed columns
+function authStrType() {
+  return DB_ENGINE === 'mysql' ? 'VARCHAR(191)' : 'TEXT';
+}
+
 function generateUUID() {
   return crypto.randomUUID();
 }
@@ -228,8 +233,8 @@ function buildColumnDefs(entity, allEntities) {
   const cols = [];
 
   if (entity.authenticable) {
-    cols.push({ name: 'email',    def: `${q('email')} TEXT NOT NULL UNIQUE` });
-    cols.push({ name: 'password', def: `${q('password')} TEXT NOT NULL` });
+    cols.push({ name: 'email',    def: `${q('email')} ${authStrType()} NOT NULL UNIQUE` });
+    cols.push({ name: 'password', def: `${q('password')} ${authStrType()} NOT NULL` });
   }
 
   for (const p of entity.properties) {
