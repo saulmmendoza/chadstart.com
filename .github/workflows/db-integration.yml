@@ -10,6 +10,8 @@ jobs:
   test-postgres:
     name: Integration – PostgreSQL
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     services:
       postgres:
@@ -52,6 +54,8 @@ jobs:
   test-mysql:
     name: Integration – MySQL
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     services:
       mysql:
@@ -94,6 +98,8 @@ jobs:
   test-mariadb:
     name: Integration – MariaDB
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     services:
       mariadb:
