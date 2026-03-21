@@ -36,14 +36,12 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-        working-directory: .
 
       - name: Bump patch version
         run: npm version patch --message "v%s [skip ci]"
 
       - name: Push version bump
         run: git push --follow-tags
-        working-directory: .
 
       - name: Publish to npm
         run: npm publish --access public --provenance
