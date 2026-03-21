@@ -14,6 +14,7 @@
     "seed": "node cli/cli.js seed",
     "test": "mocha --timeout 10000 'test/*.test.js'",
     "test:coverage": "c8 --reporter=text --reporter=json-summary mocha --timeout 10000 'test/*.test.js'",
+    "test:integration": "mocha --timeout 30000 'test/integration/*.test.js'",
     "test:browser": "playwright test"
   },
   "repository": {
