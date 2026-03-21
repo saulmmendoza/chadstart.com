@@ -34,9 +34,11 @@ const _DB_ENGINE = (process.env.DB_ENGINE || 'sqlite').toLowerCase();
 function _q(name) { return _DB_ENGINE === 'mysql' ? `\`${name}\`` : `"${name}"`; }
 
 // Column types for the API keys table (must be indexable in all engines)
-const _ID_T   = _DB_ENGINE === 'mysql' ? 'VARCHAR(36)'  : 'TEXT';
-const _HASH_T = _DB_ENGINE === 'mysql' ? 'VARCHAR(64)'  : 'TEXT';
-const _NAME_T = _DB_ENGINE === 'mysql' ? 'VARCHAR(255)' : 'TEXT';
+const _ID_T   = _DB_ENGINE === 'mysql' ? 'VARCHAR(36)'   : 'TEXT';
+const _HASH_T = _DB_ENGINE === 'mysql' ? 'VARCHAR(64)'   : 'TEXT';
+const _NAME_T = _DB_ENGINE === 'mysql' ? 'VARCHAR(255)'  : 'TEXT';
+// JSON array columns — MySQL forbids DEFAULT on TEXT, so use bounded VARCHAR
+const _JSON_T = _DB_ENGINE === 'mysql' ? 'VARCHAR(2000)' : 'TEXT';
 
 function signToken(payload, expiresIn) {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: expiresIn !== undefined ? expiresIn : JWT_EXPIRES });
@@ -57,8 +59,8 @@ async function initApiKeys() {
       ${_q('keyHash')}     ${_HASH_T} NOT NULL UNIQUE,
       ${_q('userId')}      ${_ID_T} NOT NULL,
       ${_q('userEntity')}  ${_NAME_T} NOT NULL,
-      ${_q('permissions')} TEXT NOT NULL DEFAULT '[]',
-      ${_q('entities')}    TEXT NOT NULL DEFAULT '[]',
+      ${_q('permissions')} ${_JSON_T} NOT NULL DEFAULT '[]',
+      ${_q('entities')}    ${_JSON_T} NOT NULL DEFAULT '[]',
       ${_q('expiresAt')}   TEXT,
       ${_q('createdAt')}   TEXT NOT NULL,
       ${_q('updatedAt')}   TEXT NOT NULL,
