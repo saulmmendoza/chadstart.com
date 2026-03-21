@@ -373,17 +373,17 @@ async function findAll(table, query = {}, opts = {}) {
   let sql = `SELECT * FROM ${q(table)}`;
   if (clauses.length) sql += ` WHERE ${clauses.join(' AND ')}`;
 
-  // Ordering
+  // Count total — build before adding ORDER BY (PostgreSQL disallows ORDER BY in aggregate queries)
+  const countSql = sql.replace(/^SELECT \*/, 'SELECT COUNT(*) as total');
+  const countRow = await queryOne(countSql, values);
+
+  // Ordering (added after count so the count query stays clean)
   const SAFE_COL = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
   const orderBy = opts.orderBy || 'createdAt';
   const orderDir = (opts.order || 'DESC').toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
   if (validCols.has(orderBy) && SAFE_COL.test(orderBy)) {
     sql += ` ORDER BY ${q(orderBy)} ${orderDir}`;
   }
-
-  // Count total (before pagination)
-  const countSql = sql.replace(/^SELECT \*/, 'SELECT COUNT(*) as total');
-  const countRow = await queryOne(countSql, values);
   const total = Number(countRow.total);
 
   // Pagination
@@ -540,8 +540,14 @@ async function saveBelongsToMany(entity, recordId, body) {
   }
 }
 
+async function closeDb() {
+  if (_pgPool)    { try { await _pgPool.end(); } finally { _pgPool = null; } }
+  if (_mysqlPool) { try { await _mysqlPool.end(); } finally { _mysqlPool = null; } }
+  if (_sqliteDb)  { try { _sqliteDb.close(); } finally { _sqliteDb = null; } }
+}
+
 module.exports = {
-  initDb, syncSchema, getDb, generateUUID,
+  initDb, syncSchema, getDb, generateUUID, closeDb,
   exec, queryAll, queryOne, queryRun,
   findAll, findAllSimple, findById, create, update, remove,
   loadRelations, saveBelongsToMany,

@@ -17,6 +17,7 @@ const os     = require('os');
 const fs     = require('fs');
 
 const { buildApp } = require('../../server/express-server');
+const dbModule = require('../../core/db');
 
 const YAML_PATH  = path.resolve(__dirname, '../../chadstart.yaml');
 const DB_ENGINE  = (process.env.DB_ENGINE || 'sqlite').toLowerCase();
@@ -84,15 +85,12 @@ describe(`DB integration – ${DB_ENGINE}`, function () {
     adminId    = su.body.user.id;
   });
 
-  after(function (done) {
-    const cleanup = () => {
-      if (_sqliteTmpPath) {
-        try { fs.unlinkSync(_sqliteTmpPath); } catch { /* ignore */ }
-      }
-      done();
-    };
-    if (server) server.close(cleanup);
-    else cleanup();
+  after(async function () {
+    if (server) await new Promise((resolve) => server.close(resolve));
+    await dbModule.closeDb();
+    if (_sqliteTmpPath) {
+      try { fs.unlinkSync(_sqliteTmpPath); } catch { /* ignore */ }
+    }
   });
 
   // ── Health ─────────────────────────────────────────────────────────────────
