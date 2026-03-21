@@ -2,15 +2,19 @@
 
 const crypto = require('crypto');
 const fs = require('fs');
-const Database = require('better-sqlite3');
 const path = require('path');
 const logger = require('../utils/logger');
 
-let db = null;
-// Cached entity metadata for relation queries. Set by initDb.
+const DB_ENGINE = (process.env.DB_ENGINE || 'sqlite').toLowerCase();
+
+let _sqliteDb = null;
+let _pgPool = null;
+let _mysqlPool = null;
 let _core = null;
 
-const SQL_TYPE = {
+// ─── SQL type maps ────────────────────────────────────────────────────────────
+
+const SQL_TYPE_SQLITE = {
   text: 'TEXT', string: 'TEXT', richText: 'TEXT',
   integer: 'INTEGER', int: 'INTEGER',
   number: 'REAL', float: 'REAL', real: 'REAL', money: 'REAL',
@@ -20,52 +24,259 @@ const SQL_TYPE = {
   file: 'TEXT', image: 'TEXT', group: 'TEXT', json: 'TEXT',
 };
 
+const SQL_TYPE_PG = {
+  text: 'TEXT', string: 'TEXT', richText: 'TEXT',
+  integer: 'INTEGER', int: 'INTEGER',
+  number: 'NUMERIC', float: 'NUMERIC', real: 'NUMERIC', money: 'NUMERIC',
+  boolean: 'BOOLEAN', bool: 'BOOLEAN',
+  date: 'TEXT', timestamp: 'TEXT', email: 'TEXT', link: 'TEXT',
+  password: 'TEXT', choice: 'TEXT', location: 'TEXT',
+  file: 'TEXT', image: 'TEXT', group: 'TEXT', json: 'TEXT',
+};
+
+const SQL_TYPE_MYSQL = {
+  text: 'TEXT', string: 'TEXT', richText: 'TEXT',
+  integer: 'INT', int: 'INT',
+  number: 'DECIMAL(15,4)', float: 'DECIMAL(15,4)', real: 'DECIMAL(15,4)', money: 'DECIMAL(15,4)',
+  boolean: 'TINYINT(1)', bool: 'TINYINT(1)',
+  date: 'TEXT', timestamp: 'TEXT', email: 'TEXT', link: 'TEXT',
+  password: 'TEXT', choice: 'TEXT', location: 'TEXT',
+  file: 'TEXT', image: 'TEXT', group: 'TEXT', json: 'TEXT',
+};
+
+function sqlType(type) {
+  if (DB_ENGINE === 'postgres') return SQL_TYPE_PG[type] || 'TEXT';
+  if (DB_ENGINE === 'mysql') return SQL_TYPE_MYSQL[type] || 'TEXT';
+  return SQL_TYPE_SQLITE[type] || 'TEXT';
+}
+
+// ID column type — MySQL needs VARCHAR(36) because TEXT can't be primary key
+function idColType() {
+  return DB_ENGINE === 'mysql' ? 'VARCHAR(36)' : 'TEXT';
+}
+
+// Auth string column type — MySQL requires bounded VARCHAR for UNIQUE-indexed columns
+function authStrType() {
+  return DB_ENGINE === 'mysql' ? 'VARCHAR(191)' : 'TEXT';
+}
+
 function generateUUID() {
   return crypto.randomUUID();
 }
 
-function initDb(core, dbPath) {
-  const resolved = dbPath ? path.resolve(dbPath) : path.resolve(process.env.DB_PATH || 'data/chadstart.db');
+// Quote an identifier for the current database engine
+function q(name) {
+  if (DB_ENGINE === 'mysql') return `\`${name}\``;
+  return `"${name}"`;
+}
+
+// Convert ? placeholders to $1, $2, ... for PostgreSQL
+function toPgPlaceholders(sql) {
+  let n = 0;
+  return sql.replace(/\?/g, () => `$${++n}`);
+}
+
+// ─── Low-level async query helpers ───────────────────────────────────────────
+
+async function exec(sql) {
+  if (DB_ENGINE === 'postgres') { await _pgPool.query(sql); return; }
+  if (DB_ENGINE === 'mysql') { await _mysqlPool.query(sql); return; }
+  _sqliteDb.exec(sql);
+}
+
+async function queryAll(sql, params = []) {
+  if (DB_ENGINE === 'postgres') {
+    const result = await _pgPool.query(toPgPlaceholders(sql), params);
+    return result.rows;
+  }
+  if (DB_ENGINE === 'mysql') {
+    const [rows] = await _mysqlPool.query(sql, params);
+    return rows;
+  }
+  return _sqliteDb.prepare(sql).all(...params);
+}
+
+async function queryOne(sql, params = []) {
+  const rows = await queryAll(sql, params);
+  return rows[0] || null;
+}
+
+async function queryRun(sql, params = []) {
+  if (DB_ENGINE === 'postgres') {
+    await _pgPool.query(toPgPlaceholders(sql), params);
+    return;
+  }
+  if (DB_ENGINE === 'mysql') {
+    await _mysqlPool.query(sql, params);
+    return;
+  }
+  _sqliteDb.prepare(sql).run(...params);
+}
+
+// Build an INSERT OR IGNORE / INSERT IGNORE / INSERT...ON CONFLICT DO NOTHING
+// statement appropriate for the current engine.
+function buildInsertOrIgnoreSql(table, colA, colB) {
+  if (DB_ENGINE === 'postgres') {
+    return `INSERT INTO ${q(table)} (${q(colA)}, ${q(colB)}) VALUES (?, ?) ON CONFLICT DO NOTHING`;
+  }
+  if (DB_ENGINE === 'mysql') {
+    return `INSERT IGNORE INTO ${q(table)} (${q(colA)}, ${q(colB)}) VALUES (?, ?)`;
+  }
+  return `INSERT OR IGNORE INTO ${q(table)} (${q(colA)}, ${q(colB)}) VALUES (?, ?)`;
+}
+
+// ─── Initialization ───────────────────────────────────────────────────────────
+
+async function initDb(core, dbPath) {
+  _core = core;
+
+  if (DB_ENGINE === 'postgres') {
+    const { Pool } = require('pg');
+    _pgPool = new Pool({
+      host:     process.env.DB_HOST     || 'localhost',
+      port:     parseInt(process.env.DB_PORT || '5432', 10),
+      user:     process.env.DB_USERNAME || 'postgres',
+      password: process.env.DB_PASSWORD || 'postgres',
+      database: process.env.DB_DATABASE || 'manifest',
+      ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+    });
+    await _pgPool.query('SELECT 1');
+    logger.info('PostgreSQL database connected');
+    await syncSchema(core);
+    return _pgPool;
+  }
+
+  if (DB_ENGINE === 'mysql') {
+    const mysql = require('mysql2/promise');
+    _mysqlPool = await mysql.createPool({
+      host:               process.env.DB_HOST     || 'localhost',
+      port:               parseInt(process.env.DB_PORT || '3306', 10),
+      user:               process.env.DB_USERNAME || 'root',
+      password:           process.env.DB_PASSWORD || '',
+      database:           process.env.DB_DATABASE || 'manifest',
+      ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
+      waitForConnections: true,
+      connectionLimit:    10,
+    });
+    await _mysqlPool.query('SELECT 1');
+    logger.info('MySQL database connected');
+    await syncSchema(core);
+    return _mysqlPool;
+  }
+
+  // SQLite (default)
+  const Database = require('better-sqlite3');
+  const resolved = dbPath
+    ? path.resolve(dbPath)
+    : path.resolve(process.env.DB_PATH || '/data/chadstart.db');
   try {
     fs.mkdirSync(path.dirname(resolved), { recursive: true });
   } catch (err) {
     throw new Error(`Failed to create database directory "${path.dirname(resolved)}": ${err.message}`);
   }
   try {
-    db = new Database(resolved);
+    _sqliteDb = new Database(resolved);
   } catch (err) {
     throw new Error(
       `Failed to open database at "${resolved}": ${err.message}\n` +
       `  Make sure the directory exists and is writable, and that no other process has an exclusive lock on the file.`
     );
   }
-  db.pragma('journal_mode = WAL');
-  db.pragma('foreign_keys = ON');
-  _core = core;
-  logger.info(`Database initialized at ${resolved}`);
-  syncSchema(core);
-  return db;
+  _sqliteDb.pragma('journal_mode = WAL');
+  _sqliteDb.pragma('foreign_keys = ON');
+  logger.info(`SQLite database initialized at ${resolved}`);
+  await syncSchema(core);
+  return _sqliteDb;
 }
 
-function syncSchema(core) {
+/** Return the raw SQLite connection (only valid in sqlite mode). */
+function getDb() {
+  if (DB_ENGINE !== 'sqlite') throw new Error('getDb() is only available in SQLite mode');
+  if (!_sqliteDb) throw new Error('Database not initialized. Call initDb() first.');
+  return _sqliteDb;
+}
+
+// ─── Schema helpers ───────────────────────────────────────────────────────────
+
+async function getExistingColumns(tableName) {
+  if (DB_ENGINE === 'postgres') {
+    const rows = await queryAll(
+      `SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = ?`,
+      [tableName]
+    );
+    return rows.length ? new Set(rows.map((r) => r.column_name)) : null;
+  }
+  if (DB_ENGINE === 'mysql') {
+    const rows = await queryAll(
+      `SELECT COLUMN_NAME FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ?`,
+      [tableName]
+    );
+    return rows.length ? new Set(rows.map((r) => r.COLUMN_NAME || r.column_name)) : null;
+  }
+  // SQLite
+  try {
+    const rows = _sqliteDb.pragma(`table_info("${tableName}")`);
+    return rows && rows.length ? new Set(rows.map((r) => r.name)) : null;
+  } catch { return null; }
+}
+
+function stripConstraints(def) {
+  return def
+    .replace(/\bNOT\s+NULL\b/gi, '')
+    .replace(/\bUNIQUE\b/gi, '')
+    .replace(/\bREFERENCES\s+[`"]?[^`"\s(]+[`"]?\s*\([^)]+\)/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+function buildColumnDefs(entity, allEntities) {
+  const cols = [];
+
+  if (entity.authenticable) {
+    cols.push({ name: 'email',    def: `${q('email')} ${authStrType()} NOT NULL UNIQUE` });
+    cols.push({ name: 'password', def: `${q('password')} ${authStrType()} NOT NULL` });
+  }
+
+  for (const p of entity.properties) {
+    if (entity.authenticable && (p.name === 'email' || p.name === 'password')) continue;
+    cols.push({ name: p.name, def: `${q(p.name)} ${sqlType(p.type)}` });
+  }
+
+  for (const rel of entity.belongsTo || []) {
+    const relName = typeof rel === 'string' ? rel : (rel.entity || rel.name);
+    const ref = allEntities[relName];
+    if (ref) {
+      const fk = `${ref.tableName}_id`;
+      cols.push({ name: fk, def: `${q(fk)} ${idColType()} REFERENCES ${q(ref.tableName)}(id)` });
+    }
+  }
+
+  return cols;
+}
+
+async function syncSchema(core) {
   for (const entity of Object.values(core.entities)) {
     const cols = buildColumnDefs(entity, core.entities);
-    const existing = getExistingColumns(entity.tableName);
+    const existing = await getExistingColumns(entity.tableName);
 
     if (!existing) {
-      const defs = ['"id" TEXT PRIMARY KEY', '"createdAt" TEXT', '"updatedAt" TEXT', ...cols.map((c) => c.def)];
-      db.exec(`CREATE TABLE "${entity.tableName}" (${defs.join(', ')})`);
+      const defs = [
+        `${q('id')} ${idColType()} PRIMARY KEY`,
+        `${q('createdAt')} TEXT`,
+        `${q('updatedAt')} TEXT`,
+        ...cols.map((c) => c.def),
+      ];
+      await exec(`CREATE TABLE IF NOT EXISTS ${q(entity.tableName)} (${defs.join(', ')})`);
     } else {
-      // Add createdAt/updatedAt if missing (migration)
       if (!existing.has('createdAt')) {
-        db.exec(`ALTER TABLE "${entity.tableName}" ADD COLUMN "createdAt" TEXT`);
+        await exec(`ALTER TABLE ${q(entity.tableName)} ADD COLUMN ${q('createdAt')} TEXT`);
       }
       if (!existing.has('updatedAt')) {
-        db.exec(`ALTER TABLE "${entity.tableName}" ADD COLUMN "updatedAt" TEXT`);
+        await exec(`ALTER TABLE ${q(entity.tableName)} ADD COLUMN ${q('updatedAt')} TEXT`);
       }
       for (const col of cols) {
         if (!existing.has(col.name)) {
-          db.exec(`ALTER TABLE "${entity.tableName}" ADD COLUMN ${stripConstraints(col.def)}`);
+          await exec(`ALTER TABLE ${q(entity.tableName)} ADD COLUMN ${stripConstraints(col.def)}`);
         }
       }
     }
@@ -79,78 +290,33 @@ function syncSchema(core) {
       if (!relEntity) continue;
       const [a, b] = [entity.tableName, relEntity.tableName].sort();
       const jt = `${a}_${b}`;
-      if (!getExistingColumns(jt)) {
-        db.exec(
-          `CREATE TABLE "${jt}" ("${a}_id" TEXT REFERENCES "${a}"(id), "${b}_id" TEXT REFERENCES "${b}"(id), PRIMARY KEY ("${a}_id", "${b}_id"))`
+      if (!await getExistingColumns(jt)) {
+        const aCol = `${q(`${a}_id`)} ${idColType()} REFERENCES ${q(a)}(id)`;
+        const bCol = `${q(`${b}_id`)} ${idColType()} REFERENCES ${q(b)}(id)`;
+        await exec(
+          `CREATE TABLE IF NOT EXISTS ${q(jt)} (${aCol}, ${bCol}, PRIMARY KEY (${q(`${a}_id`)}, ${q(`${b}_id`)}))`
         );
       }
     }
   }
 }
 
-function getExistingColumns(table) {
-  try {
-    const rows = db.pragma(`table_info("${table}")`);
-    return rows && rows.length ? new Set(rows.map((r) => r.name)) : null;
-  } catch { return null; }
-}
-
-function stripConstraints(def) {
-  return def.replace(/\bNOT\s+NULL\b/gi, '').replace(/\bUNIQUE\b/gi, '')
-    .replace(/\bREFERENCES\s+"[^"]+"\([^)]+\)/gi, '').replace(/\s{2,}/g, ' ').trim();
-}
-
-function buildColumnDefs(entity, allEntities) {
-  const cols = [];
-
-  if (entity.authenticable) {
-    cols.push({ name: 'email', def: '"email" TEXT NOT NULL UNIQUE' });
-    cols.push({ name: 'password', def: '"password" TEXT NOT NULL' });
-  }
-
-  for (const p of entity.properties) {
-    // Skip email/password for authenticable entities — they are already added above
-    if (entity.authenticable && (p.name === 'email' || p.name === 'password')) continue;
-    cols.push({ name: p.name, def: `"${p.name}" ${SQL_TYPE[p.type] || 'TEXT'}` });
-  }
-
-  for (const rel of entity.belongsTo || []) {
-    const relName = typeof rel === 'string' ? rel : (rel.entity || rel.name);
-    const ref = allEntities[relName];
-    if (ref) {
-      const fk = `${ref.tableName}_id`;
-      cols.push({ name: fk, def: `"${fk}" TEXT REFERENCES "${ref.tableName}"(id)` });
-    }
-  }
-
-  return cols;
-}
-
-function getDb() {
-  if (!db) throw new Error('Database not initialized. Call initDb() first.');
-  return db;
-}
-
-// ─── Filter parsing ──────────────────────────────────────────────────────────
+// ─── Filter parsing ───────────────────────────────────────────────────────────
 
 const FILTER_SUFFIXES = {
-  _eq:   (col, val) => ({ sql: `"${col}" = ?`, val }),
-  _neq:  (col, val) => ({ sql: `"${col}" != ?`, val }),
-  _gt:   (col, val) => ({ sql: `"${col}" > ?`, val }),
-  _gte:  (col, val) => ({ sql: `"${col}" >= ?`, val }),
-  _lt:   (col, val) => ({ sql: `"${col}" < ?`, val }),
-  _lte:  (col, val) => ({ sql: `"${col}" <= ?`, val }),
-  _like: (col, val) => ({ sql: `"${col}" LIKE ?`, val }),
+  _eq:   (col, val) => ({ sql: `${q(col)} = ?`,    val }),
+  _neq:  (col, val) => ({ sql: `${q(col)} != ?`,   val }),
+  _gt:   (col, val) => ({ sql: `${q(col)} > ?`,    val }),
+  _gte:  (col, val) => ({ sql: `${q(col)} >= ?`,   val }),
+  _lt:   (col, val) => ({ sql: `${q(col)} < ?`,    val }),
+  _lte:  (col, val) => ({ sql: `${q(col)} <= ?`,   val }),
+  _like: (col, val) => ({ sql: `${q(col)} LIKE ?`, val }),
   _in:   (col, val) => {
     const items = String(val).split(',');
-    return { sql: `"${col}" IN (${items.map(() => '?').join(',')})`, val: items };
+    return { sql: `${q(col)} IN (${items.map(() => '?').join(',')})`, val: items };
   },
 };
 
-/**
- * Parse query string params into filter clauses.
- * Supports: prop=val (exact match), prop_eq=val, prop_gt=val, etc.
- */
 function parseFilters(query, validColumns) {
   const clauses = [];
   const values = [];
@@ -174,9 +340,8 @@ function parseFilters(query, validColumns) {
       }
     }
 
-    // Exact match (no suffix)
     if (!matched && validColumns.has(key)) {
-      clauses.push(`"${key}" = ?`);
+      clauses.push(`${q(key)} = ?`);
       values.push(val);
     }
   }
@@ -184,31 +349,47 @@ function parseFilters(query, validColumns) {
   return { clauses, values };
 }
 
-// ─── CRUD ────────────────────────────────────────────────────────────────────
+// ─── Column introspection (for CRUD query safety) ─────────────────────────────
 
-/**
- * Query rows with filter suffixes, ordering, and pagination.
- * opts: { page, perPage, orderBy, order, relations }
- */
-function findAll(table, query = {}, opts = {}) {
-  const d = getDb();
-  const validCols = new Set(d.pragma(`table_info("${table}")`).map((r) => r.name));
+async function getValidColumns(table) {
+  if (DB_ENGINE === 'postgres') {
+    const rows = await queryAll(
+      `SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = ?`,
+      [table]
+    );
+    return new Set(rows.map((r) => r.column_name));
+  }
+  if (DB_ENGINE === 'mysql') {
+    const rows = await queryAll(
+      `SELECT COLUMN_NAME FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ?`,
+      [table]
+    );
+    return new Set(rows.map((r) => r.COLUMN_NAME || r.column_name));
+  }
+  return new Set(_sqliteDb.pragma(`table_info("${table}")`).map((r) => r.name));
+}
+
+// ─── CRUD ─────────────────────────────────────────────────────────────────────
+
+async function findAll(table, query = {}, opts = {}) {
+  const validCols = await getValidColumns(table);
   const { clauses, values } = parseFilters(query, validCols);
 
-  let sql = `SELECT * FROM "${table}"`;
+  let sql = `SELECT * FROM ${q(table)}`;
   if (clauses.length) sql += ` WHERE ${clauses.join(' AND ')}`;
 
-  // Ordering — only allow column names that exist and match safe pattern
+  // Count total — build before adding ORDER BY (PostgreSQL disallows ORDER BY in aggregate queries)
+  const countSql = sql.replace(/^SELECT \*/, 'SELECT COUNT(*) as total');
+  const countRow = await queryOne(countSql, values);
+
+  // Ordering (added after count so the count query stays clean)
   const SAFE_COL = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
   const orderBy = opts.orderBy || 'createdAt';
   const orderDir = (opts.order || 'DESC').toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
   if (validCols.has(orderBy) && SAFE_COL.test(orderBy)) {
-    sql += ` ORDER BY "${orderBy}" ${orderDir}`;
+    sql += ` ORDER BY ${q(orderBy)} ${orderDir}`;
   }
-
-  // Count total before pagination
-  const countSql = sql.replace(/^SELECT \*/, 'SELECT COUNT(*) as total');
-  const total = d.prepare(countSql).get(...values).total;
+  const total = Number(countRow.total);
 
   // Pagination
   const page = Math.max(1, parseInt(opts.page, 10) || 1);
@@ -216,7 +397,7 @@ function findAll(table, query = {}, opts = {}) {
   const offset = (page - 1) * perPage;
   sql += ` LIMIT ? OFFSET ?`;
 
-  const data = d.prepare(sql).all(...values, perPage, offset);
+  const data = await queryAll(sql, [...values, perPage, offset]);
   const lastPage = Math.max(1, Math.ceil(total / perPage));
 
   return {
@@ -230,65 +411,58 @@ function findAll(table, query = {}, opts = {}) {
   };
 }
 
-/**
- * Simple findAll without pagination for internal use (e.g., auth lookups).
- */
-function findAllSimple(table, filters = {}) {
-  const d = getDb();
+async function findAllSimple(table, filters = {}) {
   const keys = Object.keys(filters);
-  if (!keys.length) return d.prepare(`SELECT * FROM "${table}"`).all();
-  const valid = new Set(d.pragma(`table_info("${table}")`).map((r) => r.name));
-  const safe = Object.fromEntries(keys.filter((k) => valid.has(k)).map((k) => [k, filters[k]]));
-  if (!Object.keys(safe).length) return d.prepare(`SELECT * FROM "${table}"`).all();
-  const where = Object.keys(safe).map((k) => `"${k}" = ?`).join(' AND ');
-  return d.prepare(`SELECT * FROM "${table}" WHERE ${where}`).all(...Object.values(safe));
+  if (!keys.length) return queryAll(`SELECT * FROM ${q(table)}`, []);
+  const validCols = await getValidColumns(table);
+  const safe = Object.fromEntries(keys.filter((k) => validCols.has(k)).map((k) => [k, filters[k]]));
+  if (!Object.keys(safe).length) return queryAll(`SELECT * FROM ${q(table)}`, []);
+  const where = Object.keys(safe).map((k) => `${q(k)} = ?`).join(' AND ');
+  return queryAll(`SELECT * FROM ${q(table)} WHERE ${where}`, Object.values(safe));
 }
 
-function findById(table, id) {
-  return getDb().prepare(`SELECT * FROM "${table}" WHERE id = ?`).get(id) || null;
+async function findById(table, id) {
+  return queryOne(`SELECT * FROM ${q(table)} WHERE ${q('id')} = ?`, [id]);
 }
 
-function create(table, data) {
-  const d = getDb();
+async function create(table, data) {
   const now = new Date().toISOString();
   const id = generateUUID();
   const full = { id, createdAt: now, updatedAt: now, ...data };
   const keys = Object.keys(full);
-  const cols = keys.map((k) => `"${k}"`).join(', ');
+  const cols = keys.map((k) => q(k)).join(', ');
   const ph = keys.map(() => '?').join(', ');
-  d.prepare(`INSERT INTO "${table}" (${cols}) VALUES (${ph})`).run(...Object.values(full));
+  await queryRun(`INSERT INTO ${q(table)} (${cols}) VALUES (${ph})`, Object.values(full));
   return findById(table, id);
 }
 
-function update(table, id, data) {
+async function update(table, id, data) {
   const now = new Date().toISOString();
   const full = { ...data, updatedAt: now };
   const keys = Object.keys(full);
   if (!keys.length) return findById(table, id);
-  const set = keys.map((k) => `"${k}" = ?`).join(', ');
-  getDb().prepare(`UPDATE "${table}" SET ${set} WHERE id = ?`).run(...Object.values(full), id);
+  const set = keys.map((k) => `${q(k)} = ?`).join(', ');
+  await queryRun(`UPDATE ${q(table)} SET ${set} WHERE ${q('id')} = ?`, [...Object.values(full), id]);
   return findById(table, id);
 }
 
-function remove(table, id) {
-  const existing = findById(table, id);
+async function remove(table, id) {
+  const existing = await findById(table, id);
   if (!existing) return null;
-  getDb().prepare(`DELETE FROM "${table}" WHERE id = ?`).run(id);
+  await queryRun(`DELETE FROM ${q(table)} WHERE ${q('id')} = ?`, [id]);
   return existing;
 }
 
-// ─── Relation helpers ────────────────────────────────────────────────────────
+// ─── Relation helpers ─────────────────────────────────────────────────────────
 
-/**
- * Load relations for a single row. Mutates the row in-place.
- * relationNames: comma-separated string or array.
- */
-function loadRelations(row, entity, relationNames) {
+async function loadRelations(row, entity, relationNames) {
   if (!row || !entity || !relationNames || !_core) return row;
-  const names = Array.isArray(relationNames) ? relationNames : relationNames.split(',').map((s) => s.trim());
+  const names = Array.isArray(relationNames)
+    ? relationNames
+    : relationNames.split(',').map((s) => s.trim());
 
   for (const relName of names) {
-    // belongsTo: look up the FK column
+    // belongsTo
     const btRel = (entity.belongsTo || []).find((r) => {
       const rName = typeof r === 'string' ? r : (r.name || r.entity);
       return rName.toLowerCase() === relName.toLowerCase();
@@ -298,16 +472,12 @@ function loadRelations(row, entity, relationNames) {
       const relEntity = _core.entities[relEntityName];
       if (relEntity) {
         const fk = `${relEntity.tableName}_id`;
-        if (row[fk]) {
-          row[relName] = findById(relEntity.tableName, row[fk]);
-        } else {
-          row[relName] = null;
-        }
+        row[relName] = row[fk] ? await findById(relEntity.tableName, row[fk]) : null;
       }
       continue;
     }
 
-    // belongsToMany: look up junction table
+    // belongsToMany
     const btmRel = (entity.belongsToMany || []).find((r) => {
       const rName = typeof r === 'string' ? r : (r.name || r.entity);
       return rName.toLowerCase() === relName.toLowerCase();
@@ -320,15 +490,15 @@ function loadRelations(row, entity, relationNames) {
         const jt = `${a}_${b}`;
         const myCol = `${entity.tableName}_id`;
         const otherCol = `${relEntity.tableName}_id`;
-        const related = getDb()
-          .prepare(`SELECT t.* FROM "${relEntity.tableName}" t JOIN "${jt}" j ON j."${otherCol}" = t.id WHERE j."${myCol}" = ?`)
-          .all(row.id);
-        row[relName] = related;
+        row[relName] = await queryAll(
+          `SELECT t.* FROM ${q(relEntity.tableName)} t JOIN ${q(jt)} j ON j.${q(otherCol)} = t.id WHERE j.${q(myCol)} = ?`,
+          [row.id]
+        );
       }
       continue;
     }
 
-    // hasMany (reverse belongsTo): another entity belongsTo this entity
+    // hasMany (reverse belongsTo)
     for (const otherEntity of Object.values(_core.entities)) {
       const reverseRel = (otherEntity.belongsTo || []).find((r) => {
         const rEntity = typeof r === 'string' ? r : (r.entity || r.name);
@@ -336,9 +506,10 @@ function loadRelations(row, entity, relationNames) {
       });
       if (reverseRel && otherEntity.slug.toLowerCase() === relName.toLowerCase()) {
         const fk = `${entity.tableName}_id`;
-        row[relName] = getDb()
-          .prepare(`SELECT * FROM "${otherEntity.tableName}" WHERE "${fk}" = ?`)
-          .all(row.id);
+        row[relName] = await queryAll(
+          `SELECT * FROM ${q(otherEntity.tableName)} WHERE ${q(fk)} = ?`,
+          [row.id]
+        );
         break;
       }
     }
@@ -347,18 +518,13 @@ function loadRelations(row, entity, relationNames) {
   return row;
 }
 
-/**
- * Store belongsToMany relations for a record.
- * body may contain keys like `skillIds: [id1, id2]`.
- */
-function saveBelongsToMany(entity, recordId, body) {
+async function saveBelongsToMany(entity, recordId, body) {
   if (!_core) return;
   for (const rel of entity.belongsToMany || []) {
     const relEntityName = typeof rel === 'string' ? rel : (rel.entity || rel.name);
     const relEntity = _core.entities[relEntityName];
     if (!relEntity) continue;
 
-    // Convention: entityIds (camelCase plural)
     const idsKey = `${relEntityName.charAt(0).toLowerCase() + relEntityName.slice(1)}Ids`;
     const ids = body[idsKey];
     if (!Array.isArray(ids)) continue;
@@ -369,16 +535,25 @@ function saveBelongsToMany(entity, recordId, body) {
     const otherCol = `${relEntity.tableName}_id`;
 
     // Clear existing
-    getDb().prepare(`DELETE FROM "${jt}" WHERE "${myCol}" = ?`).run(recordId);
+    await queryRun(`DELETE FROM ${q(jt)} WHERE ${q(myCol)} = ?`, [recordId]);
 
     // Insert new
-    const ins = getDb().prepare(`INSERT OR IGNORE INTO "${jt}" ("${myCol}", "${otherCol}") VALUES (?, ?)`);
-    for (const otherId of ids) ins.run(recordId, otherId);
+    const insertSql = buildInsertOrIgnoreSql(jt, myCol, otherCol);
+    for (const otherId of ids) {
+      await queryRun(insertSql, [recordId, otherId]);
+    }
   }
 }
 
+async function closeDb() {
+  if (_pgPool)    { try { await _pgPool.end(); } finally { _pgPool = null; } }
+  if (_mysqlPool) { try { await _mysqlPool.end(); } finally { _mysqlPool = null; } }
+  if (_sqliteDb)  { try { _sqliteDb.close(); } finally { _sqliteDb = null; } }
+}
+
 module.exports = {
-  initDb, syncSchema, getDb, generateUUID,
+  initDb, syncSchema, getDb, generateUUID, closeDb,
+  exec, queryAll, queryOne, queryRun,
   findAll, findAllSimple, findById, create, update, remove,
   loadRelations, saveBelongsToMany,
 };

@@ -35,7 +35,7 @@ describe('seeder', () => {
 
   before(async () => {
     seedDbPath = path.join(os.tmpdir(), `chadstart-seed-${Date.now()}.db`);
-    dbModule.initDb(seedCore, seedDbPath);
+    await dbModule.initDb(seedCore, seedDbPath);
     firstSeedResult = await seedAll(seedCore);
   });
 
@@ -46,23 +46,23 @@ describe('seeder', () => {
     assert.strictEqual(firstSeedResult.summary.Article, 5);
   });
 
-  it('seedAll inserts rows into the database', () => {
-    const authors = dbModule.findAll('author', {}, { perPage: 100 });
+  it('seedAll inserts rows into the database', async () => {
+    const authors = await dbModule.findAll('author', {}, { perPage: 100 });
     assert.ok(authors.total >= 3);
-    const articles = dbModule.findAll('article', {}, { perPage: 100 });
+    const articles = await dbModule.findAll('article', {}, { perPage: 100 });
     assert.ok(articles.total >= 5);
   });
 
-  it('seedAll creates authenticable records with email field', () => {
-    const authors = dbModule.findAll('author', {}, { perPage: 100 });
+  it('seedAll creates authenticable records with email field', async () => {
+    const authors = await dbModule.findAll('author', {}, { perPage: 100 });
     for (const a of authors.data) {
       assert.ok(typeof a.email === 'string' && a.email.includes('@'));
       assert.ok(typeof a.password === 'string' && a.password.length > 0);
     }
   });
 
-  it('seedAll links belongsTo FK to a seeded parent', () => {
-    const articles = dbModule.findAll('article', {}, { perPage: 100 });
+  it('seedAll links belongsTo FK to a seeded parent', async () => {
+    const articles = await dbModule.findAll('article', {}, { perPage: 100 });
     for (const art of articles.data) {
       assert.ok(art.author_id !== null && art.author_id !== undefined);
     }
@@ -74,12 +74,12 @@ describe('seeder', () => {
       entities: { Tag: { properties: ['label'] } },
     });
     const defaultDbPath = path.join(os.tmpdir(), `chadstart-seed-default-${Date.now()}.db`);
-    dbModule.initDb(defaultCore, defaultDbPath);
+    await dbModule.initDb(defaultCore, defaultDbPath);
     const result = await seedAll(defaultCore);
     assert.strictEqual(result.summary.Tag, 50);
     fs.unlinkSync(defaultDbPath);
     // Restore the original seedCore DB for subsequent tests in this describe block
-    dbModule.initDb(seedCore, seedDbPath);
+    await dbModule.initDb(seedCore, seedDbPath);
   });
 
   it('seedAll creates admin@chadstart.com in authenticable entities', () => {
@@ -88,9 +88,9 @@ describe('seeder', () => {
     assert.strictEqual(firstSeedResult.adminPassword, ADMIN_PASSWORD);
   });
 
-  it('seedAll creates admin user with correct email in the database', () => {
-    dbModule.initDb(seedCore, seedDbPath);
-    const admins = dbModule.findAllSimple('author', { email: ADMIN_EMAIL });
+  it('seedAll creates admin user with correct email in the database', async () => {
+    await dbModule.initDb(seedCore, seedDbPath);
+    const admins = await dbModule.findAllSimple('author', { email: ADMIN_EMAIL });
     assert.strictEqual(admins.length, 1);
     assert.strictEqual(admins[0].email, ADMIN_EMAIL);
   });
@@ -107,10 +107,10 @@ describe('seeder', () => {
       },
     });
     const freshDbPath = path.join(os.tmpdir(), `chadstart-seed-admin-${Date.now()}.db`);
-    dbModule.initDb(freshCore, freshDbPath);
+    await dbModule.initDb(freshCore, freshDbPath);
     const result = await seedAll(freshCore);
     assert.ok(result.adminEntities.includes('User'));
-    const admins = dbModule.findAllSimple('user', { email: ADMIN_EMAIL });
+    const admins = await dbModule.findAllSimple('user', { email: ADMIN_EMAIL });
     assert.strictEqual(admins.length, 1);
     assert.strictEqual(admins[0].email, ADMIN_EMAIL);
     fs.unlinkSync(freshDbPath);
@@ -129,9 +129,9 @@ describe('seeder', () => {
       },
     });
     const dupDbPath = path.join(os.tmpdir(), `chadstart-seed-dup-${Date.now()}.db`);
-    dbModule.initDb(dupCore, dupDbPath);
+    await dbModule.initDb(dupCore, dupDbPath);
     // Manually create the admin user before seeding
-    dbModule.create('member', {
+    await dbModule.create('member', {
       email: ADMIN_EMAIL,
       password: bcrypt.hashSync(ADMIN_PASSWORD, 10),
       name: 'pre-existing admin',
@@ -139,7 +139,7 @@ describe('seeder', () => {
     // seedAll should not create a duplicate
     const result = await seedAll(dupCore);
     assert.strictEqual(result.adminEntities.length, 0);
-    const admins = dbModule.findAllSimple('member', { email: ADMIN_EMAIL });
+    const admins = await dbModule.findAllSimple('member', { email: ADMIN_EMAIL });
     assert.strictEqual(admins.length, 1);
     fs.unlinkSync(dupDbPath);
   });
@@ -177,9 +177,9 @@ describe('seeder – property types', () => {
     },
   });
 
-  before(() => {
+  before(async () => {
     tmp = path.join(os.tmpdir(), `chadstart-seedtypes-${Date.now()}.db`);
-    dbModule.initDb(core, tmp);
+    await dbModule.initDb(core, tmp);
   });
 
   after(() => { fs.unlinkSync(tmp); });
@@ -187,7 +187,7 @@ describe('seeder – property types', () => {
   it('seedAll generates values for every property type', async () => {
     const result = await seedAll(core);
     assert.strictEqual(result.summary.Sample, 3);
-    const rows = dbModule.findAll('sample', {}, { perPage: 100 });
+    const rows = await dbModule.findAll('sample', {}, { perPage: 100 });
     assert.strictEqual(rows.total, 3);
     const r = rows.data[0];
     assert.ok(typeof r.myText === 'string' && r.myText.length > 0);
@@ -217,7 +217,7 @@ describe('seeder – property types', () => {
       entities: { Config: { single: true, properties: ['key', 'value'] } },
     });
     const singleTmp = path.join(os.tmpdir(), `chadstart-seedsingle-${Date.now()}.db`);
-    dbModule.initDb(singleCore, singleTmp);
+    await dbModule.initDb(singleCore, singleTmp);
     const result = await seedAll(singleCore);
     assert.strictEqual(result.summary.Config, 1);
     fs.unlinkSync(singleTmp);
@@ -242,9 +242,9 @@ describe('seeder – authenticable entities with explicit email/password propert
     },
   });
 
-  before(() => {
+  before(async () => {
     tmp = path.join(os.tmpdir(), `chadstart-authprop-${Date.now()}.db`);
-    dbModule.initDb(core, tmp);
+    await dbModule.initDb(core, tmp);
   });
 
   after(() => { fs.unlinkSync(tmp); });
@@ -263,7 +263,7 @@ describe('seeder – authenticable entities with explicit email/password propert
   it('seedAll succeeds and creates records with valid email addresses', async () => {
     const result = await seedAll(core);
     assert.strictEqual(result.summary.Customer, 3);
-    const rows = dbModule.findAll('customer', {}, { perPage: 100 });
+    const rows = await dbModule.findAll('customer', {}, { perPage: 100 });
     assert.ok(rows.total >= 3);
     for (const r of rows.data) {
       assert.ok(typeof r.email === 'string' && r.email.includes('@'), `email should contain @, got: ${r.email}`);
@@ -272,7 +272,7 @@ describe('seeder – authenticable entities with explicit email/password propert
   });
 
   it('seedAll creates admin user with correct email when entity has explicit email property', async () => {
-    const admins = dbModule.findAllSimple('customer', { email: ADMIN_EMAIL });
+    const admins = await dbModule.findAllSimple('customer', { email: ADMIN_EMAIL });
     assert.strictEqual(admins.length, 1);
     assert.strictEqual(admins[0].email, ADMIN_EMAIL);
   });

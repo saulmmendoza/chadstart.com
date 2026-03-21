@@ -18,10 +18,10 @@ describe('createBackendSdk', () => {
     },
   });
 
-  before(() => {
+  before(async () => {
     tmp = path.join(os.tmpdir(), `chadstart-sdk-${Date.now()}.db`);
-    dbModule.initDb(sdkCore, tmp);
-    dbModule.create('config', { value: 'initial' });
+    await dbModule.initDb(sdkCore, tmp);
+    await dbModule.create('config', { value: 'initial' });
     sdk = createBackendSdk(sdkCore);
   });
 
@@ -37,30 +37,30 @@ describe('createBackendSdk', () => {
     assert.strictEqual(typeof iface.delete, 'function');
   });
 
-  it('from().create and findOneById work', () => {
-    const book = sdk.from('book').create({ title: 'Dune', author: 'Herbert' });
+  it('from().create and findOneById work', async () => {
+    const book = await sdk.from('book').create({ title: 'Dune', author: 'Herbert' });
     assert.strictEqual(book.title, 'Dune');
-    const found = sdk.from('book').findOneById(book.id);
+    const found = await sdk.from('book').findOneById(book.id);
     assert.strictEqual(found.author, 'Herbert');
   });
 
-  it('from().find returns paginated result', () => {
-    const result = sdk.from('book').find();
+  it('from().find returns paginated result', async () => {
+    const result = await sdk.from('book').find();
     assert.ok(Array.isArray(result.data));
     assert.ok(typeof result.total === 'number');
   });
 
-  it('from().patch updates a field', () => {
-    const book = sdk.from('book').create({ title: 'Old Title', author: 'Author' });
-    const updated = sdk.from('book').patch(book.id, { title: 'New Title' });
+  it('from().patch updates a field', async () => {
+    const book = await sdk.from('book').create({ title: 'Old Title', author: 'Author' });
+    const updated = await sdk.from('book').patch(book.id, { title: 'New Title' });
     assert.strictEqual(updated.title, 'New Title');
     assert.strictEqual(updated.author, 'Author');
   });
 
-  it('from().delete removes a record', () => {
-    const book = sdk.from('book').create({ title: 'To Delete', author: 'X' });
-    sdk.from('book').delete(book.id);
-    assert.strictEqual(sdk.from('book').findOneById(book.id), null);
+  it('from().delete removes a record', async () => {
+    const book = await sdk.from('book').create({ title: 'To Delete', author: 'X' });
+    await sdk.from('book').delete(book.id);
+    assert.strictEqual(await sdk.from('book').findOneById(book.id), null);
   });
 
   it('from() throws for unknown slug', () => {
@@ -74,13 +74,13 @@ describe('createBackendSdk', () => {
     assert.strictEqual(typeof iface.patch, 'function');
   });
 
-  it('single().get retrieves the record', () => {
-    const record = sdk.single('config').get();
+  it('single().get retrieves the record', async () => {
+    const record = await sdk.single('config').get();
     assert.strictEqual(record.value, 'initial');
   });
 
-  it('single().patch updates a field', () => {
-    const updated = sdk.single('config').patch({ value: 'changed' });
+  it('single().patch updates a field', async () => {
+    const updated = await sdk.single('config').patch({ value: 'changed' });
     assert.strictEqual(updated.value, 'changed');
   });
 

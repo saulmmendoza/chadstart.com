@@ -25,7 +25,7 @@ describe('runMiddlewares – SDK injection', () => {
 
   before(async () => {
     tmp = path.join(os.tmpdir(), `chadstart-mw-${Date.now()}.db`);
-    dbModule.initDb(mwCore, tmp);
+    await dbModule.initDb(mwCore, tmp);
 
     functionsDir = path.join(os.tmpdir(), `chadstart-functions-${Date.now()}`);
     fs.mkdirSync(functionsDir, { recursive: true });

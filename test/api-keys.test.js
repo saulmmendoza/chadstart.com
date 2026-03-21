@@ -71,8 +71,8 @@ describe('API Keys', function () {
       initApiKeys, createApiKey, verifyApiKeyStr, listApiKeys, deleteApiKey,
     } = require('../core/auth');
 
-    it('createApiKey returns a key string and record', function () {
-      const { key, record } = createApiKey('user-1', 'Admin', { name: 'TestKey', permissions: ['read'], entities: [] });
+    it('createApiKey returns a key string and record', async function () {
+      const { key, record } = await createApiKey('user-1', 'Admin', { name: 'TestKey', permissions: ['read'], entities: [] });
       assert.ok(key.startsWith('cs_'), 'key should start with cs_');
       assert.strictEqual(key.length, 3 + 64, 'key should be cs_ + 64 hex chars');
       assert.strictEqual(record.name, 'TestKey');
@@ -82,38 +82,38 @@ describe('API Keys', function () {
       assert.ok(!record.keyHash, 'keyHash should not be in returned record');
     });
 
-    it('verifyApiKeyStr returns record for valid key', function () {
-      const { key } = createApiKey('user-2', 'Admin', { name: 'Verify' });
-      const record = verifyApiKeyStr(key);
+    it('verifyApiKeyStr returns record for valid key', async function () {
+      const { key } = await createApiKey('user-2', 'Admin', { name: 'Verify' });
+      const record = await verifyApiKeyStr(key);
       assert.ok(record, 'should return a record');
       assert.strictEqual(record.userId, 'user-2');
     });
 
-    it('verifyApiKeyStr returns null for wrong key', function () {
-      assert.strictEqual(verifyApiKeyStr('cs_notavalidkey'), null);
+    it('verifyApiKeyStr returns null for wrong key', async function () {
+      assert.strictEqual(await verifyApiKeyStr('cs_notavalidkey'), null);
     });
 
-    it('verifyApiKeyStr returns null for non-cs_ prefixed string', function () {
-      assert.strictEqual(verifyApiKeyStr('eyJhbGciOiJIUzI1NiJ9.x.y'), null);
+    it('verifyApiKeyStr returns null for non-cs_ prefixed string', async function () {
+      assert.strictEqual(await verifyApiKeyStr('eyJhbGciOiJIUzI1NiJ9.x.y'), null);
     });
 
-    it('verifyApiKeyStr returns null for expired key', function () {
+    it('verifyApiKeyStr returns null for expired key', async function () {
       const pastDate = new Date(Date.now() - 1000).toISOString();
-      const { key } = createApiKey('user-3', 'Admin', { expiresAt: pastDate });
-      assert.strictEqual(verifyApiKeyStr(key), null, 'expired key should return null');
+      const { key } = await createApiKey('user-3', 'Admin', { expiresAt: pastDate });
+      assert.strictEqual(await verifyApiKeyStr(key), null, 'expired key should return null');
     });
 
-    it('listApiKeys returns user keys', function () {
-      const { key } = createApiKey('user-list', 'Admin', { name: 'ListKey' });
-      const keys = listApiKeys('user-list', 'Admin');
+    it('listApiKeys returns user keys', async function () {
+      await createApiKey('user-list', 'Admin', { name: 'ListKey' });
+      const keys = await listApiKeys('user-list', 'Admin');
       assert.ok(keys.length >= 1);
       assert.ok(keys.every((k) => !k.keyHash), 'keyHash should be stripped');
     });
 
-    it('deleteApiKey removes the key', function () {
-      const { record } = createApiKey('user-del', 'Admin', { name: 'ToDelete' });
-      deleteApiKey(record.id);
-      const verifiedAfterDelete = listApiKeys('user-del', 'Admin').find((k) => k.id === record.id);
+    it('deleteApiKey removes the key', async function () {
+      const { record } = await createApiKey('user-del', 'Admin', { name: 'ToDelete' });
+      await deleteApiKey(record.id);
+      const verifiedAfterDelete = (await listApiKeys('user-del', 'Admin')).find((k) => k.id === record.id);
       assert.ok(!verifiedAfterDelete, 'key should be deleted');
     });
   });
@@ -123,23 +123,23 @@ describe('API Keys', function () {
   describe('resolveAuthHeader', function () {
     const { resolveAuthHeader, signToken, createApiKey } = require('../core/auth');
 
-    it('resolves JWT Bearer tokens', function () {
+    it('resolves JWT Bearer tokens', async function () {
       const token = signToken({ id: 'u1', entity: 'Admin' });
-      const { user, error } = resolveAuthHeader(`Bearer ${token}`);
+      const { user, error } = await resolveAuthHeader(`Bearer ${token}`);
       assert.ok(user);
       assert.strictEqual(user.id, 'u1');
       assert.strictEqual(error, null);
     });
 
-    it('returns error for no header', function () {
-      const { user, error } = resolveAuthHeader(undefined);
+    it('returns error for no header', async function () {
+      const { user, error } = await resolveAuthHeader(undefined);
       assert.ok(!user);
       assert.strictEqual(error, 'no_header');
     });
 
-    it('resolves API key Bearer tokens', function () {
-      const { key } = createApiKey('u-resolve', 'Admin', { permissions: ['read'], entities: ['posts'] });
-      const { user, apiKeyPermissions, error } = resolveAuthHeader(`Bearer ${key}`);
+    it('resolves API key Bearer tokens', async function () {
+      const { key } = await createApiKey('u-resolve', 'Admin', { permissions: ['read'], entities: ['posts'] });
+      const { user, apiKeyPermissions, error } = await resolveAuthHeader(`Bearer ${key}`);
       assert.ok(user);
       assert.strictEqual(user.id, 'u-resolve');
       assert.strictEqual(error, null);
@@ -147,8 +147,8 @@ describe('API Keys', function () {
       assert.deepStrictEqual(apiKeyPermissions.entities, ['posts']);
     });
 
-    it('returns error for invalid token', function () {
-      const { user, error } = resolveAuthHeader('Bearer bad-token-here');
+    it('returns error for invalid token', async function () {
+      const { user, error } = await resolveAuthHeader('Bearer bad-token-here');
       assert.ok(!user);
       assert.strictEqual(error, 'invalid_token');
     });
