@@ -15,7 +15,7 @@
 const crypto = require('crypto');
 const Grant = require('grant').express();
 const rateLimit = require('express-rate-limit');
-const { signToken } = require('./auth');
+const { signToken, omitPassword } = require('./auth');
 const db = require('./db');
 const logger = require('../utils/logger');
 
@@ -195,7 +195,7 @@ function registerOAuthRoutes(app, core, emit) {
         return res.redirect(`${successRedirect}${sep}token=${encodeURIComponent(token)}`);
       }
 
-      res.json({ token, user: _omitSensitive(user) });
+      res.json({ token, user: omitPassword(user) });
     } catch (e) {
       logger.error('OAuth callback error:', e.message);
       return _handleError(res, oauthConfig, e.message);
@@ -243,12 +243,6 @@ async function _findOrCreateOAuthUser(entity, { email, name, provider, providerI
 
   const created = await db.create(table, newUser);
   return created;
-}
-
-function _omitSensitive(user) {
-  if (!user) return null;
-  const { password: _, ...rest } = user;
-  return rest;
 }
 
 function _handleError(res, oauthConfig, message) {

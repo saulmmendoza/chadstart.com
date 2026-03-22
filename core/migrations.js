@@ -7,6 +7,7 @@ const YAML = require('yaml');
 const logger = require('../utils/logger');
 
 const { buildCore, toSnakeCase } = require('./entity-engine');
+const { DB_ENGINE, q, sqlType, idColType, authStrType } = require('./db');
 
 // ─── Git helpers ──────────────────────────────────────────────────────────────
 
@@ -46,58 +47,6 @@ function loadCurrentYaml(yamlPath) {
   return YAML.parse(fs.readFileSync(resolved, 'utf8'));
 }
 
-// ─── SQL generation helpers ───────────────────────────────────────────────────
-
-const DB_ENGINE = (process.env.DB_ENGINE || 'sqlite').toLowerCase();
-
-const SQL_TYPE_SQLITE = {
-  text: 'TEXT', string: 'TEXT', richText: 'TEXT',
-  integer: 'INTEGER', int: 'INTEGER',
-  number: 'REAL', float: 'REAL', real: 'REAL', money: 'REAL',
-  boolean: 'INTEGER', bool: 'INTEGER',
-  date: 'TEXT', timestamp: 'TEXT', email: 'TEXT', link: 'TEXT',
-  password: 'TEXT', choice: 'TEXT', location: 'TEXT',
-  file: 'TEXT', image: 'TEXT', group: 'TEXT', json: 'TEXT',
-};
-
-const SQL_TYPE_PG = {
-  text: 'TEXT', string: 'TEXT', richText: 'TEXT',
-  integer: 'INTEGER', int: 'INTEGER',
-  number: 'NUMERIC', float: 'NUMERIC', real: 'NUMERIC', money: 'NUMERIC',
-  boolean: 'BOOLEAN', bool: 'BOOLEAN',
-  date: 'TEXT', timestamp: 'TEXT', email: 'TEXT', link: 'TEXT',
-  password: 'TEXT', choice: 'TEXT', location: 'TEXT',
-  file: 'TEXT', image: 'TEXT', group: 'TEXT', json: 'TEXT',
-};
-
-const SQL_TYPE_MYSQL = {
-  text: 'TEXT', string: 'TEXT', richText: 'TEXT',
-  integer: 'INT', int: 'INT',
-  number: 'DECIMAL(15,4)', float: 'DECIMAL(15,4)', real: 'DECIMAL(15,4)', money: 'DECIMAL(15,4)',
-  boolean: 'TINYINT(1)', bool: 'TINYINT(1)',
-  date: 'TEXT', timestamp: 'TEXT', email: 'TEXT', link: 'TEXT',
-  password: 'TEXT', choice: 'TEXT', location: 'TEXT',
-  file: 'TEXT', image: 'TEXT', group: 'TEXT', json: 'TEXT',
-};
-
-function sqlType(type) {
-  if (DB_ENGINE === 'postgres') return SQL_TYPE_PG[type] || 'TEXT';
-  if (DB_ENGINE === 'mysql') return SQL_TYPE_MYSQL[type] || 'TEXT';
-  return SQL_TYPE_SQLITE[type] || 'TEXT';
-}
-
-function idColType() {
-  return DB_ENGINE === 'mysql' ? 'VARCHAR(36)' : 'TEXT';
-}
-
-function authStrType() {
-  return DB_ENGINE === 'mysql' ? 'VARCHAR(191)' : 'TEXT';
-}
-
-function q(name) {
-  if (DB_ENGINE === 'mysql') return `\`${name}\``;
-  return `"${name}"`;
-}
 
 // ─── Diff engine ──────────────────────────────────────────────────────────────
 

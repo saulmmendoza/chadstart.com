@@ -16,6 +16,7 @@ const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const db = require('./db');
+const { q: _q, DB_ENGINE: _DB_ENGINE } = db;
 const logger = require('../utils/logger');
 
 const API_KEY_PREFIX = 'cs_';
@@ -28,10 +29,6 @@ const JWT_SECRET = process.env.JWT_SECRET || process.env.TOKEN_SECRET_KEY || (()
 })();
 const JWT_EXPIRES = process.env.JWT_EXPIRES || '7d';
 const BCRYPT_ROUNDS = 10;
-
-// Quote an identifier for the current database engine (mirrors db.js helper)
-const _DB_ENGINE = (process.env.DB_ENGINE || 'sqlite').toLowerCase();
-function _q(name) { return _DB_ENGINE === 'mysql' ? `\`${name}\`` : `"${name}"`; }
 
 // Column types for the API keys table (must be indexable in all engines)
 const _ID_T   = _DB_ENGINE === 'mysql' ? 'VARCHAR(36)'   : 'TEXT';
