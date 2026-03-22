@@ -1,6 +1,6 @@
 {
   "name": "chadstart",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "YAML-first Backend as a Service — define your entire backend in one YAML file",
   "main": "server/express-server.js",
   "bin": {
