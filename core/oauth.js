@@ -14,9 +14,18 @@
 
 const crypto = require('crypto');
 const Grant = require('grant').express();
+const rateLimit = require('express-rate-limit');
 const { signToken } = require('./auth');
 const db = require('./db');
 const logger = require('../utils/logger');
+
+const oauthLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many OAuth requests, please try again later.' },
+});
 
 // ─── Provider profile normalisation ─────────────────────────────────────────
 
@@ -141,7 +150,7 @@ function registerOAuthRoutes(app, core, emit) {
    * We extract the access_token / profile, find-or-create the user, and
    * return a JWT (or redirect if `oauth.successRedirect` is set).
    */
-  app.get('/api/auth/oauth/callback', async (req, res) => {
+  app.get('/api/auth/oauth/callback', oauthLimiter, async (req, res) => {
     try {
       const { access_token, profile, provider, error } = req.query;
 
@@ -194,7 +203,7 @@ function registerOAuthRoutes(app, core, emit) {
   });
 
   // List configured providers
-  app.get('/api/auth/oauth/providers', (_req, res) => {
+  app.get('/api/auth/oauth/providers', oauthLimiter, (_req, res) => {
     const providers = Object.keys(oauthConfig.providers || {});
     res.json({ providers });
   });
