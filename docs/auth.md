@@ -42,6 +42,9 @@ entities:
 
 Authenticable entities have 2 extra properties that are used as credentials to log in: `email` and `password`. You do not need to specify them.The `email` property expects a unique valid emails and the `password` property is automatically hashed using _bcryt_ with 10 salt rounds.
 
+!!! tip "Social Login"
+    Want users to log in with Google, GitHub, Discord, or other OAuth providers? See the [OAuth / Social Login](./oauth.md) guide.
+
 ## Actions
 
 ### Login

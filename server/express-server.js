@@ -23,6 +23,7 @@ const { loadPlugins } = require('../core/plugin-loader');
 const { initErrorReporter, getRequestHandler, attachErrorHandler } = require('../core/error-reporter');
 const { getTelemetryConfig, initTelemetry } = require('../core/telemetry');
 const { setupFunctions, cleanup: cleanupFunctions } = require('../core/functions-engine');
+const { registerOAuthRoutes } = require('../core/oauth');
 const logger = require('../utils/logger');
 
 function limiter(windowMs, max) {
@@ -133,6 +134,7 @@ async function buildApp(yamlPath, reloadFn) {
   app.use('/api/auth', authLimiter);
   registerAuthRoutes(app, core, emit);
   registerApiKeyRoutes(app, core);
+  registerOAuthRoutes(app, core, emit);
 
   const apiLimiters = buildApiLimiters(core);
   app.use('/api', ...apiLimiters);
