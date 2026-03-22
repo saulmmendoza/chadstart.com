@@ -4,6 +4,18 @@ const path = require('path');
 const fs = require('fs');
 const express = require('express');
 const logger = require('../utils/logger');
+const { sanitizeFilename } = require('./upload');
+
+// Lazy-load busboy (shared with upload.js)
+function getBusboy() {
+  try {
+    return require('busboy');
+  } catch {
+    throw new Error(
+      'busboy is required for file uploads. Install it with: npm install busboy'
+    );
+  }
+}
 
 /**
  * Register file storage routes for all buckets defined in core.files.
@@ -50,11 +62,7 @@ function registerFileRoutes(app, core) {
           file.resume();
           return;
         }
-        // Sanitize filename — strip directory traversal and disallow problematic characters
-        const safeName = path
-          .basename(filename)
-          .replace(/[^a-zA-Z0-9._-]/g, '_')
-          .replace(/^\.+/, '_');
+        const safeName = sanitizeFilename(filename);
         const dest = path.join(bucketPath, safeName);
         const writeStream = fs.createWriteStream(dest);
         file.pipe(writeStream);
@@ -81,16 +89,6 @@ function registerFileRoutes(app, core) {
     });
 
     logger.info(`  Registered file bucket "${bucketName}" at /files/${bucketName} -> ${bucketPath}`);
-  }
-}
-
-function getBusboy() {
-  try {
-    return require('busboy');
-  } catch {
-    throw new Error(
-      'busboy is required for file uploads. Install it with: npm install busboy'
-    );
   }
 }
 

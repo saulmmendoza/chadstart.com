@@ -552,6 +552,7 @@ async function closeDb() {
 }
 
 module.exports = {
+  DB_ENGINE, q, sqlType, idColType, authStrType, toPgPlaceholders,
   initDb, syncSchema, getDb, generateUUID, closeDb,
   exec, queryAll, queryOne, queryRun,
   findAll, findAllSimple, findById, create, update, remove,

@@ -44,7 +44,7 @@ function fakeValueForProp(prop, idx, groups = {}) {
   const { name, type, options } = prop;
   const n = idx + 1;
 
-  if (options && Array.isArray(options) && options.length > 0) {
+  if (Array.isArray(options) && options.length) {
     return options[randomInt(0, options.length - 1)];
   }
 
@@ -184,7 +184,7 @@ async function seedAll(core) {
       for (const rel of entity.belongsTo || []) {
         const parentName = typeof rel === 'string' ? rel : (rel.entity || rel.name);
         const parentEntity = core.entities[parentName];
-        if (parentEntity && seededIds[parentName] && seededIds[parentName].length > 0) {
+        if (parentEntity && seededIds[parentName]?.length) {
           const fk = `${parentEntity.tableName}_id`;
           const parentIds = seededIds[parentName];
           record[fk] = parentIds[randomInt(0, parentIds.length - 1)];

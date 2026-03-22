@@ -310,10 +310,10 @@ function _apiKeyPermGuard(operation, entity) {
   return (req, res, next) => {
     if (!req._apiKeyPermissions) return next();
     const { operations, entities: keyEntities } = req._apiKeyPermissions;
-    if (operations && operations.length > 0 && !operations.includes(operation)) {
+    if (operations?.length && !operations.includes(operation)) {
       return res.status(403).json({ error: 'API key does not have permission for this operation' });
     }
-    if (keyEntities && keyEntities.length > 0 && !keyEntities.includes(entity.slug)) {
+    if (keyEntities?.length && !keyEntities.includes(entity.slug)) {
       return res.status(403).json({ error: 'API key does not have access to this entity' });
     }
     next();
