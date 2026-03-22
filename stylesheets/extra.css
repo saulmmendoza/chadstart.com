@@ -1,0 +1,375 @@
+/* ============================================================
+   Landing page hero section
+   ============================================================ */
+
+.mdx-container {
+  padding-top: 1rem;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(
+    to bottom,
+    var(--md-primary-fg-color),
+    hsla(var(--md-hue), 15%, 21%, 1) 99%,
+    var(--md-default-bg-color) 99%
+  );
+}
+
+/* ── Tech grid background overlay ── */
+.mdx-tech-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(0, 0, 0, 0.6) 15%,
+    rgba(0, 0, 0, 0.6) 85%,
+    transparent 100%
+  );
+}
+
+/* ── Floating warrior mascots (parallax) ── */
+.mdx-mascot {
+  position: absolute;
+  bottom: 0;
+  z-index: 1;
+  pointer-events: none;
+  user-select: none;
+}
+
+.mdx-mascot img {
+  width: 200px;
+  height: auto;
+  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.5));
+  animation: mdx-mascot-float 6s ease-in-out infinite;
+}
+
+.mdx-mascot--left {
+  left: 0;
+}
+
+.mdx-mascot--right {
+  right: 0;
+  animation-delay: -3s;
+}
+
+.mdx-mascot--right img {
+  animation-delay: -3s;
+}
+
+@keyframes mdx-mascot-float {
+  0%,  100% { transform: translateY(0px)   rotate(-1.5deg); }
+  50%        { transform: translateY(-18px) rotate(1.5deg);  }
+}
+
+@media screen and (max-width: 96em) {
+  .mdx-mascot { display: none; }
+}
+
+.mdx-hero {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3rem;
+  align-items: center;
+  padding: 4rem 0 5rem;
+  color: var(--md-primary-bg-color);
+}
+
+@media screen and (max-width: 76.25em) {
+  .mdx-hero {
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+
+  .mdx-hero__code {
+    display: none;
+  }
+}
+
+.mdx-hero h1 {
+  font-size: 2.8rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--md-primary-bg-color);
+  margin-bottom: 1rem;
+}
+
+.mdx-hero__accent {
+  /* subtle fade on the second heading line for visual layering */
+  opacity: 0.85;
+}
+
+.mdx-hero__description {
+  font-size: 1.15rem;
+  line-height: 1.7;
+  opacity: 0.9;
+  margin-bottom: 2rem;
+  max-width: 480px;
+}
+
+@media screen and (max-width: 76.25em) {
+  .mdx-hero__description {
+    max-width: 100%;
+  }
+}
+
+/* Code block in hero */
+.mdx-hero__code {
+  background-color: hsla(0, 0%, 0%, 0.4);
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  overflow: auto;
+}
+
+.mdx-hero__code pre {
+  margin: 0;
+  background: transparent;
+  padding: 0;
+  overflow: visible;
+}
+
+.mdx-hero__code code {
+  font-size: 0.85rem;
+  line-height: 1.7;
+  color: #e0e0e0;
+}
+
+/* YAML syntax highlighting colours in hero */
+.mdx-hero__code .nc { color: #82b1ff; font-weight: 600; }
+.mdx-hero__code .na { color: #80cbc4; }
+.mdx-hero__code .s  { color: #c3e88d; }
+.mdx-hero__code .kc { color: #f78c6c; }
+.mdx-hero__code .m  { color: #f78c6c; }
+
+/* ============================================================
+   CTA buttons — colourful spinning border animation
+   (inspired by coding2go.com/border-animation/)
+   ============================================================ */
+
+.mdx-cta-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+@media screen and (max-width: 76.25em) {
+  .mdx-cta-group {
+    justify-content: center;
+  }
+}
+
+.mdx-cta {
+  position: relative;
+  z-index: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  padding: 0.7em 1.7em;
+  border-radius: 0.4rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform 0.2s, opacity 0.2s;
+  white-space: nowrap;
+}
+
+.mdx-cta:hover {
+  transform: translateY(-2px);
+  opacity: 0.92;
+  text-decoration: none;
+}
+
+/* Spinning conic-gradient that forms the animated border */
+.mdx-cta::before {
+  content: '';
+  position: absolute;
+  z-index: -2;
+  left: -50%;
+  top: -50%;
+  width: 200%;
+  height: 200%;
+  background: conic-gradient(
+    #ff0080,
+    #ff8c00,
+    #ffe600,
+    #00ff80,
+    #00cfff,
+    #7b2fff,
+    #ff0080
+  );
+  animation: mdx-cta-border-spin 3s linear infinite;
+}
+
+/* Inner fill — hides the gradient except at the border edges */
+.mdx-cta::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 3px;
+  border-radius: calc(0.4rem - 3px);
+}
+
+@keyframes mdx-cta-border-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Primary: white fill */
+.mdx-cta--primary {
+  color: var(--md-primary-fg-color);
+}
+.mdx-cta--primary::after {
+  background: #fff;
+}
+.mdx-cta--primary span {
+  color: var(--md-primary-fg-color);
+  font-weight: 700;
+}
+
+/* Ghost: dark fill */
+.mdx-cta--ghost {
+  color: var(--md-primary-bg-color);
+}
+.mdx-cta--ghost::after {
+  background: hsla(var(--md-hue), 25%, 18%, 0.95);
+}
+.mdx-cta--ghost span,
+.mdx-cta--ghost svg {
+  color: var(--md-primary-bg-color);
+  fill: var(--md-primary-bg-color);
+}
+
+.mdx-cta svg {
+  width: 1em;
+  height: 1em;
+  fill: currentColor;
+}
+
+/* ============================================================
+   Getting started section
+   ============================================================ */
+
+.mdx-getting-started {
+  padding: 4rem 0;
+  background: var(--md-code-bg-color);
+  border-top: 1px solid var(--md-default-fg-color--lightest);
+  border-bottom: 1px solid var(--md-default-fg-color--lightest);
+}
+
+.mdx-section-title {
+  text-align: center;
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin-bottom: 2.5rem;
+}
+
+.mdx-gs-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 2rem;
+}
+
+.mdx-gs-step {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.mdx-gs-step__num {
+  flex-shrink: 0;
+  width: 2.2rem;
+  height: 2.2rem;
+  background: var(--md-primary-fg-color);
+  color: var(--md-primary-bg-color);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.mdx-gs-step__label {
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+}
+
+.mdx-gs-step__code pre {
+  margin: 0 0 0.5rem;
+  border-radius: 0.3rem;
+  font-size: 0.8rem;
+}
+
+.mdx-gs-step__note {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--md-default-fg-color--light);
+  line-height: 1.5;
+}
+
+/* ============================================================
+   Features section
+   ============================================================ */
+
+.mdx-features {
+  padding: 4rem 0;
+}
+
+.mdx-features__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+@media screen and (max-width: 76.25em) {
+  .mdx-features__grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media screen and (max-width: 44.9375em) {
+  .mdx-features__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.mdx-feature-card {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.mdx-feature-card:hover {
+  border-color: var(--md-accent-fg-color);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.mdx-feature-card__icon {
+  font-size: 2rem;
+  margin-bottom: 0.75rem;
+}
+
+.mdx-feature-card h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+}
+
+.mdx-feature-card p {
+  font-size: 0.875rem;
+  line-height: 1.65;
+  color: var(--md-default-fg-color--light);
+  margin: 0;
+}
