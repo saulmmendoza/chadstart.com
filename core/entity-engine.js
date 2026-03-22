@@ -155,6 +155,7 @@ function buildCore(config) {
     port: parseInt(process.env.CHADSTART_PORT || process.env.PORT || config.port || 3000, 10),
     rateLimits,
     telemetry,
+    oauth: config.oauth || null,
     admin: {
       enable_app: adminCfg.enable_app !== false,
       enable_entity: adminCfg.enable_entity !== false,

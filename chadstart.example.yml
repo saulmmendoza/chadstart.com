@@ -414,3 +414,55 @@ sentry:
   environment: production     # Label sent to Sentry. Defaults to NODE_ENV.
   tracesSampleRate: 1.0       # Fraction of transactions to sample (0.0–1.0)
   debug: false                # Enable Sentry SDK debug logging
+
+# ── OAuth / Social Login ─────────────────────────────────────────────────────
+# Powered by the "grant" library — supports 200+ OAuth providers.
+# Secrets (client keys / secrets) MUST be set via environment variables:
+#   OAUTH_<PROVIDER>_KEY    — client / app ID
+#   OAUTH_<PROVIDER>_SECRET — client / app secret
+# See docs/oauth.md for the full provider list and setup guides.
+
+oauth:
+  # Which authenticable entity to create/find users in (default: first authenticable entity).
+  entity: User
+
+  # Where to redirect after successful login. The JWT token is appended as ?token=...
+  # If omitted, the callback returns JSON instead.
+  successRedirect: /login?success=true
+
+  # Where to redirect on error. The error message is appended as ?error=...
+  errorRedirect: /login?error=true
+
+  # Default settings applied to all providers.
+  defaults:
+    transport: querystring
+
+  # Configure each provider you want to support.
+  # The provider names must match grant's provider names (lowercase).
+  # Full list: https://github.com/simov/grant#200-supported-providers
+  providers:
+    google:
+      scope:
+        - openid
+        - email
+        - profile
+      custom_params:
+        access_type: offline
+      # key and secret via: OAUTH_GOOGLE_KEY, OAUTH_GOOGLE_SECRET
+
+    github:
+      scope:
+        - user:email
+      # key and secret via: OAUTH_GITHUB_KEY, OAUTH_GITHUB_SECRET
+
+    # facebook:
+    #   scope:
+    #     - email
+    #     - public_profile
+    #   key and secret via: OAUTH_FACEBOOK_KEY, OAUTH_FACEBOOK_SECRET
+
+    # discord:
+    #   scope:
+    #     - identify
+    #     - email
+    #   key and secret via: OAUTH_DISCORD_KEY, OAUTH_DISCORD_SECRET

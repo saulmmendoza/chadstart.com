@@ -42,6 +42,7 @@ nav:
     - Entities: entities.md
     - CRUD: crud.md
     - Authentication: auth.md
+    - OAuth / Social Login: oauth.md
     - Access Policies: access-policies.md
     - Validation: validation.md
     - Configuration: config.md

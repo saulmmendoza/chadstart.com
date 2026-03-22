@@ -124,6 +124,43 @@
           "description": "Enable Sentry SDK debug logging."
         }
       }
+    },
+    "oauth": {
+      "type": "object",
+      "description": "OAuth / social login configuration powered by the grant library. Secrets (client keys and secrets) must be supplied via OAUTH_<PROVIDER>_KEY and OAUTH_<PROVIDER>_SECRET environment variables.",
+      "additionalProperties": false,
+      "properties": {
+        "entity": {
+          "type": "string",
+          "description": "Name of the authenticable entity to use for OAuth users (e.g. 'User'). Defaults to the first authenticable entity."
+        },
+        "successRedirect": {
+          "type": "string",
+          "description": "URL to redirect to after successful OAuth login. The JWT token is appended as a ?token= query parameter. If omitted, returns JSON."
+        },
+        "errorRedirect": {
+          "type": "string",
+          "description": "URL to redirect to on OAuth error. The error message is appended as an ?error= query parameter. If omitted, returns JSON error."
+        },
+        "defaults": {
+          "type": "object",
+          "description": "Default settings applied to all providers (e.g. transport, scope).",
+          "properties": {
+            "transport": {
+              "type": "string",
+              "enum": ["querystring", "session"],
+              "default": "querystring"
+            }
+          }
+        },
+        "providers": {
+          "type": "object",
+          "description": "Map of OAuth provider names to their configuration. Provider names must match grant's supported provider list (e.g. google, github, facebook). See https://www.npmjs.com/package/grant for all 200+ supported providers.",
+          "additionalProperties": {
+            "$ref": "#/$defs/oauthProvider"
+          }
+        }
+      }
     }
   },
   "$defs": {
@@ -361,6 +398,31 @@
         "name":  { "type": "string",  "description": "Identifier for this rate limit definition." },
         "limit": { "type": "integer", "description": "Maximum number of requests allowed in the time window." },
         "ttl":   { "type": "integer", "description": "Time window in milliseconds." }
+      }
+    },
+    "oauthProvider": {
+      "type": "object",
+      "description": "Configuration for a single OAuth provider. The key and secret should be set via OAUTH_<PROVIDER>_KEY and OAUTH_<PROVIDER>_SECRET environment variables.",
+      "properties": {
+        "key":            { "type": "string", "description": "OAuth client/app ID. Prefer using OAUTH_<PROVIDER>_KEY env var instead." },
+        "secret":         { "type": "string", "description": "OAuth client/app secret. Prefer using OAUTH_<PROVIDER>_SECRET env var instead." },
+        "scope":          {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" } }
+          ],
+          "description": "OAuth scopes to request (e.g. 'openid email profile')."
+        },
+        "callback":       { "type": "string", "description": "Custom callback URL path. Defaults to /api/auth/oauth/callback." },
+        "custom_params":  { "type": "object", "description": "Extra query parameters to send to the authorization URL." },
+        "subdomain":      { "type": "string", "description": "Subdomain for providers that require one (e.g. Shopify)." },
+        "nonce":          { "type": "boolean", "description": "Enable nonce generation (required by some OIDC providers)." },
+        "pkce":           { "type": "boolean", "description": "Enable PKCE (Proof Key for Code Exchange) for enhanced security." },
+        "response":       {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Data to include in the callback (e.g. ['tokens', 'profile'])."
+        }
       }
     }
   }
