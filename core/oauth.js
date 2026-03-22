@@ -5,7 +5,7 @@
  *
  * When the YAML config contains an `oauth` section, this module:
  *   1. Mounts the Grant middleware at /connect (handles the redirect dance).
- *   2. Registers a callback route at /api/auth/:slug/oauth/:provider that
+ *   2. Registers a callback route at /api/auth/oauth/callback that
  *      finds-or-creates the user and returns a JWT.
  *
  * Secrets (client IDs, client secrets) must be supplied via environment
