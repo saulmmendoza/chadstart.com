@@ -14,19 +14,26 @@ function printUsage() {
 ChadStart - YAML-first Backend as a Service
 
 Usage:
-  npx chadstart dev     Start server with hot-reload on YAML changes
-  npx chadstart start   Start server (production mode)
-  npx chadstart build   Validate YAML config and print schema summary
-  npx chadstart seed    Seed the database with dummy data
+  npx chadstart dev               Start server with hot-reload on YAML changes
+  npx chadstart start             Start server (production mode)
+  npx chadstart build             Validate YAML config and print schema summary
+  npx chadstart seed              Seed the database with dummy data
+  npx chadstart migrate           Run pending database migrations
+  npx chadstart migrate:generate  Generate migration from YAML diff (git-based)
+  npx chadstart migrate:status    Show current migration status
 
 Options:
-  --config <file>   Path to YAML config (default: chadstart.yaml)
-  --port <number>   Override port from config
+  --config <file>         Path to YAML config (default: chadstart.yaml)
+  --port <number>         Override port from config
+  --migrations-dir <dir>  Path to migrations directory (default: migrations)
+  --description <text>    Description for generated migration
 
 Examples:
   npx chadstart dev
   npx chadstart dev --config my-backend.yaml
   npx chadstart start --port 8080
+  npx chadstart migrate:generate --description add-posts-table
+  npx chadstart migrate
 `);
 }
 
@@ -53,6 +60,12 @@ if (command === 'create') {
   runBuild();
 } else if (command === 'seed') {
   runSeed();
+} else if (command === 'migrate') {
+  runMigrate();
+} else if (command === 'migrate:generate') {
+  runMigrateGenerate();
+} else if (command === 'migrate:status') {
+  runMigrateStatus();
 } else {
   console.error(`Unknown command: ${command}`);
   printUsage();
@@ -272,6 +285,122 @@ function runBuild() {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+const migrationsDir = path.resolve(getOption('--migrations-dir') || 'migrations');
+const migrationDescription = getOption('--description') || null;
+
+async function runMigrate() {
+  if (!fs.existsSync(yamlPath)) {
+    console.error(`Config not found: ${yamlPath}`);
+    process.exit(1);
+  }
+
+  try {
+    const { loadYaml } = require('../core/yaml-loader');
+    const { validateSchema } = require('../core/schema-validator');
+    const { buildCore } = require('../core/entity-engine');
+    const { initDb, closeDb } = require('../core/db');
+    const { runMigrations, buildExecQueryFn } = require('../core/migrations');
+    const dbModule = require('../core/db');
+
+    const config = loadYaml(yamlPath);
+    validateSchema(config);
+    const core = buildCore(config);
+    await initDb(core);
+
+    console.log('\n🔄 Running database migrations...\n');
+
+    const execQueryFn = buildExecQueryFn(dbModule);
+
+    const applied = await runMigrations(migrationsDir, execQueryFn);
+
+    if (applied.length === 0) {
+      console.log('  ✅ Database is up to date — no pending migrations.\n');
+    } else {
+      for (const m of applied) {
+        console.log(`  ✅ Applied: ${m.version}.${m.action}${m.name ? '.' + m.name : ''}`);
+      }
+      console.log(`\n  ${applied.length} migration${applied.length !== 1 ? 's' : ''} applied.\n`);
+    }
+
+    await closeDb();
+  } catch (err) {
+    console.error(`\n❌ ${err.message}\n`);
+    process.exit(1);
+  }
+}
+
+async function runMigrateGenerate() {
+  if (!fs.existsSync(yamlPath)) {
+    console.error(`Config not found: ${yamlPath}`);
+    process.exit(1);
+  }
+
+  try {
+    const { generateMigration } = require('../core/migrations');
+
+    console.log('\n📝 Generating migration from YAML diff...\n');
+
+    const result = generateMigration(yamlPath, migrationsDir, migrationDescription);
+
+    if (result.isEmpty) {
+      console.log('  ℹ️  No schema changes detected — nothing to generate.\n');
+    } else {
+      console.log(`  ✅ Migration v${String(result.version).padStart(3, '0')} generated:`);
+      console.log(`     DO:   ${result.doPath}`);
+      console.log(`     UNDO: ${result.undoPath}`);
+      console.log('\n  Run `npx chadstart migrate` to apply.\n');
+    }
+  } catch (err) {
+    console.error(`\n❌ ${err.message}\n`);
+    process.exit(1);
+  }
+}
+
+async function runMigrateStatus() {
+  if (!fs.existsSync(yamlPath)) {
+    console.error(`Config not found: ${yamlPath}`);
+    process.exit(1);
+  }
+
+  try {
+    const { loadYaml } = require('../core/yaml-loader');
+    const { validateSchema } = require('../core/schema-validator');
+    const { buildCore } = require('../core/entity-engine');
+    const { initDb, closeDb } = require('../core/db');
+    const { getMigrationStatus, buildExecQueryFn } = require('../core/migrations');
+    const dbModule = require('../core/db');
+
+    const config = loadYaml(yamlPath);
+    validateSchema(config);
+    const core = buildCore(config);
+    await initDb(core);
+
+    const execQueryFn = buildExecQueryFn(dbModule);
+
+    const status = await getMigrationStatus(migrationsDir, execQueryFn);
+
+    console.log(`\n📊 Migration Status\n`);
+    console.log(`  Current version: ${status.currentVersion}`);
+    console.log(`  Applied:         ${status.applied.length}`);
+    console.log(`  Pending:         ${status.pending.length}`);
+
+    if (status.pending.length > 0) {
+      console.log('\n  Pending migrations:');
+      for (const m of status.pending) {
+        console.log(`    - ${m.version}.${m.action}${m.name ? '.' + m.name : ''}`);
+      }
+    }
+
+    console.log('');
+    await closeDb();
+  } catch (err) {
+    console.error(`\n❌ ${err.message}\n`);
+    process.exit(1);
+  }
+}
+
+// ─── Other helpers ───────────────────────────────────────────────────────────
 
 function applyPortOverride() {
   if (portOverride) {
