@@ -6,6 +6,8 @@ const YAML = require('yaml');
 const JSON5 = require('json5');
 const logger = require('../utils/logger');
 
+const JSONNET_TIMEOUT_MS = 10000;
+
 // ─── Supported config file names (checked in priority order) ─────────────────
 
 const CONFIG_FILENAMES = [
@@ -92,7 +94,7 @@ function parseJsonnet(filePath) {
   try {
     const stdout = execFileSync('jsonnet', [filePath], {
       stdio: ['pipe', 'pipe', 'pipe'],
-      timeout: 10000,
+      timeout: JSONNET_TIMEOUT_MS,
     }).toString();
     return JSON.parse(stdout);
   } catch (err) {

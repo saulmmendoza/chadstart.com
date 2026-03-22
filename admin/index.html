@@ -1726,13 +1726,13 @@ async function loadConfig() {
 }
 
 function updateConfigFormatBadge() {
-  var badge = document.getElementById('cfg-format-badge');
+  const badge = document.getElementById('cfg-format-badge');
   if (!badge) return;
   badge.textContent = configFormat.toUpperCase();
   badge.title = configWritable
     ? 'Config format: ' + configFormat
     : 'Config format: ' + configFormat + ' (read-only)';
-  var saveBtn = document.getElementById('cfg-save-btn');
+  const saveBtn = document.getElementById('cfg-save-btn');
   if (saveBtn) {
     saveBtn.disabled = !configWritable;
     saveBtn.title = configWritable ? '' : 'Saving is not supported for ' + configFormat + ' configs. Convert to YAML, JSON, or JSON5 to enable saving.';
