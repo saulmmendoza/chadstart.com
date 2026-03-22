@@ -9,7 +9,7 @@ RUN npm ci --omit=dev
 FROM node:lts-alpine AS runner
 WORKDIR /app
 # Runtime dependencies
-RUN apk add --no-cache bash python3 go ruby g++ \
+RUN apk add --no-cache bash python3 go ruby g++ jsonnet \
   && addgroup -S nodejs && adduser -S nodejs -G nodejs \
   && mkdir -p /app/{uploads,public,functions} && chown -R nodejs:nodejs /app
 COPY --from=deps --chown=nodejs:nodejs /app/node_modules ./node_modules
