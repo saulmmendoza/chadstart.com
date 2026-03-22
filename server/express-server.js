@@ -8,7 +8,7 @@ const express = require('express');
 const swaggerUi = require('swagger-ui-express');
 const rateLimit = require('express-rate-limit');
 
-const { loadYaml, saveYaml } = require('../core/yaml-loader');
+const { loadConfig, saveConfig, detectFormat, isWritableFormat } = require('../core/config-loader');
 const { validateSchema } = require('../core/schema-validator');
 const { buildCore } = require('../core/entity-engine');
 const { initDb, findAll, findAllSimple, create: dbCreate } = require('../core/db');
@@ -81,18 +81,19 @@ function buildApiLimiters(core) {
 }
 
 /**
- * Build an Express application for the given YAML config.
+ * Build an Express application for the given config file.
  *
- * @param {string}        yamlPath  Path to the chadstart.yaml file.
- * @param {Function|null} reloadFn  When provided, the PUT /admin/config route will
- *                                  trigger this callback after saving so the running
- *                                  server picks up the new config without a restart.
+ * @param {string}        configPath  Path to the config file (any supported format).
+ * @param {Function|null} reloadFn    When provided, the PUT /admin/config route will
+ *                                    trigger this callback after saving so the running
+ *                                    server picks up the new config without a restart.
  * @returns {{ app: import('express').Application, core: object }}
  */
-async function buildApp(yamlPath, reloadFn) {
-  const config = loadYaml(yamlPath);
+async function buildApp(configPath, reloadFn) {
+  const config = loadConfig(configPath);
   validateSchema(config);
   const core = buildCore(config);
+  const configFormat = detectFormat(configPath);
   logger.info(`Loading "${core.name}"...`);
 
   // Initialize OpenTelemetry (singleton — no-op on hot reload)
@@ -100,7 +101,7 @@ async function buildApp(yamlPath, reloadFn) {
   await initTelemetry(telConfig);
 
   const dbPath = core.database
-    ? path.resolve(path.dirname(yamlPath), core.database)
+    ? path.resolve(path.dirname(configPath), core.database)
     : undefined;
   await initDb(core, dbPath);
   await initApiKeys();
@@ -211,7 +212,7 @@ async function buildApp(yamlPath, reloadFn) {
   });
 
   // ── Admin config endpoints ────────────────────────────────────────────
-  // GET /admin/config — return the current YAML config as JSON (auth required)
+  // GET /admin/config — return the current config as JSON (auth required)
   app.get('/admin/config', adminRateLimiter, (req, res) => {
     const header = req.headers.authorization;
     if (!header || !header.startsWith('Bearer ')) {
@@ -221,13 +222,30 @@ async function buildApp(yamlPath, reloadFn) {
       return res.status(401).json({ error: 'Invalid token' });
     }
     try {
-      res.json(loadYaml(yamlPath));
+      res.set('X-Config-Format', configFormat);
+      res.json(loadConfig(configPath));
     } catch (e) {
       res.status(500).json({ error: e.message });
     }
   });
 
-  // PUT /admin/config — receive JSON config, validate, save as YAML, then hot-reload
+  // GET /admin/config-info — return metadata about the config file
+  app.get('/admin/config-info', adminRateLimiter, (req, res) => {
+    const header = req.headers.authorization;
+    if (!header || !header.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    try { verifyToken(header.slice(7)); } catch {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    res.json({
+      format: configFormat,
+      file: path.basename(configPath),
+      writable: isWritableFormat(configFormat),
+    });
+  });
+
+  // PUT /admin/config — receive JSON config, validate, save in original format, then hot-reload
   app.put('/admin/config', adminRateLimiter, (req, res) => {
     const header = req.headers.authorization;
     if (!header || !header.startsWith('Bearer ')) {
@@ -246,7 +264,7 @@ async function buildApp(yamlPath, reloadFn) {
       return res.status(400).json({ error: e.message });
     }
     try {
-      saveYaml(yamlPath, newConfig);
+      saveConfig(configPath, newConfig);
       if (reloadFn) {
         // Schedule hot reload after the response has been fully flushed
         res.on('finish', () => {
@@ -258,7 +276,7 @@ async function buildApp(yamlPath, reloadFn) {
       }
     } catch (e) {
       logger.error('Failed to save config:', e.message);
-      res.status(500).json({ error: 'Failed to save config' });
+      res.status(500).json({ error: e.message });
     }
   });
 
@@ -503,14 +521,14 @@ async function buildApp(yamlPath, reloadFn) {
   return { app, core };
 }
 
-async function createServer(yamlPath) {
-  const { app, core } = await buildApp(yamlPath, null);
+async function createServer(configPath) {
+  const { app, core } = await buildApp(configPath, null);
   const server = http.createServer(app);
   initRealtime(server);
   return { app, server, core };
 }
 
-async function startServer(yamlPath) {
+async function startServer(configPath) {
   // ── Dispatcher pattern ───────────────────────────────────────────────
   // The HTTP server and WebSocket server are created once and never replaced.
   // Hot reload works by rebuilding the Express app and swapping the handler
@@ -523,7 +541,7 @@ async function startServer(yamlPath) {
 
   async function reload() {
     logger.info('Reloading config…');
-    const result = await buildApp(yamlPath, reload);
+    const result = await buildApp(configPath, reload);
     currentApp = result.app;
     logger.info(`Config loaded: "${result.core.name}"`);
     return result;

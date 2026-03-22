@@ -7,23 +7,24 @@ const fs = require('fs');
 
 const args = process.argv.slice(2);
 const command = args[0];
-const DEFAULT_YAML = 'chadstart.yaml';
+const DEFAULT_CONFIG = 'chadstart.yaml';
 
 function printUsage() {
   console.log(`
-ChadStart - YAML-first Backend as a Service
+ChadStart - Config-driven Backend as a Service
 
 Usage:
-  npx chadstart dev               Start server with hot-reload on YAML changes
+  npx chadstart dev               Start server with hot-reload on config changes
   npx chadstart start             Start server (production mode)
-  npx chadstart build             Validate YAML config and print schema summary
+  npx chadstart build             Validate config and print schema summary
   npx chadstart seed              Seed the database with dummy data
   npx chadstart migrate           Run pending database migrations
-  npx chadstart migrate:generate  Generate migration from YAML diff (git-based)
+  npx chadstart migrate:generate  Generate migration from config diff (git-based)
   npx chadstart migrate:status    Show current migration status
 
 Options:
-  --config <file>         Path to YAML config (default: chadstart.yaml)
+  --config <file>         Path to config file (default: auto-discover)
+                          Supported formats: yaml, json, json5, jsonnet, js
   --port <number>         Override port from config
   --migrations-dir <dir>  Path to migrations directory (default: migrations)
   --description <text>    Description for generated migration
@@ -31,6 +32,7 @@ Options:
 Examples:
   npx chadstart dev
   npx chadstart dev --config my-backend.yaml
+  npx chadstart dev --config chadstart.json
   npx chadstart start --port 8080
   npx chadstart migrate:generate --description add-posts-table
   npx chadstart migrate
@@ -42,7 +44,16 @@ function getOption(flag) {
   return idx !== -1 ? args[idx + 1] : null;
 }
 
-const yamlPath = path.resolve(getOption('--config') || process.env.CHADSTART_FILE_PATH || DEFAULT_YAML);
+function resolveConfigPath() {
+  const explicit = getOption('--config') || process.env.CHADSTART_FILE_PATH;
+  if (explicit) return path.resolve(explicit);
+  // Auto-discover: try each supported filename in priority order
+  const { discoverConfigFile } = require('../core/config-loader');
+  const found = discoverConfigFile(process.cwd());
+  return found || path.resolve(DEFAULT_CONFIG); // fall back to default for error messages
+}
+
+const configPath = resolveConfigPath();
 const portOverride = getOption('--port');
 
 if (!command || command === 'help' || command === '--help' || command === '-h') {
@@ -119,19 +130,19 @@ async function runCreate() {
 }
 
 async function runSeed() {
-  if (!fs.existsSync(yamlPath)) {
-    console.error(`Config not found: ${yamlPath}`);
+  if (!fs.existsSync(configPath)) {
+    console.error(`Config not found: ${configPath}`);
     process.exit(1);
   }
 
   try {
-    const { loadYaml } = require('../core/yaml-loader');
+    const { loadConfig } = require('../core/config-loader');
     const { validateSchema } = require('../core/schema-validator');
     const { buildCore } = require('../core/entity-engine');
     const { initDb } = require('../core/db');
     const { seedAll } = require('../core/seeder');
 
-    const config = loadYaml(yamlPath);
+    const config = loadConfig(configPath);
     validateSchema(config);
     const core = buildCore(config);
     initDb(core);
@@ -158,19 +169,19 @@ async function runSeed() {
 }
 
 async function runStart() {
-  if (!fs.existsSync(yamlPath)) {
-    console.error(`Config not found: ${yamlPath}`);
+  if (!fs.existsSync(configPath)) {
+    console.error(`Config not found: ${configPath}`);
     process.exit(1);
   }
 
   applyPortOverride();
   const { startServer } = require('../server/express-server');
-  await startServer(yamlPath);
+  await startServer(configPath);
 }
 
 async function runDev() {
-  if (!fs.existsSync(yamlPath)) {
-    console.error(`Config not found: ${yamlPath}`);
+  if (!fs.existsSync(configPath)) {
+    console.error(`Config not found: ${configPath}`);
     process.exit(1);
   }
 
@@ -186,7 +197,7 @@ async function runDev() {
       // Re-require fresh server module on each reload
       clearRequireCache();
       const { startServer } = require('../server/express-server');
-      const result = await startServer(yamlPath);
+      const result = await startServer(configPath);
       currentServer = result.server;
     } catch (err) {
       console.error('[dev] Failed to start server:', err.message);
@@ -198,12 +209,12 @@ async function runDev() {
   try {
     const chokidar = require('chokidar');
     // Watch YAML config
-    const watcher = chokidar.watch(yamlPath, { ignoreInitial: true });
+    const watcher = chokidar.watch(configPath, { ignoreInitial: true });
     watcher.on('change', async () => {
-      console.log(`\n[dev] ${path.basename(yamlPath)} changed — restarting...\n`);
+      console.log(`\n[dev] ${path.basename(configPath)} changed — restarting...\n`);
       await boot();
     });
-    console.log(`[dev] Watching ${yamlPath} for changes...\n`);
+    console.log(`[dev] Watching ${configPath} for changes...\n`);
 
     // Watch the functions folder for hot reload of function files
     const functionsDir = path.resolve(process.env.CHADSTART_FUNCTIONS_FOLDER || 'functions');
@@ -228,17 +239,17 @@ async function runDev() {
 }
 
 function runBuild() {
-  if (!fs.existsSync(yamlPath)) {
-    console.error(`Config not found: ${yamlPath}`);
+  if (!fs.existsSync(configPath)) {
+    console.error(`Config not found: ${configPath}`);
     process.exit(1);
   }
 
   try {
-    const { loadYaml } = require('../core/yaml-loader');
+    const { loadConfig } = require('../core/config-loader');
     const { validateSchema } = require('../core/schema-validator');
     const { buildCore } = require('../core/entity-engine');
 
-    const config = loadYaml(yamlPath);
+    const config = loadConfig(configPath);
     validateSchema(config);
     const core = buildCore(config);
 
@@ -290,20 +301,20 @@ const migrationsDir = path.resolve(getOption('--migrations-dir') || 'migrations'
 const migrationDescription = getOption('--description') || null;
 
 async function runMigrate() {
-  if (!fs.existsSync(yamlPath)) {
-    console.error(`Config not found: ${yamlPath}`);
+  if (!fs.existsSync(configPath)) {
+    console.error(`Config not found: ${configPath}`);
     process.exit(1);
   }
 
   try {
-    const { loadYaml } = require('../core/yaml-loader');
+    const { loadConfig } = require('../core/config-loader');
     const { validateSchema } = require('../core/schema-validator');
     const { buildCore } = require('../core/entity-engine');
     const { initDb, closeDb } = require('../core/db');
     const { runMigrations, buildExecQueryFn } = require('../core/migrations');
     const dbModule = require('../core/db');
 
-    const config = loadYaml(yamlPath);
+    const config = loadConfig(configPath);
     validateSchema(config);
     const core = buildCore(config);
     await initDb(core);
@@ -331,8 +342,8 @@ async function runMigrate() {
 }
 
 async function runMigrateGenerate() {
-  if (!fs.existsSync(yamlPath)) {
-    console.error(`Config not found: ${yamlPath}`);
+  if (!fs.existsSync(configPath)) {
+    console.error(`Config not found: ${configPath}`);
     process.exit(1);
   }
 
@@ -341,7 +352,7 @@ async function runMigrateGenerate() {
 
     console.log('\n📝 Generating migration from YAML diff...\n');
 
-    const result = generateMigration(yamlPath, migrationsDir, migrationDescription);
+    const result = generateMigration(configPath, migrationsDir, migrationDescription);
 
     if (result.isEmpty) {
       console.log('  ℹ️  No schema changes detected — nothing to generate.\n');
@@ -358,20 +369,20 @@ async function runMigrateGenerate() {
 }
 
 async function runMigrateStatus() {
-  if (!fs.existsSync(yamlPath)) {
-    console.error(`Config not found: ${yamlPath}`);
+  if (!fs.existsSync(configPath)) {
+    console.error(`Config not found: ${configPath}`);
     process.exit(1);
   }
 
   try {
-    const { loadYaml } = require('../core/yaml-loader');
+    const { loadConfig } = require('../core/config-loader');
     const { validateSchema } = require('../core/schema-validator');
     const { buildCore } = require('../core/entity-engine');
     const { initDb, closeDb } = require('../core/db');
     const { getMigrationStatus, buildExecQueryFn } = require('../core/migrations');
     const dbModule = require('../core/db');
 
-    const config = loadYaml(yamlPath);
+    const config = loadConfig(configPath);
     validateSchema(config);
     const core = buildCore(config);
     await initDb(core);
