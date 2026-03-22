@@ -75,7 +75,7 @@ If you already have an existing project and want to add AI rules manually, creat
 | **GitHub Copilot** | `.github/copilot-instructions.md`              |
 | **Windsurf**       | `.windsurf/rules/chadstart.md`                 |
 
-You can base your rules file on the [chadstart.example.yml](https://github.com/saulmmendoza/chadstart.com/blob/main/chadstart.example.yml) reference file, which documents every available configuration option.
+You can base your rules file on the [chadstart.example.yaml](https://github.com/saulmmendoza/chadstart.com/blob/main/chadstart.example.yaml) reference file, which documents every available configuration option.
 
 !!! tip
     Keep your rules file up to date whenever you upgrade ChadStart. Newer versions may introduce new field types, options, or top-level blocks that your AI assistant won't know about unless the rules file is updated.

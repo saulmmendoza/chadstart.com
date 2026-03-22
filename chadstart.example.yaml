@@ -1,4 +1,4 @@
-# chadstart.example.yml
+# chadstart.example.yaml
 # ─────────────────────────────────────────────────────────────────────────────
 # Reference file that lists every available option in a ChadStart YAML config.
 # Copy this file to chadstart.yaml and remove / adjust the sections you need.
