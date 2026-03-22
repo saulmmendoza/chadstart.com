@@ -46,6 +46,7 @@ nav:
     - Access Policies: access-policies.md
     - Validation: validation.md
     - Configuration: config.md
+    - Database Migrations: migrations.md
   - Features:
     - File & Image Uploads: upload.md
     - S3 Storage: s3-storage.md
