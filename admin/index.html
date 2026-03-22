@@ -261,6 +261,7 @@
         <button onclick="showConfigTab('files')"     id="cfg-tab-files"     class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;" data-i18n="config.tabs.files">Files &amp; Uploads</button>
         <button onclick="showConfigTab('settings')"  id="cfg-tab-settings"  class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;" data-i18n="config.tabs.settings">Settings</button>
         <button onclick="showConfigTab('all')"       id="cfg-tab-all"       class="cfg-tab px-3 py-1.5 text-xs rounded border border-cs-border text-cs-muted hover:text-cs-text" style="transition:color 150ms,background 150ms;" data-i18n="config.tabs.all">All</button>
+        <span id="cfg-format-badge" class="ml-auto px-2 py-1 text-xs rounded font-mono" style="background:var(--color-cs-border);color:var(--color-cs-muted);" title="Config format">YAML</span>
       </div>
       <p id="cfg-section-desc" class="text-xs mb-3" style="color:var(--color-cs-muted);"></p>
       <div id="cfg-form" class="hidden mb-6"></div>
@@ -674,6 +675,8 @@
   // Config editor
   let configMode = false;
   let configData = null;
+  let configFormat = 'yaml';
+  let configWritable = true;
   let configActiveTab = 'general';
   let _cfgEntityId = 0, _cfgEndpointId = 0, _cfgFileId = 0, _cfgRlId = 0, _cfgTriggerId = 0;
 
@@ -1706,11 +1709,34 @@ const _LBL    = 'block text-xs mb-1';
 
 async function loadConfig() {
   try {
-    const r = await apiFetch('/admin/config');
+    const [r, infoRes] = await Promise.all([
+      apiFetch('/admin/config'),
+      apiFetch('/admin/config-info'),
+    ]);
     if (!r.ok) throw new Error('Failed to load config');
     configData = await r.json();
+    if (infoRes.ok) {
+      const info = await infoRes.json();
+      configFormat = info.format || 'yaml';
+      configWritable = info.writable !== false;
+    }
+    updateConfigFormatBadge();
     showConfigTab('general');
   } catch (e) { toast(e.message, 'error'); }
+}
+
+function updateConfigFormatBadge() {
+  const badge = document.getElementById('cfg-format-badge');
+  if (!badge) return;
+  badge.textContent = configFormat.toUpperCase();
+  badge.title = configWritable
+    ? 'Config format: ' + configFormat
+    : 'Config format: ' + configFormat + ' (read-only)';
+  const saveBtn = document.getElementById('cfg-save-btn');
+  if (saveBtn) {
+    saveBtn.disabled = !configWritable;
+    saveBtn.title = configWritable ? '' : 'Saving is not supported for ' + configFormat + ' configs. Convert to YAML, JSON, or JSON5 to enable saving.';
+  }
 }
 
 function showConfigTab(tab) {

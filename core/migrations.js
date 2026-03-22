@@ -8,16 +8,22 @@ const logger = require('../utils/logger');
 
 const { buildCore, toSnakeCase } = require('./entity-engine');
 const { DB_ENGINE, q, sqlType, idColType, authStrType } = require('./db');
+const { detectFormat, parseRaw, loadConfig } = require('./config-loader');
 
 // ─── Git helpers ──────────────────────────────────────────────────────────────
 
 /**
- * Retrieve the last committed version of a file using git.
+ * Retrieve the last committed version of a config file using git.
  * Returns null if the file has no committed history (brand-new / untracked).
  */
-function getLastCommittedYaml(yamlPath) {
+function getLastCommittedConfig(configPath) {
   try {
-    const resolved = path.resolve(yamlPath);
+    const resolved = path.resolve(configPath);
+    const format = detectFormat(resolved);
+
+    // JS / Jsonnet configs can't be reconstructed from raw git content alone
+    if (format === 'js' || format === 'jsonnet') return null;
+
     const repoRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], {
       cwd: path.dirname(resolved),
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -30,21 +36,17 @@ function getLastCommittedYaml(yamlPath) {
       stdio: ['pipe', 'pipe', 'pipe'],
     }).toString();
 
-    return YAML.parse(raw);
+    return parseRaw(raw, format);
   } catch {
     return null;
   }
 }
 
 /**
- * Load the current YAML file from disk and return the parsed object.
+ * Load the current config file from disk and return the parsed object.
  */
-function loadCurrentYaml(yamlPath) {
-  const resolved = path.resolve(yamlPath);
-  if (!fs.existsSync(resolved)) {
-    throw new Error(`YAML config not found: ${resolved}`);
-  }
-  return YAML.parse(fs.readFileSync(resolved, 'utf8'));
+function loadCurrentConfig(configPath) {
+  return loadConfig(configPath);
 }
 
 
@@ -374,17 +376,17 @@ async function getMigrationStatus(migrationsDir, execQueryFn) {
 // ─── High-level commands ──────────────────────────────────────────────────────
 
 /**
- * Generate a migration by diffing the current YAML against the last committed
+ * Generate a migration by diffing the current config against the last committed
  * version in git. Writes numbered SQL files to the migrations directory.
  *
- * @param {string} yamlPath        Path to the chadstart YAML config file.
+ * @param {string} configPath      Path to the config file (any supported format).
  * @param {string} migrationsDir   Path to the migrations directory.
  * @param {string} [description]   Optional description for the migration.
  * @returns {{ doPath, undoPath, version, isEmpty } | null}
  */
-function generateMigration(yamlPath, migrationsDir, description) {
-  const currentConfig = loadCurrentYaml(yamlPath);
-  const oldConfig = getLastCommittedYaml(yamlPath);
+function generateMigration(configPath, migrationsDir, description) {
+  const currentConfig = loadCurrentConfig(configPath);
+  const oldConfig = getLastCommittedConfig(configPath);
 
   const newCore = buildCore(currentConfig);
   const oldCore = oldConfig ? buildCore(oldConfig) : null;
@@ -408,8 +410,11 @@ function generateMigration(yamlPath, migrationsDir, description) {
 
 module.exports = {
   // Git helpers
-  getLastCommittedYaml,
-  loadCurrentYaml,
+  getLastCommittedConfig,
+  loadCurrentConfig,
+  // Backward-compatible aliases
+  getLastCommittedYaml: getLastCommittedConfig,
+  loadCurrentYaml: loadCurrentConfig,
   // Diff engine
   diffCores,
   // SQL generation
