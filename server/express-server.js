@@ -307,11 +307,12 @@ async function buildApp(configPath, reloadFn) {
     if (!verification.success) return res.status(503).json(verification);
 
     try {
+      const safeName = escAdminHtml(core.name);
       await sendEmail({
         to,
         subject: 'ChadStart Test Email',
         text: `This is a test email from your ChadStart application "${core.name}".\n\nIf you received this, your SMTP configuration is working correctly.`,
-        html: `<h2>ChadStart Test Email</h2><p>This is a test email from your ChadStart application <strong>"${core.name}"</strong>.</p><p>If you received this, your SMTP configuration is working correctly. ✅</p>`,
+        html: `<h2>ChadStart Test Email</h2><p>This is a test email from your ChadStart application <strong>&quot;${safeName}&quot;</strong>.</p><p>If you received this, your SMTP configuration is working correctly. &#x2705;</p>`,
       });
       res.json({ success: true, message: `Test email sent to ${to}` });
     } catch (e) {
