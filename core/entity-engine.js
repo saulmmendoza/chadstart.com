@@ -158,6 +158,7 @@ function buildCore(config) {
     telemetry,
     email: config.email || null,
     logs: config.logs || null,
+    backup: config.backup || null,
     oauth: config.oauth || null,
     admin: {
       enable_app: adminCfg.enable_app !== false,

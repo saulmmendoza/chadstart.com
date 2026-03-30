@@ -21,6 +21,8 @@ Usage:
   npx chadstart migrate           Run pending database migrations
   npx chadstart migrate:generate  Generate migration from config diff (git-based)
   npx chadstart migrate:status    Show current migration status
+  npx chadstart backup            Create a database backup
+  npx chadstart restore <file>    Restore database from a backup file
 
 Options:
   --config <file>         Path to config file (default: auto-discover)
@@ -77,6 +79,10 @@ if (command === 'create') {
   runMigrateGenerate();
 } else if (command === 'migrate:status') {
   runMigrateStatus();
+} else if (command === 'backup') {
+  runBackup();
+} else if (command === 'restore') {
+  runRestore();
 } else {
   console.error(`Unknown command: ${command}`);
   printUsage();
@@ -405,6 +411,78 @@ async function runMigrateStatus() {
 
     console.log('');
     await closeDb();
+  } catch (err) {
+    console.error(`\n❌ ${err.message}\n`);
+    process.exit(1);
+  }
+}
+
+// ─── Other helpers ───────────────────────────────────────────────────────────
+
+async function runBackup() {
+  if (!fs.existsSync(configPath)) {
+    console.error(`Config not found: ${configPath}`);
+    process.exit(1);
+  }
+
+  try {
+    const { loadConfig } = require('../core/config-loader');
+    const { validateSchema } = require('../core/schema-validator');
+    const { buildCore } = require('../core/entity-engine');
+    const { initDb, closeDb } = require('../core/db');
+    const { createBackup } = require('../core/backup');
+
+    const config = loadConfig(configPath);
+    validateSchema(config);
+    const core = buildCore(config);
+    await initDb(core);
+
+    console.log('\n💾 Creating backup...\n');
+    const result = await createBackup(core.backup);
+    console.log(`  ✅ Backup created: ${result.file}`);
+    console.log(`     Path:   ${result.path}`);
+    console.log(`     Size:   ${(result.size / 1024).toFixed(1)} KB`);
+    console.log(`     Engine: ${result.engine}\n`);
+
+    await closeDb();
+  } catch (err) {
+    console.error(`\n❌ ${err.message}\n`);
+    process.exit(1);
+  }
+}
+
+async function runRestore() {
+  const backupFile = args[1];
+  if (!backupFile) {
+    console.error('Error: backup file name is required. Usage: npx chadstart restore <file>');
+    process.exit(1);
+  }
+
+  if (!fs.existsSync(configPath)) {
+    console.error(`Config not found: ${configPath}`);
+    process.exit(1);
+  }
+
+  try {
+    const { loadConfig } = require('../core/config-loader');
+    const { validateSchema } = require('../core/schema-validator');
+    const { buildCore } = require('../core/entity-engine');
+    const { initDb } = require('../core/db');
+    const { restoreBackup } = require('../core/backup');
+
+    const config = loadConfig(configPath);
+    validateSchema(config);
+    const core = buildCore(config);
+    await initDb(core);
+
+    console.log(`\n🔄 Restoring from ${backupFile}...\n`);
+    const result = await restoreBackup(backupFile, core.backup);
+    if (result.success) {
+      console.log(`  ✅ ${result.message}\n`);
+    } else {
+      console.error(`  ❌ ${result.message}\n`);
+      process.exit(1);
+    }
   } catch (err) {
     console.error(`\n❌ ${err.message}\n`);
     process.exit(1);

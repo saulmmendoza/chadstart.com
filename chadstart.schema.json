@@ -142,6 +142,18 @@
         }
       }
     },
+    "backup": {
+      "type": "object",
+      "description": "Database backup configuration. Backups are created via POST /admin/backup or `npx chadstart backup`.",
+      "additionalProperties": false,
+      "properties": {
+        "dir": {
+          "type": "string",
+          "default": "backups",
+          "description": "Directory to store backup files. Overridable via BACKUP_DIR env var. Default: backups."
+        }
+      }
+    },
     "email": {
       "type": "object",
       "description": "Email / SMTP configuration for sending transactional emails (verification, password reset, notifications). The SMTP password must be supplied via the SMTP_PASS environment variable — never put it here. All fields can be overridden by SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_FROM env vars.",

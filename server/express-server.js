@@ -26,6 +26,7 @@ const { setupFunctions, cleanup: cleanupFunctions } = require('../core/functions
 const { registerOAuthRoutes } = require('../core/oauth');
 const { initEmail, sendEmail, verifyConnection, getEmailStatus } = require('../core/email');
 const { initLogs, requestLoggerMiddleware, queryLogs, cleanupOldLogs } = require('../core/logs');
+const { createBackup, restoreBackup, listBackups } = require('../core/backup');
 const logger = require('../utils/logger');
 
 function limiter(windowMs, max) {
@@ -455,6 +456,45 @@ async function buildApp(configPath, reloadFn) {
         { page, perPage, order }
       );
       res.json(result);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Admin backup endpoints ──────────────────────────────────────────
+  app.post('/admin/backup', adminRateLimiter, async (req, res) => {
+    const header = req.headers.authorization;
+    if (!header || !header.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorized' });
+    try { verifyToken(header.slice(7)); } catch { return res.status(401).json({ error: 'Invalid token' }); }
+    try {
+      const result = await createBackup(core.backup);
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/admin/restore', adminRateLimiter, async (req, res) => {
+    const header = req.headers.authorization;
+    if (!header || !header.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorized' });
+    try { verifyToken(header.slice(7)); } catch { return res.status(401).json({ error: 'Invalid token' }); }
+    const { file } = req.body || {};
+    if (!file || typeof file !== 'string') return res.status(400).json({ error: 'file (backup filename) is required' });
+    try {
+      const result = await restoreBackup(file, core.backup);
+      if (!result.success) return res.status(404).json(result);
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get('/admin/backups', adminRateLimiter, (req, res) => {
+    const header = req.headers.authorization;
+    if (!header || !header.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorized' });
+    try { verifyToken(header.slice(7)); } catch { return res.status(401).json({ error: 'Invalid token' }); }
+    try {
+      res.json(listBackups(core.backup));
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
