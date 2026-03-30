@@ -4,6 +4,21 @@
 
 ---
 
+## Project Decisions
+
+> These decisions were made by the project owner and should guide all implementation work.
+
+| Decision | Answer | Impact |
+|----------|--------|--------|
+| **Target audience** | Solo developers and small teams | Prioritize simplicity and PocketBase-level DX over enterprise features |
+| **SMTP/Email priority** | Yes, build first | Phase 1 confirmed: SMTP → Email verification → Password reset |
+| **Admin UI approach** | Continue single-file SPA | Keep `admin/index.html` as HTMX + Alpine.js; do NOT migrate to React/Vue/Svelte |
+| **Managed cloud hosting** | Future possibility | Keep multi-tenancy in mind but don't prioritize; P3-4 stays low priority |
+| **Implementation order** | Agrees with recommended phases | Follow Phase 1→5 as documented |
+| **Additional SDK languages** | Not a priority | Deprioritize P2-5; JS SDK is sufficient for now |
+
+---
+
 ## Table of Contents
 
 1. [Feature Comparison Matrix](#1-feature-comparison-matrix)
@@ -396,6 +411,7 @@ These significantly improve ChadStart's value proposition.
 #### TASK P1-7: Schema Editor in Admin UI
 - **Gap**: G4
 - **Context**: PocketBase and Supabase allow creating/editing collections directly in the Admin UI. Currently ChadStart requires YAML editing.
+- **⚠️ Constraint**: Must remain in the single-file SPA approach (`admin/index.html` with HTMX + Alpine.js). Do NOT introduce React/Vue/Svelte.
 - **Requirements**:
   - [ ] Add entity creation form in Admin UI
   - [ ] Add property editor (add/remove/reorder fields)
@@ -464,9 +480,10 @@ These improve the developer workflow and adoption.
 
 ---
 
-#### TASK P2-5: Additional SDK Languages
+#### TASK P2-5: Additional SDK Languages _(deprioritized)_
+- **Status**: ⏸️ **Not a priority** — Owner confirmed JS SDK is sufficient for current target audience (solo devs / small teams).
 - **Context**: Currently only JavaScript SDK exists. PocketBase has JS+Dart, Supabase has JS+Python+Swift+Kotlin+C#+Flutter.
-- **Requirements**:
+- **Requirements** (if revisited later):
   - [ ] Python SDK (`pip install chadstart`)
   - [ ] Dart/Flutter SDK (`pub add chadstart`)
   - [ ] Go SDK
@@ -719,5 +736,5 @@ Phase 5 (Advanced):
 
 ---
 
-*Last updated: 2026-03-30*
+*Last updated: 2026-03-30 (decisions incorporated)*
 *ChadStart version: 1.0.5*
