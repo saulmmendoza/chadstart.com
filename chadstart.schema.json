@@ -125,6 +125,49 @@
         }
       }
     },
+    "email": {
+      "type": "object",
+      "description": "Email / SMTP configuration for sending transactional emails (verification, password reset, notifications). The SMTP password must be supplied via the SMTP_PASS environment variable — never put it here. All fields can be overridden by SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_FROM env vars.",
+      "additionalProperties": false,
+      "properties": {
+        "host": {
+          "type": "string",
+          "description": "SMTP server hostname (e.g. smtp.gmail.com). Overridable via SMTP_HOST env var."
+        },
+        "port": {
+          "type": "integer",
+          "default": 587,
+          "description": "SMTP server port. Common values: 587 (STARTTLS), 465 (SSL/TLS), 25 (unencrypted). Overridable via SMTP_PORT env var."
+        },
+        "username": {
+          "type": "string",
+          "description": "SMTP login username. Overridable via SMTP_USER env var."
+        },
+        "from": {
+          "type": "string",
+          "description": "Default sender address (e.g. 'My App <noreply@example.com>'). Overridable via SMTP_FROM env var."
+        },
+        "secure": {
+          "type": "boolean",
+          "description": "Use TLS when connecting to the server. Defaults to true for port 465, false otherwise."
+        },
+        "templates": {
+          "type": "object",
+          "description": "Email templates with {{variable}} placeholders. Used by built-in flows (verification, password reset).",
+          "additionalProperties": false,
+          "properties": {
+            "verification": {
+              "$ref": "#/$defs/emailTemplate",
+              "description": "Template for email verification messages."
+            },
+            "passwordReset": {
+              "$ref": "#/$defs/emailTemplate",
+              "description": "Template for password reset messages."
+            }
+          }
+        }
+      }
+    },
     "oauth": {
       "type": "object",
       "description": "OAuth / social login configuration powered by the grant library. Secrets (client keys and secrets) must be supplied via OAUTH_<PROVIDER>_KEY and OAUTH_<PROVIDER>_SECRET environment variables.",
@@ -398,6 +441,16 @@
         "name":  { "type": "string",  "description": "Identifier for this rate limit definition." },
         "limit": { "type": "integer", "description": "Maximum number of requests allowed in the time window." },
         "ttl":   { "type": "integer", "description": "Time window in milliseconds." }
+      }
+    },
+    "emailTemplate": {
+      "type": "object",
+      "description": "An email template with subject, text body, and optional HTML body. Supports {{variable}} placeholders.",
+      "additionalProperties": false,
+      "properties": {
+        "subject": { "type": "string", "description": "Email subject line. Supports {{appName}}, {{name}}, {{link}} placeholders." },
+        "text":    { "type": "string", "description": "Plain-text email body. Supports {{appName}}, {{name}}, {{link}} placeholders." },
+        "html":    { "type": "string", "description": "HTML email body. Supports {{appName}}, {{name}}, {{link}} placeholders." }
       }
     },
     "oauthProvider": {

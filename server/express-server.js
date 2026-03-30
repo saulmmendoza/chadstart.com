@@ -24,6 +24,7 @@ const { initErrorReporter, getRequestHandler, attachErrorHandler } = require('..
 const { getTelemetryConfig, initTelemetry } = require('../core/telemetry');
 const { setupFunctions, cleanup: cleanupFunctions } = require('../core/functions-engine');
 const { registerOAuthRoutes } = require('../core/oauth');
+const { initEmail, sendEmail, verifyConnection, getEmailStatus } = require('../core/email');
 const logger = require('../utils/logger');
 
 function limiter(windowMs, max) {
@@ -99,6 +100,9 @@ async function buildApp(configPath, reloadFn) {
   // Initialize OpenTelemetry (singleton — no-op on hot reload)
   const telConfig = getTelemetryConfig(core.telemetry);
   await initTelemetry(telConfig);
+
+  // Initialize email/SMTP service
+  initEmail(core.email);
 
   const dbPath = core.database
     ? path.resolve(path.dirname(configPath), core.database)
@@ -277,6 +281,42 @@ async function buildApp(configPath, reloadFn) {
     } catch (e) {
       logger.error('Failed to save config:', e.message);
       res.status(500).json({ error: e.message });
+    }
+  });
+
+  // ── Admin email endpoints ──────────────────────────────────────────────
+  // GET /admin/email/status — check if SMTP is configured
+  app.get('/admin/email/status', adminRateLimiter, (req, res) => {
+    const header = req.headers.authorization;
+    if (!header || !header.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorized' });
+    try { verifyToken(header.slice(7)); } catch { return res.status(401).json({ error: 'Invalid token' }); }
+    res.json(getEmailStatus());
+  });
+
+  // POST /admin/test-email — send a test email to verify SMTP configuration (auth required)
+  app.post('/admin/test-email', adminRateLimiter, async (req, res) => {
+    const header = req.headers.authorization;
+    if (!header || !header.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorized' });
+    try { verifyToken(header.slice(7)); } catch { return res.status(401).json({ error: 'Invalid token' }); }
+
+    const { to } = req.body || {};
+    if (!to || typeof to !== 'string') return res.status(400).json({ error: 'to (email address) is required' });
+
+    // First verify the SMTP connection
+    const verification = await verifyConnection();
+    if (!verification.success) return res.status(503).json(verification);
+
+    try {
+      await sendEmail({
+        to,
+        subject: 'ChadStart Test Email',
+        text: `This is a test email from your ChadStart application "${core.name}".\n\nIf you received this, your SMTP configuration is working correctly.`,
+        html: `<h2>ChadStart Test Email</h2><p>This is a test email from your ChadStart application <strong>"${core.name}"</strong>.</p><p>If you received this, your SMTP configuration is working correctly. ✅</p>`,
+      });
+      res.json({ success: true, message: `Test email sent to ${to}` });
+    } catch (e) {
+      logger.error('Test email failed:', e.message);
+      res.status(502).json({ success: false, message: `Failed to send test email: ${e.message}` });
     }
   });
 
