@@ -7,6 +7,10 @@
  *   POST /api/auth/:slug/signup
  *   POST /api/auth/:slug/login
  *   GET  /api/auth/:slug/me
+ *   POST /api/auth/:slug/request-verification
+ *   POST /api/auth/:slug/confirm-verification
+ *   POST /api/auth/:slug/request-password-reset
+ *   POST /api/auth/:slug/confirm-password-reset
  *   GET  /api/auth/:slug/api-keys
  *   POST /api/auth/:slug/api-keys
  *   DELETE /api/auth/:slug/api-keys/:id
@@ -41,6 +45,25 @@ function signToken(payload, expiresIn) {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: expiresIn !== undefined ? expiresIn : JWT_EXPIRES });
 }
 function verifyToken(token) { return jwt.verify(token, JWT_SECRET); }
+
+/** Generate a cryptographically secure random hex token. */
+function generateSecureToken() {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+// ─── Default email templates ─────────────────────────────────────────────────
+
+const DEFAULT_VERIFICATION_TEMPLATE = {
+  subject: 'Verify your email for {{appName}}',
+  text: 'Hi {{name}},\n\nPlease verify your email address by using the following token:\n\n{{token}}\n\nOr click this link: {{link}}\n\nThanks,\n{{appName}}',
+  html: '<h2>Verify your email</h2><p>Hi {{name}},</p><p>Please verify your email address by clicking the link below:</p><p><a href="{{link}}">Verify Email</a></p><p>Or use this token: <code>{{token}}</code></p><p>Thanks,<br>{{appName}}</p>',
+};
+
+const DEFAULT_PASSWORD_RESET_TEMPLATE = {
+  subject: 'Reset your password for {{appName}}',
+  text: 'Hi {{name}},\n\nYou requested a password reset. Use the following token:\n\n{{token}}\n\nOr click this link: {{link}}\n\nThis link expires in 1 hour.\n\nIf you did not request this, please ignore this email.\n\nThanks,\n{{appName}}',
+  html: '<h2>Reset your password</h2><p>Hi {{name}},</p><p>You requested a password reset. Click the link below:</p><p><a href="{{link}}">Reset Password</a></p><p>Or use this token: <code>{{token}}</code></p><p>This link expires in 1 hour.</p><p>If you did not request this, please ignore this email.</p><p>Thanks,<br>{{appName}}</p>',
+};
 
 // ─── API Keys ─────────────────────────────────────────────────────────────────
 
@@ -231,6 +254,34 @@ function registerApiKeyRoutes(app, core) {
 
 function registerAuthRoutes(app, core, emit) {
   const _emit = typeof emit === 'function' ? emit : () => {};
+
+  // Lazily load email module to avoid circular dependency at module load time
+  let _emailMod;
+  function _getEmail() {
+    if (!_emailMod) _emailMod = require('./email');
+    return _emailMod;
+  }
+
+  /** Try to send an email — logs and swallows errors so auth flow still succeeds when SMTP is down. */
+  async function _trySend(opts) {
+    try {
+      await _getEmail().sendEmail(opts);
+    } catch (e) {
+      logger.warn(`Email send failed (${opts.to}): ${e.message}`);
+    }
+  }
+
+  /** Merge user-defined template with built-in default. */
+  function _tpl(kind) {
+    const defaults = kind === 'verification' ? DEFAULT_VERIFICATION_TEMPLATE : DEFAULT_PASSWORD_RESET_TEMPLATE;
+    const custom = ((core.email || {}).templates || {})[kind] || {};
+    return {
+      subject: custom.subject || defaults.subject,
+      text: custom.text || defaults.text,
+      html: custom.html || defaults.html,
+    };
+  }
+
   for (const entity of Object.values(core.authenticableEntities || {})) {
     const slug = entity.slug;
     const table = entity.tableName;
@@ -240,32 +291,133 @@ function registerAuthRoutes(app, core, emit) {
     const signupPolicies = (entity.policies || {}).signup;
     const signupForbidden = signupPolicies && signupPolicies.length > 0 && signupPolicies[0].access === 'forbidden';
 
+    // ── Signup ────────────────────────────────────────────────────────────
     app.post(`/api/auth/${slug}/signup`, async (req, res) => {
       try {
         if (signupForbidden) return res.status(403).json({ error: 'Signup is forbidden for this entity' });
         const { email, password, ...rest } = req.body || {};
         if (!email || !password) return res.status(400).json({ error: 'email and password are required' });
         if ((await db.findAllSimple(table, { email })).length) return res.status(409).json({ error: 'Email already registered' });
-        const user = await db.create(table, { email, password: await bcrypt.hash(password, BCRYPT_ROUNDS), ...sanitize(rest) });
+
+        // Generate email verification token
+        const verificationToken = generateSecureToken();
+        const user = await db.create(table, {
+          email,
+          password: await bcrypt.hash(password, BCRYPT_ROUNDS),
+          emailVerified: 0,
+          emailVerificationToken: verificationToken,
+          ...sanitize(rest),
+        });
         _emit(`${entity.name}.created`, omitPassword(user));
+
+        // Send verification email (best-effort — does not block signup)
+        const tpl = _tpl('verification');
+        const vars = { appName: core.name, name: email, token: verificationToken, link: `${_appUrl()}/verify?token=${verificationToken}` };
+        _trySend({ to: email, subject: tpl.subject, text: tpl.text, html: tpl.html, vars });
+
         res.status(201).json({ token: signToken({ id: user.id, entity: entity.name }), user: omitPassword(user) });
       } catch (e) { logger.error('signup error', e.message); res.status(500).json({ error: e.message }); }
     });
 
+    // ── Login ─────────────────────────────────────────────────────────────
     app.post(`/api/auth/${slug}/login`, async (req, res) => {
       try {
         const { email, password } = req.body || {};
         if (!email || !password) return res.status(400).json({ error: 'email and password are required' });
         const user = (await db.findAllSimple(table, { email }))[0];
         if (!user || !(await bcrypt.compare(password, user.password))) return res.status(401).json({ error: 'Invalid credentials' });
+
+        // Block login if email verification is required but not done
+        if (entity.requireEmailVerification && !user.emailVerified) {
+          return res.status(403).json({ error: 'Email not verified. Please verify your email before logging in.' });
+        }
+
         res.json({ token: signToken({ id: user.id, entity: entity.name }), user: omitPassword(user) });
       } catch (e) { logger.error('login error', e.message); res.status(500).json({ error: e.message }); }
     });
 
+    // ── Me ─────────────────────────────────────────────────────────────────
     app.get(`/api/auth/${slug}/me`, requireAuth(entity.name), async (req, res) => {
       const user = await db.findById(table, req.user.id);
       if (!user) return res.status(404).json({ error: 'User not found' });
       res.json(omitPassword(user));
+    });
+
+    // ── Request Verification ──────────────────────────────────────────────
+    app.post(`/api/auth/${slug}/request-verification`, requireAuth(entity.name), async (req, res) => {
+      try {
+        const user = await db.findById(table, req.user.id);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+        if (user.emailVerified) return res.json({ message: 'Email already verified' });
+
+        const token = generateSecureToken();
+        await db.update(table, user.id, { emailVerificationToken: token });
+
+        const tpl = _tpl('verification');
+        const vars = { appName: core.name, name: user.email, token, link: `${_appUrl()}/verify?token=${token}` };
+        await _trySend({ to: user.email, subject: tpl.subject, text: tpl.text, html: tpl.html, vars });
+
+        res.json({ message: 'Verification email sent' });
+      } catch (e) { logger.error('request-verification error', e.message); res.status(500).json({ error: e.message }); }
+    });
+
+    // ── Confirm Verification ──────────────────────────────────────────────
+    app.post(`/api/auth/${slug}/confirm-verification`, async (req, res) => {
+      try {
+        const { token } = req.body || {};
+        if (!token) return res.status(400).json({ error: 'token is required' });
+
+        const user = (await db.findAllSimple(table, { emailVerificationToken: token }))[0];
+        if (!user) return res.status(400).json({ error: 'Invalid or expired verification token' });
+
+        await db.update(table, user.id, { emailVerified: 1, emailVerificationToken: null });
+        res.json({ message: 'Email verified successfully' });
+      } catch (e) { logger.error('confirm-verification error', e.message); res.status(500).json({ error: e.message }); }
+    });
+
+    // ── Request Password Reset ────────────────────────────────────────────
+    app.post(`/api/auth/${slug}/request-password-reset`, async (req, res) => {
+      try {
+        const { email } = req.body || {};
+        if (!email) return res.status(400).json({ error: 'email is required' });
+
+        // Always return 200 to avoid leaking whether email exists
+        const user = (await db.findAllSimple(table, { email }))[0];
+        if (user) {
+          const token = generateSecureToken();
+          const expiry = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour
+          await db.update(table, user.id, { passwordResetToken: token, passwordResetExpiry: expiry });
+
+          const tpl = _tpl('passwordReset');
+          const vars = { appName: core.name, name: user.email, token, link: `${_appUrl()}/reset-password?token=${token}` };
+          _trySend({ to: user.email, subject: tpl.subject, text: tpl.text, html: tpl.html, vars });
+        }
+
+        res.json({ message: 'If an account with that email exists, a password reset email has been sent.' });
+      } catch (e) { logger.error('request-password-reset error', e.message); res.status(500).json({ error: e.message }); }
+    });
+
+    // ── Confirm Password Reset ────────────────────────────────────────────
+    app.post(`/api/auth/${slug}/confirm-password-reset`, async (req, res) => {
+      try {
+        const { token, password } = req.body || {};
+        if (!token || !password) return res.status(400).json({ error: 'token and password are required' });
+
+        const user = (await db.findAllSimple(table, { passwordResetToken: token }))[0];
+        if (!user) return res.status(400).json({ error: 'Invalid or expired reset token' });
+
+        // Check expiry
+        if (!user.passwordResetExpiry || new Date(user.passwordResetExpiry) < new Date()) {
+          return res.status(400).json({ error: 'Reset token has expired' });
+        }
+
+        await db.update(table, user.id, {
+          password: await bcrypt.hash(password, BCRYPT_ROUNDS),
+          passwordResetToken: null,
+          passwordResetExpiry: null,
+        });
+        res.json({ message: 'Password reset successfully' });
+      } catch (e) { logger.error('confirm-password-reset error', e.message); res.status(500).json({ error: e.message }); }
     });
 
     logger.info(`  Registered auth routes at /api/auth/${slug}/`);
@@ -294,13 +446,18 @@ async function optionalAuth(req, _res, next) {
 }
 
 function omitPassword(user) {
-  const { password: _, ...rest } = user;
+  const { password: _, emailVerificationToken: _2, passwordResetToken: _3, passwordResetExpiry: _4, ...rest } = user;
   return rest;
+}
+
+/** Derive the app's base URL for email links. */
+function _appUrl() {
+  return process.env.APP_URL || process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
 }
 
 module.exports = {
   registerAuthRoutes, registerApiKeyRoutes, initApiKeys,
   requireAuth, optionalAuth, resolveAuthHeader,
-  signToken, verifyToken, omitPassword, JWT_SECRET,
+  signToken, verifyToken, omitPassword, JWT_SECRET, generateSecureToken,
   createApiKey, listApiKeys, listAllApiKeys, deleteApiKey, verifyApiKeyStr,
 };

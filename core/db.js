@@ -235,6 +235,10 @@ function buildColumnDefs(entity, allEntities) {
   if (entity.authenticable) {
     cols.push({ name: 'email',    def: `${q('email')} ${authStrType()} NOT NULL UNIQUE` });
     cols.push({ name: 'password', def: `${q('password')} ${authStrType()} NOT NULL` });
+    cols.push({ name: 'emailVerified',          def: `${q('emailVerified')} INTEGER DEFAULT 0` });
+    cols.push({ name: 'emailVerificationToken', def: `${q('emailVerificationToken')} TEXT` });
+    cols.push({ name: 'passwordResetToken',     def: `${q('passwordResetToken')} TEXT` });
+    cols.push({ name: 'passwordResetExpiry',    def: `${q('passwordResetExpiry')} TEXT` });
   }
 
   for (const p of entity.properties) {

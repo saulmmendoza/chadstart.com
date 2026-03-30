@@ -30,8 +30,12 @@ function generateOpenApiSpec(core) {
     spec.components.schemas[`${e.name}AuthResponse`] = { type: 'object', properties: { token: { type: 'string' }, user: { $ref: `#/components/schemas/${e.name}` } } };
 
     spec.paths[`/api/auth/${slug}/signup`] = { post: { tags: [`Auth – ${e.name}`], summary: `Sign up as ${e.name}`, requestBody: jsonBody(`${e.name}Input`), responses: { 201: jsonResp(e.name + 'AuthResponse'), 400: desc('Validation error'), 409: desc('Email already registered') } } };
-    spec.paths[`/api/auth/${slug}/login`]  = { post: { tags: [`Auth – ${e.name}`], summary: `Login as ${e.name}`, requestBody: jsonBody(`${e.name}LoginInput`), responses: { 200: jsonResp(e.name + 'AuthResponse'), 401: desc('Invalid credentials') } } };
+    spec.paths[`/api/auth/${slug}/login`]  = { post: { tags: [`Auth – ${e.name}`], summary: `Login as ${e.name}`, requestBody: jsonBody(`${e.name}LoginInput`), responses: { 200: jsonResp(e.name + 'AuthResponse'), 401: desc('Invalid credentials'), 403: desc('Email not verified') } } };
     spec.paths[`/api/auth/${slug}/me`]     = { get: { tags: [`Auth – ${e.name}`], summary: `Get current ${e.name}`, security: [{ bearerAuth: [] }], responses: { 200: jsonResp(e.name), 401: desc('Unauthorized') } } };
+    spec.paths[`/api/auth/${slug}/request-verification`] = { post: { tags: [`Auth – ${e.name}`], summary: `Request email verification for ${e.name}`, security: [{ bearerAuth: [] }], responses: { 200: desc('Verification email sent'), 401: desc('Unauthorized') } } };
+    spec.paths[`/api/auth/${slug}/confirm-verification`] = { post: { tags: [`Auth – ${e.name}`], summary: `Confirm email verification for ${e.name}`, requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['token'], properties: { token: { type: 'string' } } } } } }, responses: { 200: desc('Email verified'), 400: desc('Invalid token') } } };
+    spec.paths[`/api/auth/${slug}/request-password-reset`] = { post: { tags: [`Auth – ${e.name}`], summary: `Request password reset for ${e.name}`, requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['email'], properties: { email: { type: 'string', format: 'email' } } } } } }, responses: { 200: desc('Password reset email sent (if account exists)') } } };
+    spec.paths[`/api/auth/${slug}/confirm-password-reset`] = { post: { tags: [`Auth – ${e.name}`], summary: `Confirm password reset for ${e.name}`, requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['token', 'password'], properties: { token: { type: 'string' }, password: { type: 'string', format: 'password' } } } } } }, responses: { 200: desc('Password reset successful'), 400: desc('Invalid or expired token') } } };
   }
 
   // Entity CRUD endpoints
@@ -138,7 +142,7 @@ function entityInputSchema(e, all) {
 }
 
 function authSchema(e) {
-  const props = { id: { type: 'string', format: 'uuid', readOnly: true }, email: { type: 'string', format: 'email' }, createdAt: { type: 'string', format: 'date-time' }, updatedAt: { type: 'string', format: 'date-time' } };
+  const props = { id: { type: 'string', format: 'uuid', readOnly: true }, email: { type: 'string', format: 'email' }, emailVerified: { type: 'boolean' }, createdAt: { type: 'string', format: 'date-time' }, updatedAt: { type: 'string', format: 'date-time' } };
   for (const p of e.properties) {
     if (!p.hidden) props[p.name] = { type: OPENAPI_TYPE[p.type] || 'string' };
   }

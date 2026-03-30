@@ -60,6 +60,7 @@ function buildEntities(config) {
       tableName: toSnakeCase(name),
       slug: def.slug || toKebabCase(name),
       authenticable: def.authenticable === true,
+      requireEmailVerification: def.requireEmailVerification === true,
       single: def.single === true,
       mainProp: def.mainProp || null,
       nameSingular: def.nameSingular || null,

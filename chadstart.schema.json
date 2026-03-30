@@ -335,6 +335,7 @@
       "type": "object",
       "properties": {
         "authenticable": { "type": "boolean", "default": false, "description": "Makes this entity authenticable (adds email + password fields, enables login/signup)." },
+        "requireEmailVerification": { "type": "boolean", "default": false, "description": "When true, login is blocked until the user verifies their email address." },
         "single":        { "type": "boolean", "default": false, "description": "Single entity — only one record exists (no create/delete)." },
         "mainProp":      { "type": "string", "description": "Identifier property used in the admin panel." },
         "nameSingular":  { "type": "string" },
