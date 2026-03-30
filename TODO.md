@@ -282,21 +282,22 @@ These tasks bring ChadStart to feature parity with PocketBase for production use
 
 ---
 
-#### TASK P0-5: Email Sending (SMTP)
+#### TASK P0-5: Email Sending (SMTP) ✅
 - **Gap**: G17
+- **Status**: ✅ **Complete**
 - **Context**: Required by P0-1 and P0-2. PocketBase has built-in SMTP. Needed for verification, password reset, and user notifications.
 - **Requirements**:
-  - [ ] Add `email` section to YAML schema (host, port, username, password, from, tls)
-  - [ ] Implement email service in `core/email.js` using nodemailer
-  - [ ] Support environment variables for credentials (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`)
-  - [ ] Add configurable email templates (verification, password reset)
-  - [ ] Add `POST /admin/test-email` endpoint to test SMTP config
-  - [ ] Add template variable interpolation (`{{name}}`, `{{link}}`, `{{appName}}`)
-  - [ ] Update schema validation
-  - [ ] Add tests (with mock SMTP)
-- **Files to modify**: New `core/email.js`, `chadstart.schema.json`, `server/express-server.js`
-- **Estimated effort**: Medium (1-2 sessions)
-- **New dependency**: `nodemailer`
+  - [x] Add `email` section to YAML schema (host, port, username, from, secure, templates)
+  - [x] Implement email service in `core/email.js` using nodemailer
+  - [x] Support environment variables for credentials (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`)
+  - [x] Add configurable email templates (verification, password reset)
+  - [x] Add `POST /admin/test-email` endpoint to test SMTP config
+  - [x] Add `GET /admin/email/status` endpoint to check SMTP status
+  - [x] Add template variable interpolation (`{{name}}`, `{{link}}`, `{{appName}}`)
+  - [x] Update schema validation
+  - [x] Add tests (36 tests covering config, templates, schema, buildCore)
+- **Files modified**: New `core/email.js`, `chadstart.schema.json`, `server/express-server.js`, `core/entity-engine.js`, `chadstart.example.yaml`, `test/email.test.js`
+- **Dependency added**: `nodemailer@^8.0.4`
 
 ---
 
