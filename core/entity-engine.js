@@ -157,6 +157,7 @@ function buildCore(config) {
     rateLimits,
     telemetry,
     email: config.email || null,
+    logs: config.logs || null,
     oauth: config.oauth || null,
     admin: {
       enable_app: adminCfg.enable_app !== false,

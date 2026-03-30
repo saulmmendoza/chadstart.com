@@ -25,6 +25,7 @@ const { getTelemetryConfig, initTelemetry } = require('../core/telemetry');
 const { setupFunctions, cleanup: cleanupFunctions } = require('../core/functions-engine');
 const { registerOAuthRoutes } = require('../core/oauth');
 const { initEmail, sendEmail, verifyConnection, getEmailStatus } = require('../core/email');
+const { initLogs, requestLoggerMiddleware, queryLogs, cleanupOldLogs } = require('../core/logs');
 const logger = require('../utils/logger');
 
 function limiter(windowMs, max) {
@@ -109,6 +110,16 @@ async function buildApp(configPath, reloadFn) {
     : undefined;
   await initDb(core, dbPath);
   await initApiKeys();
+  await initLogs();
+
+  // Schedule periodic log cleanup
+  const logsCfg = core.logs || {};
+  const retentionDays = logsCfg.retention !== undefined ? logsCfg.retention : 30;
+  if (retentionDays > 0) {
+    // Run cleanup once at startup and then every 24 hours
+    cleanupOldLogs(retentionDays).catch(() => {});
+    setInterval(() => cleanupOldLogs(retentionDays).catch(() => {}), 24 * 60 * 60 * 1000).unref();
+  }
 
   initErrorReporter(core);
 
@@ -120,6 +131,10 @@ async function buildApp(configPath, reloadFn) {
   // Sentry request handler must be the first middleware (captures req info)
   const sentryRequestHandler = getRequestHandler();
   if (sentryRequestHandler) app.use(sentryRequestHandler);
+
+  // Request logging middleware — placed after Sentry but before routes
+  const logExclude = (logsCfg.exclude || ['/health', '/admin/vendor']);
+  app.use(requestLoggerMiddleware({ exclude: logExclude }));
 
   // Public static files
   if (core.public && core.public.folder) {
@@ -423,6 +438,23 @@ async function buildApp(configPath, reloadFn) {
         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
         .slice(0, 20);
       res.json({ entities: entityStats, recentActivity });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Admin logs endpoint ─────────────────────────────────────────────
+  app.get('/admin/logs', adminRateLimiter, async (req, res) => {
+    const header = req.headers.authorization;
+    if (!header || !header.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorized' });
+    try { verifyToken(header.slice(7)); } catch { return res.status(401).json({ error: 'Invalid token' }); }
+    try {
+      const { method, statusCode, path: filterPath, from, to, page, perPage, order } = req.query;
+      const result = await queryLogs(
+        { method, statusCode, path: filterPath, from, to },
+        { page, perPage, order }
+      );
+      res.json(result);
     } catch (err) {
       res.status(500).json({ error: err.message });
     }

@@ -125,6 +125,23 @@
         }
       }
     },
+    "logs": {
+      "type": "object",
+      "description": "Request logging configuration. Logs are stored in a _cs_logs system table and accessible via GET /admin/logs.",
+      "additionalProperties": false,
+      "properties": {
+        "retention": {
+          "type": "integer",
+          "default": 30,
+          "description": "Number of days to keep log entries. 0 = keep forever. Default: 30."
+        },
+        "exclude": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "URL path prefixes to exclude from logging (e.g. ['/health', '/admin/vendor'])."
+        }
+      }
+    },
     "email": {
       "type": "object",
       "description": "Email / SMTP configuration for sending transactional emails (verification, password reset, notifications). The SMTP password must be supplied via the SMTP_PASS environment variable — never put it here. All fields can be overridden by SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_FROM env vars.",
