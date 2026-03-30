@@ -120,6 +120,7 @@ async function restoreBackup(backupFile, backupCfg) {
 
   if (DB_ENGINE === 'sqlite') {
     const sqliteDb = db.getDb();
+    // better-sqlite3 exposes .name as the file path of the opened database
     const dbPath = sqliteDb.name;
     // Close, copy, re-open would require server restart — use SQLite's deserialization
     // For simplicity, copy the backup over the current DB file

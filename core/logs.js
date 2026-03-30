@@ -90,7 +90,7 @@ function requestLoggerMiddleware(opts = {}) {
         path: req.originalUrl || req.path,
         statusCode: res.statusCode,
         duration,
-        ip: req.ip || req.connection?.remoteAddress || null,
+        ip: req.ip || req.socket?.remoteAddress || null,
         userId,
         userEntity,
       }).catch((e) => logger.warn('Log insert failed:', e.message));
