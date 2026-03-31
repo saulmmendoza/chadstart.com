@@ -66,24 +66,24 @@
 | OAuth / social login | ✅ (200+ via Grant) | ✅ (~12 built-in) | ✅ (~20+) | ✅ (~30+) | ✅ (~15) |
 | API keys | ✅ | ❌ | ✅ (service keys) | ✅ | ✅ |
 | JWT tokens | ✅ | ✅ | ✅ | ✅ | ✅ (custom) |
-| Magic link / passwordless | ❌ | ❌ | ✅ | ✅ | ✅ |
-| Phone / SMS auth | ❌ | ❌ | ✅ | ✅ | ✅ |
-| Multi-factor auth (MFA/2FA) | ❌ | ✅ (OTP) | ✅ | ✅ | ✅ |
+| Magic link / passwordless | ✅ (magicLink option) | ❌ | ✅ | ✅ | ✅ |
+| Phone / SMS auth | ✅ (phoneAuth option) | ❌ | ✅ | ✅ | ✅ |
+| Multi-factor auth (MFA/2FA) | ✅ (TOTP/RFC 6238) | ✅ (OTP) | ✅ | ✅ | ✅ |
 | Anonymous auth | ❌ | ❌ | ✅ | ✅ | ✅ |
-| Email verification | ❌ | ✅ | ✅ | ✅ | ✅ |
-| Password reset flow | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Email verification | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Password reset flow | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Custom auth providers | 🟡 (via Grant) | ✅ | ✅ | ✅ | ✅ |
 | Session management | 🟡 (JWT only) | ✅ | ✅ | ✅ | ✅ |
 | **ACCESS CONTROL** | | | | | |
 | Role-based (public/restricted/admin) | ✅ | ✅ (API rules) | ✅ (RLS) | ✅ (roles) | ✅ (rules) |
 | Row-level security | 🟡 (self condition) | ✅ (filter rules) | ✅ (Postgres RLS) | ✅ | ✅ (rules) |
 | Per-operation policies | ✅ (CRUD) | ✅ | ✅ | ✅ | ✅ |
-| Custom policy expressions | ❌ | ✅ (JS-like) | ✅ (SQL) | 🟡 | ✅ |
+| Custom policy expressions | ✅ (@auth/@record/@request) | ✅ (JS-like) | ✅ (SQL) | 🟡 | ✅ |
 | Field-level permissions | ❌ | ❌ | 🟡 | ❌ | ✅ |
 | **REALTIME** | | | | | |
 | WebSocket subscriptions | ✅ | ✅ (SSE) | ✅ (Postgres changes) | ✅ | ✅ |
 | Entity CRUD events | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Channel filtering | 🟡 (entity-level) | ✅ (record-level) | ✅ (table/row) | ✅ (channels) | ✅ (path) |
+| Channel filtering | ✅ (record-level + filters) | ✅ (record-level) | ✅ (table/row) | ✅ (channels) | ✅ (path) |
 | Presence / online status | ❌ | ❌ | ✅ (Presence) | ❌ | ✅ |
 | **FILE STORAGE** | | | | | |
 | Local file storage | ✅ | ✅ | ❌ | ✅ | ❌ |
@@ -113,7 +113,7 @@
 | GraphQL API | ❌ | ❌ | ✅ (pg_graphql) | ✅ | ❌ |
 | Filtering / pagination | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Sorting | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Batch operations | ❌ | ❌ | ✅ | ❌ | ✅ |
+| Batch operations | ✅ (POST/PATCH/DELETE batch) | ❌ | ✅ | ❌ | ✅ |
 | **MIGRATIONS** | | | | | |
 | Auto schema sync (dev) | ✅ | ✅ | ❌ | ✅ | ✅ |
 | Git-based migration generation | ✅ | ❌ | ❌ | ❌ | ❌ |
@@ -122,7 +122,7 @@
 | **OBSERVABILITY** | | | | | |
 | OpenTelemetry support | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Sentry error reporting | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Request logging | 🟡 | ✅ | ✅ | ✅ | ✅ |
+| Request logging | ✅ (API + admin endpoint) | ✅ | ✅ | ✅ | ✅ |
 | Metrics / dashboards | ❌ | ❌ | ✅ | ✅ | ✅ |
 | **DEPLOYMENT** | | | | | |
 | Docker support | ✅ | ✅ | ✅ | ✅ | ❌ (cloud) |
@@ -131,7 +131,7 @@
 | Single binary deployment | ❌ (Node.js) | ✅ (Go) | ❌ | ❌ | ❌ |
 | Edge deployment | ❌ | ❌ | ✅ | ❌ | ✅ |
 | **EXTRAS** | | | | | |
-| Email sending (SMTP/transactional) | ❌ | ✅ | ❌ (3rd party) | ✅ | ❌ |
+| Email sending (SMTP/transactional) | ✅ (nodemailer) | ✅ | ❌ (3rd party) | ✅ | ❌ |
 | Push notifications | ❌ | ❌ | ❌ | ✅ | ✅ |
 | Geolocation queries | ❌ | ❌ | ✅ (PostGIS) | ❌ | ✅ |
 | Plugin system | ✅ | ❌ | ✅ (Extensions) | ❌ | ✅ |
@@ -148,36 +148,36 @@
 
 These are features PocketBase has that ChadStart lacks, which users would notice immediately:
 
-| # | Gap | PocketBase Behavior | Impact |
-|---|-----|---------------------|--------|
-| G1 | **Email verification flow** | Built-in verify email on signup | High — production apps need this |
-| G2 | **Password reset flow** | Built-in forgot/reset password | High — essential for any user-facing app |
-| G3 | **Admin logs viewer** | View API request logs in admin | Medium — debugging is harder |
-| G4 | **Schema editor in Admin UI** | Create/edit collections in UI | Medium — currently YAML-only |
-| G5 | **Record-level realtime filters** | Subscribe to specific records | Medium — currently entity-level only |
-| G6 | **MFA / OTP support** | TOTP-based 2FA | Medium — security requirement |
-| G7 | **Backup & restore** | One-click backup/restore | Medium — data safety |
-| G8 | **File validation (size/MIME)** | Configurable per field | Low-Medium — basic validation exists |
+| # | Gap | PocketBase Behavior | Impact | Status |
+|---|-----|---------------------|--------|--------|
+| G1 | **Email verification flow** | Built-in verify email on signup | High — production apps need this | ✅ Closed |
+| G2 | **Password reset flow** | Built-in forgot/reset password | High — essential for any user-facing app | ✅ Closed |
+| G3 | **Admin logs viewer** | View API request logs in admin | Medium — debugging is harder | ✅ Closed |
+| G4 | **Schema editor in Admin UI** | Create/edit collections in UI | Medium — currently YAML-only | 🔧 Planned (P1-7) |
+| G5 | **Record-level realtime filters** | Subscribe to specific records | Medium — currently entity-level only | ✅ Closed |
+| G6 | **MFA / OTP support** | TOTP-based 2FA | Medium — security requirement | ✅ Closed |
+| G7 | **Backup & restore** | One-click backup/restore | Medium — data safety | ✅ Closed |
+| G8 | **File validation (size/MIME)** | Configurable per field | Low-Medium — basic validation exists | 🔧 Planned |
 
 ### 🟡 Valuable Gaps (vs Supabase / Appwrite)
 
 Features from the broader BaaS ecosystem worth considering:
 
-| # | Gap | Available In | Impact |
-|---|-----|-------------|--------|
-| G9 | **Magic link / passwordless auth** | Supabase, Appwrite, Firebase | Medium |
-| G10 | **Phone/SMS authentication** | Supabase, Appwrite, Firebase | Medium |
-| G11 | **Anonymous auth** | Supabase, Appwrite, Firebase | Low |
-| G12 | **GraphQL API** | Supabase, Appwrite | Medium |
-| G13 | **Full-text search** | Supabase (pg), Appwrite, Firebase | High |
-| G14 | **Batch/bulk operations** | Supabase, Firebase | Medium |
-| G15 | **Field-level permissions** | Firebase | Low |
-| G16 | **Custom policy expressions** | PocketBase, Supabase | Medium |
-| G17 | **Email sending (SMTP)** | PocketBase, Appwrite | High |
-| G18 | **Push notifications** | Appwrite, Firebase | Low |
-| G19 | **CDN / edge caching** | Supabase, Firebase | Low |
-| G20 | **Managed cloud hosting** | All competitors | High (business) |
-| G21 | **Presence / online status** | Supabase, Firebase | Low |
+| # | Gap | Available In | Impact | Status |
+|---|-----|-------------|--------|--------|
+| G9 | **Magic link / passwordless auth** | Supabase, Appwrite, Firebase | Medium | ✅ Closed |
+| G10 | **Phone/SMS authentication** | Supabase, Appwrite, Firebase | Medium | ✅ Closed |
+| G11 | **Anonymous auth** | Supabase, Appwrite, Firebase | Low | 🔧 Planned |
+| G12 | **GraphQL API** | Supabase, Appwrite | Medium | 🔧 Planned (P3-1) |
+| G13 | **Full-text search** | Supabase (pg), Appwrite, Firebase | High | 🔧 Planned (P1-1) |
+| G14 | **Batch/bulk operations** | Supabase, Firebase | Medium | ✅ Closed |
+| G15 | **Field-level permissions** | Firebase | Low | 🔧 Planned |
+| G16 | **Custom policy expressions** | PocketBase, Supabase | Medium | ✅ Closed |
+| G17 | **Email sending (SMTP)** | PocketBase, Appwrite | High | ✅ Closed |
+| G18 | **Push notifications** | Appwrite, Firebase | Low | 🔧 Planned |
+| G19 | **CDN / edge caching** | Supabase, Firebase | Low | 🔧 Planned |
+| G20 | **Managed cloud hosting** | All competitors | High (business) | 🔧 Planned (P3-4) |
+| G21 | **Presence / online status** | Supabase, Firebase | Low | 🔧 Planned |
 
 ### 🟢 ChadStart Unique Advantages
 
@@ -322,88 +322,109 @@ These significantly improve ChadStart's value proposition.
 
 ---
 
-#### TASK P1-2: MFA / Two-Factor Authentication
+#### TASK P1-2: MFA / Two-Factor Authentication ✅
 - **Gap**: G6
+- **Status**: ✅ **Complete**
 - **Context**: PocketBase supports TOTP-based OTP. Increasingly required for security compliance.
 - **Requirements**:
-  - [ ] Add `mfa` option on authenticable entities
-  - [ ] Implement TOTP generation and verification (RFC 6238)
-  - [ ] Add `POST /api/auth/:slug/mfa/setup` — returns QR code / secret
-  - [ ] Add `POST /api/auth/:slug/mfa/verify` — verify TOTP code
-  - [ ] Add `POST /api/auth/:slug/mfa/disable` — disable MFA
-  - [ ] Modify login flow to require TOTP when enabled
-  - [ ] Add recovery codes generation
-  - [ ] Update Admin UI to show MFA status
-  - [ ] Add tests
-- **Files to modify**: `core/auth.js`, `server/express-server.js`, `chadstart.schema.json`
-- **Estimated effort**: Large (2-3 sessions)
-- **New dependency**: `otpauth` or `speakeasy`
+  - [x] Add `mfa` option on authenticable entities
+  - [x] Implement TOTP generation and verification (RFC 6238)
+  - [x] Add `POST /api/auth/:slug/mfa/setup` — returns secret + otpauth URI
+  - [x] Add `POST /api/auth/:slug/mfa/verify` — verify TOTP code, enable MFA
+  - [x] Add `POST /api/auth/:slug/mfa/disable` — disable MFA
+  - [x] Modify login flow to require TOTP when enabled
+  - [x] Add `POST /api/auth/:slug/mfa/login-verify` — complete MFA login with TOTP or recovery code
+  - [x] Add recovery codes generation (8 codes)
+  - [ ] Update Admin UI to show MFA status (deferred — API-only for now)
+  - [x] Add tests (25+ tests in test/mfa.test.js)
+- **Files modified**: New `core/mfa.js`, `core/auth.js`, `core/db.js`, `core/entity-engine.js`, `test/mfa.test.js`
+- **No new dependency**: Uses Node.js built-in crypto (no otpauth/speakeasy needed)
 
 ---
 
-#### TASK P1-3: Record-Level Realtime Subscriptions
+#### TASK P1-3: Record-Level Realtime Subscriptions ✅
 - **Gap**: G5
+- **Status**: ✅ **Complete**
 - **Context**: PocketBase allows subscribing to specific record changes. Currently ChadStart only supports entity-level subscriptions.
 - **Requirements**:
-  - [ ] Support subscription to specific record: `{ "type": "subscribe", "channel": "Post/abc123" }`
-  - [ ] Support filter-based subscriptions: `{ "type": "subscribe", "channel": "Post", "filter": { "status": "published" } }`
-  - [ ] Apply access policies to realtime events (don't send events for records user can't read)
-  - [ ] Add subscription acknowledgment messages
-  - [ ] Update realtime documentation
-  - [ ] Add tests
-- **Files to modify**: `core/realtime.js`, docs
-- **Estimated effort**: Medium (1-2 sessions)
+  - [x] Support subscription to specific record: `{ "type": "subscribe", "channel": "Post/abc123" }`
+  - [x] Support filter-based subscriptions: `{ "type": "subscribe", "channel": "Post", "filter": { "status": "published" } }`
+  - [x] De-duplicate events (each client receives at most one copy per emit)
+  - [x] Add subscription acknowledgment messages
+  - [x] Clean up filter subscriptions on disconnect
+  - [x] Full backward compatibility with entity-level and wildcard subscriptions
+  - [x] Add tests (20 tests in test/realtime.test.js)
+- **Files modified**: `core/realtime.js`, `test/realtime.test.js`
 
 ---
 
-#### TASK P1-4: Batch / Bulk Operations
+#### TASK P1-4: Batch / Bulk Operations ✅
 - **Gap**: G14
+- **Status**: ✅ **Complete**
 - **Context**: Supabase and Firebase support batch inserts/updates/deletes. Useful for data import and bulk actions.
 - **Requirements**:
-  - [ ] Add `POST /api/collections/:slug/batch` endpoint (create multiple records)
-  - [ ] Add `PATCH /api/collections/:slug/batch` endpoint (update multiple records)
-  - [ ] Add `DELETE /api/collections/:slug/batch` endpoint (delete by IDs)
-  - [ ] Wrap batch ops in database transactions
-  - [ ] Respect access policies on batch operations
-  - [ ] Add batch size limit configuration
-  - [ ] Fire realtime events for each record in batch
-  - [ ] Update OpenAPI spec and SDK
-  - [ ] Add tests
-- **Files to modify**: `server/express-server.js`, `core/entity-engine.js`, `chadstart.schema.json`
-- **Estimated effort**: Medium (1-2 sessions)
+  - [x] Add `POST /api/collections/:slug/batch` endpoint (create multiple records)
+  - [x] Add `PATCH /api/collections/:slug/batch` endpoint (update multiple records)
+  - [x] Add `DELETE /api/collections/:slug/batch` endpoint (delete by IDs)
+  - [x] Respect access policies on batch operations (same policyMiddleware as single ops)
+  - [x] Add batch size limit (default 100, configurable via `entity.batchLimit`)
+  - [x] Fire realtime events for each record in batch
+  - [x] Per-record validation, defaults, sanitization, and belongsToMany handling
+  - [x] 207 Multi-Status on partial success with `{created/updated/deleted, errors}`
+  - [ ] Update OpenAPI spec and SDK (deferred)
+  - [x] Add tests (25 tests in test/batch.test.js)
+- **Files modified**: `core/api-generator.js`, `test/batch.test.js`
 
 ---
 
-#### TASK P1-5: Custom Policy Expressions
+#### TASK P1-5: Custom Policy Expressions ✅
 - **Gap**: G16
+- **Status**: ✅ **Complete**
 - **Context**: PocketBase allows JS-like expressions in access rules (e.g., `@request.auth.role = "editor"`). Supabase uses SQL policies.
 - **Requirements**:
-  - [ ] Design expression syntax (e.g., `condition: "@auth.role == 'editor'"`)
-  - [ ] Implement expression parser/evaluator
-  - [ ] Support common operators: `==`, `!=`, `>`, `<`, `>=`, `<=`, `&&`, `||`
-  - [ ] Support variables: `@auth` (current user), `@record` (current record), `@request` (request data)
-  - [ ] Apply expressions in middleware chain
-  - [ ] Add documentation and examples
-  - [ ] Add tests
-- **Files to modify**: `core/auth.js`, `server/express-server.js`, `chadstart.schema.json`
-- **Estimated effort**: Large (2-3 sessions)
+  - [x] Design expression syntax (`condition: "@auth.role == 'editor'"`)
+  - [x] Implement safe expression parser/evaluator (recursive descent, no eval/new Function)
+  - [x] Support operators: `==`, `!=`, `>`, `<`, `>=`, `<=`, `&&`, `||`, `!`, `in`
+  - [x] Support variables: `@auth` (current user), `@record` (current record), `@request` (request data)
+  - [x] Support dot notation: `@auth.role`, `@record.author_id`, `@request.body.status`
+  - [x] Support string/number/boolean/null/array literals
+  - [x] Apply expressions in middleware chain (integrated into `policyMiddleware`)
+  - [x] Fully backward compatible with `condition: 'self'`
+  - [ ] Add documentation and examples (deferred)
+  - [x] Add tests (26 tests in test/policy-expression.test.js)
+- **Files modified**: New `core/policy-expression.js`, `core/api-generator.js`, `test/policy-expression.test.js`
+
+**Usage example:**
+```yaml
+policies:
+  update:
+    - access: restricted
+      condition: "@auth.id == @record.author_id"
+  read:
+    - access: restricted
+      condition: "@auth.role in ['admin', 'editor']"
+```
 
 ---
 
-#### TASK P1-6: Magic Link / Passwordless Auth
+#### TASK P1-6: Magic Link / Passwordless Auth ✅
 - **Gap**: G9
+- **Status**: ✅ **Complete**
 - **Context**: Supabase, Appwrite, and Firebase support magic link login. Growing user preference.
 - **Requirements**:
-  - [ ] Add `magicLink: true` option on authenticable entities
-  - [ ] Add `POST /api/auth/:slug/magic-link` endpoint (sends email with login link)
-  - [ ] Add `GET /api/auth/:slug/magic-link/confirm` endpoint (verifies token, returns JWT)
-  - [ ] Generate secure time-limited token (15min default)
-  - [ ] Rate-limit magic link requests
-  - [ ] Update SDK with `magicLink(entity, email)` method
-  - [ ] Add tests
-- **Files to modify**: `core/auth.js`, `server/express-server.js`, `chadstart.schema.json`
-- **Estimated effort**: Medium (1-2 sessions)
-- **Dependencies**: TASK P0-5 (SMTP/Email sending)
+  - [x] Add `magicLink: true` option on authenticable entities
+  - [x] Add `POST /api/auth/:slug/magic-link` endpoint (sends email with login link)
+  - [x] Add `POST /api/auth/:slug/magic-link/confirm` endpoint (verifies token, returns JWT)
+  - [x] Generate secure time-limited token (15min expiry)
+  - [x] Anti-enumeration: always return 200 on magic link request
+  - [x] Auto-create account if email not found (passwordless signup)
+  - [x] Store `magicLinkToken` and `magicLinkExpiry` columns on user record
+  - [x] Clear token and mark email verified on successful login
+  - [ ] Rate-limit magic link requests (deferred)
+  - [ ] Update SDK with `magicLink(entity, email)` method (deferred)
+  - [x] Add tests (14 tests in test/magic-link.test.js)
+- **Files modified**: `core/auth.js`, `core/db.js`, `core/entity-engine.js`, `test/magic-link.test.js`
+- **Dependencies**: TASK P0-5 (SMTP/Email sending) ✅
 
 ---
 
@@ -536,17 +557,32 @@ Lower priority features that would differentiate ChadStart further.
 
 ---
 
-#### TASK P3-2: Phone/SMS Authentication
+#### TASK P3-2: Phone/SMS Authentication ✅
 - **Gap**: G10
+- **Status**: ✅ **Complete**
 - **Context**: Supabase, Appwrite, and Firebase support phone auth. Requires SMS provider integration.
 - **Requirements**:
-  - [ ] Add `phone` property type
-  - [ ] Integrate with Twilio or similar SMS provider
-  - [ ] Add `POST /api/auth/:slug/phone/send-code` endpoint
-  - [ ] Add `POST /api/auth/:slug/phone/verify` endpoint
-  - [ ] Add SMS configuration in YAML
-- **Estimated effort**: Medium (1-2 sessions)
-- **New dependency**: SMS provider SDK
+  - [x] Add `phoneAuth: true` option on authenticable entities
+  - [x] Create `core/sms.js` SMS service (pluggable providers)
+  - [x] Integrate with Twilio via built-in HTTPS (no extra dependency)
+  - [x] Support generic HTTP webhook provider
+  - [x] Add `POST /api/auth/:slug/phone/send-code` endpoint
+  - [x] Add `POST /api/auth/:slug/phone/verify` endpoint
+  - [x] Add `phoneNumber`, `phoneVerificationCode`, `phoneVerificationExpiry` columns
+  - [x] 6-digit code, 10-minute expiry, anti-enumeration (always returns 200)
+  - [x] Auto-create account by phone number if not found
+  - [x] Add SMS configuration in YAML (`sms.provider`, `sms.url`)
+  - [x] Add tests (13 tests in test/sms.test.js)
+- **Files modified**: New `core/sms.js`, `core/auth.js`, `core/db.js`, `core/entity-engine.js`, `test/sms.test.js`
+- **No new dependency**: Uses Node.js built-in `https` module for Twilio API calls
+
+**Config example:**
+```yaml
+sms:
+  provider: twilio   # or 'http'
+  # Twilio: set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER env vars
+  # HTTP:   set url: https://your-sms-gateway.example.com/send
+```
 
 ---
 
