@@ -246,6 +246,11 @@ function buildColumnDefs(entity, allEntities) {
       cols.push({ name: 'mfaSecret',  def: `${q('mfaSecret')} TEXT` });
       cols.push({ name: 'mfaRecoveryCodes', def: `${q('mfaRecoveryCodes')} TEXT` });
     }
+    if (entity.phoneAuth) {
+      cols.push({ name: 'phoneNumber',              def: `${q('phoneNumber')} TEXT` });
+      cols.push({ name: 'phoneVerificationCode',    def: `${q('phoneVerificationCode')} TEXT` });
+      cols.push({ name: 'phoneVerificationExpiry',  def: `${q('phoneVerificationExpiry')} TEXT` });
+    }
   }
 
   for (const p of entity.properties) {

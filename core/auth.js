@@ -592,6 +592,66 @@ function registerAuthRoutes(app, core, emit) {
       });
     }
 
+    // ── Phone / SMS Authentication ──────────────────────────────────────
+    if (entity.phoneAuth) {
+      // POST /api/auth/:slug/phone/send-code
+      app.post(`/api/auth/${slug}/phone/send-code`, async (req, res) => {
+        try {
+          const { phone } = req.body || {};
+          if (!phone) return res.status(400).json({ error: 'phone is required' });
+
+          // Generate 6-digit code
+          const code = crypto.randomInt(100000, 999999).toString();
+          const expiry = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 min
+
+          // Find or create user by phone
+          let user = (await db.findAllSimple(table, { phoneNumber: phone }))[0];
+          if (!user) {
+            const placeholder = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), BCRYPT_ROUNDS);
+            user = await db.create(table, {
+              phoneNumber: phone,
+              password: placeholder,
+              email: `phone_${phone.replace(/[^0-9]/g, '')}@placeholder.local`,
+            });
+            _emit(`${entity.name}.created`, omitPassword(user));
+          }
+
+          await db.update(table, user.id, { phoneVerificationCode: code, phoneVerificationExpiry: expiry });
+
+          // Send SMS (best-effort — does not block auth flow)
+          try {
+            const sms = require('./sms');
+            await sms.sendSms(phone, `Your verification code is: ${code}`);
+          } catch (e) {
+            logger.warn(`SMS send failed (${phone}): ${e.message}`);
+          }
+
+          // Always return 200 (anti-enumeration)
+          res.json({ message: 'Verification code sent' });
+        } catch (e) { logger.error('phone send-code error', e.message); res.status(500).json({ error: e.message }); }
+      });
+
+      // POST /api/auth/:slug/phone/verify
+      app.post(`/api/auth/${slug}/phone/verify`, async (req, res) => {
+        try {
+          const { phone, code } = req.body || {};
+          if (!phone || !code) return res.status(400).json({ error: 'phone and code are required' });
+
+          const user = (await db.findAllSimple(table, { phoneNumber: phone }))[0];
+          if (!user || user.phoneVerificationCode !== code) {
+            return res.status(400).json({ error: 'Invalid verification code' });
+          }
+          if (!user.phoneVerificationExpiry || new Date(user.phoneVerificationExpiry) < new Date()) {
+            return res.status(400).json({ error: 'Verification code has expired' });
+          }
+
+          await db.update(table, user.id, { phoneVerificationCode: null, phoneVerificationExpiry: null });
+          const freshUser = await db.findById(table, user.id);
+          res.json({ token: signToken({ id: freshUser.id, entity: entity.name }), user: omitPassword(freshUser) });
+        } catch (e) { logger.error('phone verify error', e.message); res.status(500).json({ error: e.message }); }
+      });
+    }
+
     logger.info(`  Registered auth routes at /api/auth/${slug}/`);
   }
 }
@@ -619,7 +679,7 @@ async function optionalAuth(req, _res, next) {
 }
 
 function omitPassword(user) {
-  const { password: _, emailVerificationToken: _2, passwordResetToken: _3, passwordResetExpiry: _4, magicLinkToken: _5, magicLinkExpiry: _6, mfaSecret: _7, mfaRecoveryCodes: _8, ...rest } = user;
+  const { password: _, emailVerificationToken: _2, passwordResetToken: _3, passwordResetExpiry: _4, magicLinkToken: _5, magicLinkExpiry: _6, mfaSecret: _7, mfaRecoveryCodes: _8, phoneVerificationCode: _9, phoneVerificationExpiry: _10, ...rest } = user;
   return rest;
 }
 
