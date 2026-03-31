@@ -161,6 +161,108 @@ function registerApiRoutes(app, core, emit) {
         } catch (e) { res.status(500).json({ error: e.message }); }
       });
 
+      // ── Batch / Bulk operations ──────────────────────────────────────────
+      // Registered before /:id routes so Express doesn't match "batch" as an :id param.
+
+      const batchLimit = (entity.batchLimit != null) ? entity.batchLimit : 100;
+
+      // POST batch create
+      router.post(`${base}/batch`, mw.create, async (req, res) => {
+        try {
+          const items = req.body;
+          if (!Array.isArray(items)) return res.status(400).json({ error: 'Body must be an array' });
+          if (items.length === 0) return res.status(400).json({ error: 'Body array must not be empty' });
+          if (items.length > batchLimit) return res.status(400).json({ error: `Batch size exceeds limit of ${batchLimit}` });
+
+          const results = [];
+          const errors = [];
+
+          for (let i = 0; i < items.length; i++) {
+            try {
+              const body = applyDefaults(items[i], entity);
+              const v = validateBody(body, entity, core.groups);
+              if (v.errors) {
+                errors.push({ index: i, errors: v.errors });
+                continue;
+              }
+              const row = await db.create(table, sanitizeBody(body, entity));
+              await db.saveBelongsToMany(entity, row.id, items[i]);
+              emit(`${entity.name}.created`, hide(row));
+              results.push(hide(row));
+            } catch (e) {
+              errors.push({ index: i, error: e.message });
+            }
+          }
+
+          const status = errors.length ? (results.length ? 207 : 400) : 201;
+          res.status(status).json({ created: results, errors });
+        } catch (e) { res.status(500).json({ error: e.message }); }
+      });
+
+      // PATCH batch update
+      router.patch(`${base}/batch`, mw.update, async (req, res) => {
+        try {
+          const items = req.body;
+          if (!Array.isArray(items)) return res.status(400).json({ error: 'Body must be an array of {id, ...fields}' });
+          if (items.length === 0) return res.status(400).json({ error: 'Body array must not be empty' });
+          if (items.length > batchLimit) return res.status(400).json({ error: `Batch size exceeds limit of ${batchLimit}` });
+
+          const results = [];
+          const errors = [];
+
+          for (let i = 0; i < items.length; i++) {
+            try {
+              const { id, ...fields } = items[i];
+              if (!id) { errors.push({ index: i, error: 'Missing id' }); continue; }
+              const existing = await db.findById(table, id);
+              if (!existing) { errors.push({ index: i, error: 'Not found' }); continue; }
+              const v = validateBody(fields, entity, core.groups, { partial: true });
+              if (v.errors) {
+                errors.push({ index: i, errors: v.errors });
+                continue;
+              }
+              const row = await db.update(table, id, sanitizeBody(fields, entity));
+              await db.saveBelongsToMany(entity, row.id, fields);
+              emit(`${entity.name}.updated`, hide(row));
+              results.push(hide(row));
+            } catch (e) {
+              errors.push({ index: i, error: e.message });
+            }
+          }
+
+          const status = errors.length ? (results.length ? 207 : 400) : 200;
+          res.status(status).json({ updated: results, errors });
+        } catch (e) { res.status(500).json({ error: e.message }); }
+      });
+
+      // DELETE batch delete
+      router.delete(`${base}/batch`, mw.delete, async (req, res) => {
+        try {
+          const ids = req.body && req.body.ids;
+          if (!Array.isArray(ids)) return res.status(400).json({ error: 'Body must contain an ids array' });
+          if (ids.length === 0) return res.status(400).json({ error: 'ids array must not be empty' });
+          if (ids.length > batchLimit) return res.status(400).json({ error: `Batch size exceeds limit of ${batchLimit}` });
+
+          const results = [];
+          const errors = [];
+
+          for (let i = 0; i < ids.length; i++) {
+            try {
+              const existing = await db.findById(table, ids[i]);
+              if (!existing) { errors.push({ index: i, id: ids[i], error: 'Not found' }); continue; }
+              const row = await db.remove(table, ids[i]);
+              emit(`${entity.name}.deleted`, hide(row));
+              results.push(hide(row));
+            } catch (e) {
+              errors.push({ index: i, id: ids[i], error: e.message });
+            }
+          }
+
+          const status = errors.length ? (results.length ? 207 : 400) : 200;
+          res.status(status).json({ deleted: results, errors });
+        } catch (e) { res.status(500).json({ error: e.message }); }
+      });
+
       // GET single by id
       router.get(`${base}/:id`, mw.read, async (req, res) => {
         try {
