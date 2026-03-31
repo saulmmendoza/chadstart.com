@@ -53,6 +53,7 @@
     "jsonwebtoken": "^9.0.3",
     "mysql2": "^3.20.0",
     "node-cron": "^4.2.1",
+    "nodemailer": "^8.0.4",
     "pg": "^8.20.0",
     "postgrator": "^8.0.0",
     "sharp": "^0.34.5",

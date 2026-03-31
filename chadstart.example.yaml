@@ -415,6 +415,28 @@ sentry:
   tracesSampleRate: 1.0       # Fraction of transactions to sample (0.0–1.0)
   debug: false                # Enable Sentry SDK debug logging
 
+# ── Email / SMTP ──────────────────────────────────────────────────────────────
+# Configure SMTP for transactional emails (verification, password reset, etc.).
+# The SMTP password is a secret and must be provided via the SMTP_PASS env var.
+# All fields can be overridden by environment variables:
+#   SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM
+
+email:
+  host: smtp.example.com       # SMTP server hostname. Overridable via SMTP_HOST
+  port: 587                     # SMTP port (587=STARTTLS, 465=SSL, 25=plain). Overridable via SMTP_PORT
+  username: noreply@example.com # SMTP login. Overridable via SMTP_USER
+  from: "My App <noreply@example.com>"  # Default sender. Overridable via SMTP_FROM
+  secure: false                 # Use TLS (auto-detected from port if omitted)
+  templates:
+    verification:
+      subject: "Verify your email for {{appName}}"
+      text: "Hi {{name}},\n\nPlease verify your email by visiting:\n{{link}}\n\nThanks,\n{{appName}}"
+      html: "<h2>Verify your email</h2><p>Hi {{name}},</p><p>Please verify your email by clicking the link below:</p><p><a href=\"{{link}}\">Verify Email</a></p><p>Thanks,<br>{{appName}}</p>"
+    passwordReset:
+      subject: "Reset your password for {{appName}}"
+      text: "Hi {{name}},\n\nYou requested a password reset. Visit:\n{{link}}\n\nIf you didn't request this, ignore this email.\n\nThanks,\n{{appName}}"
+      html: "<h2>Reset your password</h2><p>Hi {{name}},</p><p>You requested a password reset. Click the link below:</p><p><a href=\"{{link}}\">Reset Password</a></p><p>If you didn't request this, ignore this email.</p><p>Thanks,<br>{{appName}}</p>"
+
 # ── OAuth / Social Login ─────────────────────────────────────────────────────
 # Powered by the "grant" library — supports 200+ OAuth providers.
 # Secrets (client keys / secrets) MUST be set via environment variables:

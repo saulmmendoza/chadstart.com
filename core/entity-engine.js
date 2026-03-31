@@ -60,6 +60,7 @@ function buildEntities(config) {
       tableName: toSnakeCase(name),
       slug: def.slug || toKebabCase(name),
       authenticable: def.authenticable === true,
+      requireEmailVerification: def.requireEmailVerification === true,
       single: def.single === true,
       mainProp: def.mainProp || null,
       nameSingular: def.nameSingular || null,
@@ -155,6 +156,9 @@ function buildCore(config) {
     port: parseInt(process.env.CHADSTART_PORT || process.env.PORT || config.port || 3000, 10),
     rateLimits,
     telemetry,
+    email: config.email || null,
+    logs: config.logs || null,
+    backup: config.backup || null,
     oauth: config.oauth || null,
     admin: {
       enable_app: adminCfg.enable_app !== false,

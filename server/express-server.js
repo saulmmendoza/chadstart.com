@@ -24,6 +24,9 @@ const { initErrorReporter, getRequestHandler, attachErrorHandler } = require('..
 const { getTelemetryConfig, initTelemetry } = require('../core/telemetry');
 const { setupFunctions, cleanup: cleanupFunctions } = require('../core/functions-engine');
 const { registerOAuthRoutes } = require('../core/oauth');
+const { initEmail, sendEmail, verifyConnection, getEmailStatus } = require('../core/email');
+const { initLogs, requestLoggerMiddleware, queryLogs, cleanupOldLogs } = require('../core/logs');
+const { createBackup, restoreBackup, listBackups } = require('../core/backup');
 const logger = require('../utils/logger');
 
 function limiter(windowMs, max) {
@@ -100,11 +103,24 @@ async function buildApp(configPath, reloadFn) {
   const telConfig = getTelemetryConfig(core.telemetry);
   await initTelemetry(telConfig);
 
+  // Initialize email/SMTP service
+  initEmail(core.email);
+
   const dbPath = core.database
     ? path.resolve(path.dirname(configPath), core.database)
     : undefined;
   await initDb(core, dbPath);
   await initApiKeys();
+  await initLogs();
+
+  // Schedule periodic log cleanup
+  const logsCfg = core.logs || {};
+  const retentionDays = logsCfg.retention !== undefined ? logsCfg.retention : 30;
+  if (retentionDays > 0) {
+    // Run cleanup once at startup and then every 24 hours
+    cleanupOldLogs(retentionDays).catch(() => {});
+    setInterval(() => cleanupOldLogs(retentionDays).catch(() => {}), 24 * 60 * 60 * 1000).unref();
+  }
 
   initErrorReporter(core);
 
@@ -116,6 +132,10 @@ async function buildApp(configPath, reloadFn) {
   // Sentry request handler must be the first middleware (captures req info)
   const sentryRequestHandler = getRequestHandler();
   if (sentryRequestHandler) app.use(sentryRequestHandler);
+
+  // Request logging middleware — placed after Sentry but before routes
+  const logExclude = (logsCfg.exclude || ['/health', '/admin/vendor']);
+  app.use(requestLoggerMiddleware({ exclude: logExclude }));
 
   // Public static files
   if (core.public && core.public.folder) {
@@ -280,6 +300,43 @@ async function buildApp(configPath, reloadFn) {
     }
   });
 
+  // ── Admin email endpoints ──────────────────────────────────────────────
+  // GET /admin/email/status — check if SMTP is configured
+  app.get('/admin/email/status', adminRateLimiter, (req, res) => {
+    const header = req.headers.authorization;
+    if (!header || !header.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorized' });
+    try { verifyToken(header.slice(7)); } catch { return res.status(401).json({ error: 'Invalid token' }); }
+    res.json(getEmailStatus());
+  });
+
+  // POST /admin/test-email — send a test email to verify SMTP configuration (auth required)
+  app.post('/admin/test-email', adminRateLimiter, async (req, res) => {
+    const header = req.headers.authorization;
+    if (!header || !header.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorized' });
+    try { verifyToken(header.slice(7)); } catch { return res.status(401).json({ error: 'Invalid token' }); }
+
+    const { to } = req.body || {};
+    if (!to || typeof to !== 'string') return res.status(400).json({ error: 'to (email address) is required' });
+
+    // First verify the SMTP connection
+    const verification = await verifyConnection();
+    if (!verification.success) return res.status(503).json(verification);
+
+    try {
+      const safeName = escAdminHtml(core.name);
+      await sendEmail({
+        to,
+        subject: 'ChadStart Test Email',
+        text: `This is a test email from your ChadStart application "${core.name}".\n\nIf you received this, your SMTP configuration is working correctly.`,
+        html: `<h2>ChadStart Test Email</h2><p>This is a test email from your ChadStart application <strong>&quot;${safeName}&quot;</strong>.</p><p>If you received this, your SMTP configuration is working correctly. &#x2705;</p>`,
+      });
+      res.json({ success: true, message: `Test email sent to ${to}` });
+    } catch (e) {
+      logger.error('Test email failed:', e.message);
+      res.status(502).json({ success: false, message: `Failed to send test email: ${e.message}` });
+    }
+  });
+
   // ── Admin AI assistant endpoints ──────────────────────────────────────
   // GET /admin/ai/status — tell the UI whether AI chat is available
   app.get('/admin/ai/status', adminRateLimiter, (_req, res) => {
@@ -382,6 +439,62 @@ async function buildApp(configPath, reloadFn) {
         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
         .slice(0, 20);
       res.json({ entities: entityStats, recentActivity });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Admin logs endpoint ─────────────────────────────────────────────
+  app.get('/admin/logs', adminRateLimiter, async (req, res) => {
+    const header = req.headers.authorization;
+    if (!header || !header.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorized' });
+    try { verifyToken(header.slice(7)); } catch { return res.status(401).json({ error: 'Invalid token' }); }
+    try {
+      const { method, statusCode, path: filterPath, from, to, page, perPage, order } = req.query;
+      const result = await queryLogs(
+        { method, statusCode, path: filterPath, from, to },
+        { page, perPage, order }
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Admin backup endpoints ──────────────────────────────────────────
+  app.post('/admin/backup', adminRateLimiter, async (req, res) => {
+    const header = req.headers.authorization;
+    if (!header || !header.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorized' });
+    try { verifyToken(header.slice(7)); } catch { return res.status(401).json({ error: 'Invalid token' }); }
+    try {
+      const result = await createBackup(core.backup);
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/admin/restore', adminRateLimiter, async (req, res) => {
+    const header = req.headers.authorization;
+    if (!header || !header.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorized' });
+    try { verifyToken(header.slice(7)); } catch { return res.status(401).json({ error: 'Invalid token' }); }
+    const { file } = req.body || {};
+    if (!file || typeof file !== 'string') return res.status(400).json({ error: 'file (backup filename) is required' });
+    try {
+      const result = await restoreBackup(file, core.backup);
+      if (!result.success) return res.status(404).json(result);
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get('/admin/backups', adminRateLimiter, (req, res) => {
+    const header = req.headers.authorization;
+    if (!header || !header.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorized' });
+    try { verifyToken(header.slice(7)); } catch { return res.status(401).json({ error: 'Invalid token' }); }
+    try {
+      res.json(listBackups(core.backup));
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
