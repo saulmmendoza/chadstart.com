@@ -241,6 +241,11 @@ function buildColumnDefs(entity, allEntities) {
     cols.push({ name: 'passwordResetExpiry',    def: `${q('passwordResetExpiry')} TEXT` });
     cols.push({ name: 'magicLinkToken',          def: `${q('magicLinkToken')} TEXT` });
     cols.push({ name: 'magicLinkExpiry',         def: `${q('magicLinkExpiry')} TEXT` });
+    if (entity.mfa) {
+      cols.push({ name: 'mfaEnabled', def: `${q('mfaEnabled')} INTEGER DEFAULT 0` });
+      cols.push({ name: 'mfaSecret',  def: `${q('mfaSecret')} TEXT` });
+      cols.push({ name: 'mfaRecoveryCodes', def: `${q('mfaRecoveryCodes')} TEXT` });
+    }
   }
 
   for (const p of entity.properties) {

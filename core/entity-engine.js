@@ -62,6 +62,7 @@ function buildEntities(config) {
       authenticable: def.authenticable === true,
       requireEmailVerification: def.requireEmailVerification === true,
       magicLink: def.magicLink === true,
+      mfa: def.mfa === true,
       single: def.single === true,
       mainProp: def.mainProp || null,
       nameSingular: def.nameSingular || null,

@@ -22,6 +22,7 @@ const bcrypt = require('bcryptjs');
 const db = require('./db');
 const { q: _q, DB_ENGINE: _DB_ENGINE } = db;
 const logger = require('../utils/logger');
+const { generateMfaSecret, verifyTotp, generateRecoveryCodes, buildOtpauthUri } = require('./mfa');
 
 const API_KEY_PREFIX = 'cs_';
 
@@ -343,6 +344,12 @@ function registerAuthRoutes(app, core, emit) {
           return res.status(403).json({ error: 'Email not verified. Please verify your email before logging in.' });
         }
 
+        // MFA challenge: return partial token when MFA is enabled
+        if (entity.mfa && user.mfaEnabled) {
+          const mfaToken = signToken({ id: user.id, entity: entity.name, mfaChallenge: true }, '5m');
+          return res.json({ mfaRequired: true, mfaToken });
+        }
+
         res.json({ token: signToken({ id: user.id, entity: entity.name }), user: omitPassword(user) });
       } catch (e) { logger.error('login error', e.message); res.status(500).json({ error: e.message }); }
     });
@@ -486,6 +493,105 @@ function registerAuthRoutes(app, core, emit) {
       });
     }
 
+    // ── MFA / Two-Factor Authentication ─────────────────────────────────
+    if (entity.mfa) {
+      // Setup: generate secret + otpauth URI
+      app.post(`/api/auth/${slug}/mfa/setup`, requireAuth(entity.name), async (req, res) => {
+        try {
+          const user = await db.findById(table, req.user.id);
+          if (!user) return res.status(404).json({ error: 'User not found' });
+          if (user.mfaEnabled) return res.status(400).json({ error: 'MFA is already enabled' });
+
+          const secret = generateMfaSecret();
+          await db.update(table, user.id, { mfaSecret: secret });
+
+          const uri = buildOtpauthUri(secret, user.email, core.name || 'ChadStart');
+          res.json({ secret, uri });
+        } catch (e) { logger.error('mfa setup error', e.message); res.status(500).json({ error: e.message }); }
+      });
+
+      // Verify: confirm TOTP code and enable MFA
+      app.post(`/api/auth/${slug}/mfa/verify`, requireAuth(entity.name), async (req, res) => {
+        try {
+          const { code } = req.body || {};
+          if (!code) return res.status(400).json({ error: 'code is required' });
+
+          const user = await db.findById(table, req.user.id);
+          if (!user) return res.status(404).json({ error: 'User not found' });
+          if (user.mfaEnabled) return res.status(400).json({ error: 'MFA is already enabled' });
+          if (!user.mfaSecret) return res.status(400).json({ error: 'MFA setup not initiated. Call /mfa/setup first.' });
+
+          if (!verifyTotp(user.mfaSecret, code)) {
+            return res.status(400).json({ error: 'Invalid TOTP code' });
+          }
+
+          const recoveryCodes = generateRecoveryCodes();
+          await db.update(table, user.id, {
+            mfaEnabled: 1,
+            mfaRecoveryCodes: JSON.stringify(recoveryCodes),
+          });
+
+          res.json({ message: 'MFA enabled successfully', recoveryCodes });
+        } catch (e) { logger.error('mfa verify error', e.message); res.status(500).json({ error: e.message }); }
+      });
+
+      // Disable: requires current TOTP code
+      app.post(`/api/auth/${slug}/mfa/disable`, requireAuth(entity.name), async (req, res) => {
+        try {
+          const { code } = req.body || {};
+          if (!code) return res.status(400).json({ error: 'code is required' });
+
+          const user = await db.findById(table, req.user.id);
+          if (!user) return res.status(404).json({ error: 'User not found' });
+          if (!user.mfaEnabled) return res.status(400).json({ error: 'MFA is not enabled' });
+
+          if (!verifyTotp(user.mfaSecret, code)) {
+            return res.status(400).json({ error: 'Invalid TOTP code' });
+          }
+
+          await db.update(table, user.id, {
+            mfaEnabled: 0,
+            mfaSecret: null,
+            mfaRecoveryCodes: null,
+          });
+
+          res.json({ message: 'MFA disabled successfully' });
+        } catch (e) { logger.error('mfa disable error', e.message); res.status(500).json({ error: e.message }); }
+      });
+
+      // Login-verify: complete MFA login with TOTP or recovery code
+      app.post(`/api/auth/${slug}/mfa/login-verify`, async (req, res) => {
+        try {
+          const { mfaToken, code } = req.body || {};
+          if (!mfaToken || !code) return res.status(400).json({ error: 'mfaToken and code are required' });
+
+          let payload;
+          try { payload = verifyToken(mfaToken); } catch { return res.status(401).json({ error: 'Invalid or expired MFA token' }); }
+          if (!payload.mfaChallenge) return res.status(400).json({ error: 'Invalid MFA token' });
+
+          const user = await db.findById(table, payload.id);
+          if (!user) return res.status(404).json({ error: 'User not found' });
+
+          // Try TOTP first
+          if (verifyTotp(user.mfaSecret, code)) {
+            return res.json({ token: signToken({ id: user.id, entity: entity.name }), user: omitPassword(user) });
+          }
+
+          // Try recovery code
+          let recoveryCodes = [];
+          try { recoveryCodes = JSON.parse(user.mfaRecoveryCodes || '[]'); } catch { /* ignore */ }
+          const codeIdx = recoveryCodes.indexOf(code);
+          if (codeIdx !== -1) {
+            recoveryCodes.splice(codeIdx, 1);
+            await db.update(table, user.id, { mfaRecoveryCodes: JSON.stringify(recoveryCodes) });
+            return res.json({ token: signToken({ id: user.id, entity: entity.name }), user: omitPassword(user) });
+          }
+
+          return res.status(401).json({ error: 'Invalid TOTP code or recovery code' });
+        } catch (e) { logger.error('mfa login-verify error', e.message); res.status(500).json({ error: e.message }); }
+      });
+    }
+
     logger.info(`  Registered auth routes at /api/auth/${slug}/`);
   }
 }
@@ -495,6 +601,7 @@ function requireAuth(entityName) {
     const { user, apiKeyPermissions, error } = await resolveAuthHeader(req.headers.authorization);
     if (!user) return res.status(401).json({ error: 'Authorization header required (Bearer <token>)' });
     if (error === 'invalid_token') return res.status(401).json({ error: 'Invalid or expired token' });
+    if (user.mfaChallenge) return res.status(401).json({ error: 'MFA verification required' });
     if (entityName && user.entity !== entityName) return res.status(403).json({ error: 'Token does not belong to this collection' });
     req.user = user;
     if (apiKeyPermissions) req._apiKeyPermissions = apiKeyPermissions;
@@ -512,7 +619,7 @@ async function optionalAuth(req, _res, next) {
 }
 
 function omitPassword(user) {
-  const { password: _, emailVerificationToken: _2, passwordResetToken: _3, passwordResetExpiry: _4, magicLinkToken: _5, magicLinkExpiry: _6, ...rest } = user;
+  const { password: _, emailVerificationToken: _2, passwordResetToken: _3, passwordResetExpiry: _4, magicLinkToken: _5, magicLinkExpiry: _6, mfaSecret: _7, mfaRecoveryCodes: _8, ...rest } = user;
   return rest;
 }
 
