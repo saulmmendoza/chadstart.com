@@ -61,6 +61,7 @@ function buildEntities(config) {
       slug: def.slug || toKebabCase(name),
       authenticable: def.authenticable === true,
       requireEmailVerification: def.requireEmailVerification === true,
+      magicLink: def.magicLink === true,
       single: def.single === true,
       mainProp: def.mainProp || null,
       nameSingular: def.nameSingular || null,

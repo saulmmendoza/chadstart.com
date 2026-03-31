@@ -65,6 +65,12 @@ const DEFAULT_PASSWORD_RESET_TEMPLATE = {
   html: '<h2>Reset your password</h2><p>Hi {{name}},</p><p>You requested a password reset. Click the link below:</p><p><a href="{{link}}">Reset Password</a></p><p>Or use this token: <code>{{token}}</code></p><p>This link expires in 1 hour.</p><p>If you did not request this, please ignore this email.</p><p>Thanks,<br>{{appName}}</p>',
 };
 
+const DEFAULT_MAGIC_LINK_TEMPLATE = {
+  subject: 'Sign in to {{appName}}',
+  text: 'Hi,\n\nClick this link to sign in:\n\n{{link}}\n\nThis link expires in 15 minutes.\n\nThanks,\n{{appName}}',
+  html: '<h2>Sign in</h2><p>Click the link below to sign in:</p><p><a href="{{link}}">Sign In</a></p><p>This link expires in 15 minutes.</p><p>Thanks,<br>{{appName}}</p>',
+};
+
 // ─── API Keys ─────────────────────────────────────────────────────────────────
 
 /**
@@ -273,7 +279,12 @@ function registerAuthRoutes(app, core, emit) {
 
   /** Merge user-defined template with built-in default. */
   function _tpl(kind) {
-    const defaults = kind === 'verification' ? DEFAULT_VERIFICATION_TEMPLATE : DEFAULT_PASSWORD_RESET_TEMPLATE;
+    const defaultMap = {
+      verification: DEFAULT_VERIFICATION_TEMPLATE,
+      passwordReset: DEFAULT_PASSWORD_RESET_TEMPLATE,
+      magicLink: DEFAULT_MAGIC_LINK_TEMPLATE,
+    };
+    const defaults = defaultMap[kind] || DEFAULT_VERIFICATION_TEMPLATE;
     const custom = ((core.email || {}).templates || {})[kind] || {};
     return {
       subject: custom.subject || defaults.subject,
@@ -420,6 +431,61 @@ function registerAuthRoutes(app, core, emit) {
       } catch (e) { logger.error('confirm-password-reset error', e.message); res.status(500).json({ error: e.message }); }
     });
 
+    // ── Magic Link ──────────────────────────────────────────────────────
+    if (entity.magicLink) {
+      // POST /api/auth/:slug/magic-link — request a magic link
+      app.post(`/api/auth/${slug}/magic-link`, async (req, res) => {
+        try {
+          const { email } = req.body || {};
+          if (!email) return res.status(400).json({ error: 'email is required' });
+
+          // Always return 200 to avoid leaking whether email exists
+          let user = (await db.findAllSimple(table, { email }))[0];
+          if (!user) {
+            // Auto-create account (passwordless signup)
+            const placeholder = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), BCRYPT_ROUNDS);
+            user = await db.create(table, {
+              email,
+              password: placeholder,
+              emailVerified: 1,
+            });
+            _emit(`${entity.name}.created`, omitPassword(user));
+          }
+
+          const token = generateSecureToken();
+          const expiry = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15 minutes
+          await db.update(table, user.id, { magicLinkToken: token, magicLinkExpiry: expiry });
+
+          const tpl = _tpl('magicLink');
+          const vars = { appName: core.name, name: user.email, token, link: `${_appUrl()}/magic-login?token=${token}` };
+          _trySend({ to: email, subject: tpl.subject, text: tpl.text, html: tpl.html, vars });
+
+          res.json({ message: 'If an account with that email exists, a magic link has been sent.' });
+        } catch (e) { logger.error('magic-link error', e.message); res.status(500).json({ error: e.message }); }
+      });
+
+      // POST /api/auth/:slug/magic-link/confirm — confirm magic link token
+      app.post(`/api/auth/${slug}/magic-link/confirm`, async (req, res) => {
+        try {
+          const { token } = req.body || {};
+          if (!token) return res.status(400).json({ error: 'token is required' });
+
+          const user = (await db.findAllSimple(table, { magicLinkToken: token }))[0];
+          if (!user) return res.status(400).json({ error: 'Invalid or expired magic link token' });
+
+          if (!user.magicLinkExpiry || new Date(user.magicLinkExpiry) < new Date()) {
+            return res.status(400).json({ error: 'Magic link token has expired' });
+          }
+
+          // Clear the token and mark email as verified
+          await db.update(table, user.id, { magicLinkToken: null, magicLinkExpiry: null, emailVerified: 1 });
+
+          const freshUser = await db.findById(table, user.id);
+          res.json({ token: signToken({ id: user.id, entity: entity.name }), user: omitPassword(freshUser) });
+        } catch (e) { logger.error('magic-link-confirm error', e.message); res.status(500).json({ error: e.message }); }
+      });
+    }
+
     logger.info(`  Registered auth routes at /api/auth/${slug}/`);
   }
 }
@@ -446,7 +512,7 @@ async function optionalAuth(req, _res, next) {
 }
 
 function omitPassword(user) {
-  const { password: _, emailVerificationToken: _2, passwordResetToken: _3, passwordResetExpiry: _4, ...rest } = user;
+  const { password: _, emailVerificationToken: _2, passwordResetToken: _3, passwordResetExpiry: _4, magicLinkToken: _5, magicLinkExpiry: _6, ...rest } = user;
   return rest;
 }
 

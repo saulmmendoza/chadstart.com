@@ -239,6 +239,8 @@ function buildColumnDefs(entity, allEntities) {
     cols.push({ name: 'emailVerificationToken', def: `${q('emailVerificationToken')} TEXT` });
     cols.push({ name: 'passwordResetToken',     def: `${q('passwordResetToken')} TEXT` });
     cols.push({ name: 'passwordResetExpiry',    def: `${q('passwordResetExpiry')} TEXT` });
+    cols.push({ name: 'magicLinkToken',          def: `${q('magicLinkToken')} TEXT` });
+    cols.push({ name: 'magicLinkExpiry',         def: `${q('magicLinkExpiry')} TEXT` });
   }
 
   for (const p of entity.properties) {
