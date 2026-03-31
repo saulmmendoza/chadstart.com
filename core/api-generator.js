@@ -8,6 +8,7 @@ const db = require('./db');
 const { toSnakeCase } = require('./entity-engine');
 const { requireAuth, optionalAuth, omitPassword, JWT_SECRET, resolveAuthHeader } = require('./auth');
 const logger = require('../utils/logger');
+const { evaluateExpression, ExpressionError } = require('./policy-expression');
 
 /**
  * Create a backend SDK for use in middleware and custom endpoint functions.
@@ -157,6 +158,16 @@ function registerApiRoutes(app, core, emit) {
             if (relations) await db.loadRelations(row, entity, relations);
           }
           result.data = result.data.map((row) => hide(row));
+          // Post-filter with custom expression condition
+          if (req._policyExpression) {
+            result.data = result.data.filter((row) => {
+              try { return evaluateExpression(req._policyExpression, req._policyExprCtxBuilder(row)); }
+              catch (e) {
+                if (e instanceof ExpressionError) logger.warn('Policy expression error:', e.message);
+                return false;
+              }
+            });
+          }
           res.json(result);
         } catch (e) { res.status(500).json({ error: e.message }); }
       });
@@ -272,6 +283,15 @@ function registerApiRoutes(app, core, emit) {
           if (req._selfFilter && row[req._selfFilter.fk] !== req._selfFilter.userId) {
             return res.status(403).json({ error: 'Access denied' });
           }
+          // Expression-based condition check for read
+          if (req._policyExpression) {
+            let allowed = false;
+            try { allowed = evaluateExpression(req._policyExpression, req._policyExprCtxBuilder(row)); }
+            catch (e) {
+              if (e instanceof ExpressionError) logger.warn('Policy expression error:', e.message);
+            }
+            if (!allowed) return res.status(403).json({ error: 'Access denied' });
+          }
           if (req.query.relations) await db.loadRelations(row, entity, req.query.relations);
           res.json(hide(row));
         } catch (e) { res.status(500).json({ error: e.message }); }
@@ -380,6 +400,8 @@ function policyMiddleware(rule, entity, core) {
           // Ownership-based access: condition: self
           if (p.condition === 'self') {
             await enforceSelfCondition(rule, entity, req, core);
+          } else if (p.condition && p.condition !== 'self') {
+            await enforceExpressionCondition(rule, entity, req, p.condition);
           }
           next();
         } catch (e) {
@@ -464,6 +486,45 @@ async function enforceSelfCondition(rule, entity, req, core) {
         const err = new Error('Cannot transfer ownership');
         err.status = 403;
         throw err;
+      }
+    }
+  }
+}
+
+/**
+ * Enforce a custom expression-based policy condition.
+ * For create: evaluates with @request.body as @record.
+ * For read: stores the expression on req so the route handler can post-filter.
+ * For update/delete: fetches the existing record and evaluates.
+ */
+async function enforceExpressionCondition(rule, entity, req, condition) {
+  const buildCtx = (record) => ({
+    auth: req.user || {},
+    record: record || {},
+    request: { body: req.body || {}, params: req.params || {}, query: req.query || {} },
+  });
+
+  if (rule === 'create') {
+    const allowed = evaluateExpression(condition, buildCtx(req.body || {}));
+    if (!allowed) {
+      const err = new Error('Access denied by policy condition');
+      err.status = 403;
+      throw err;
+    }
+  } else if (rule === 'read') {
+    // Store expression so GET handlers can post-filter
+    req._policyExpression = condition;
+    req._policyExprCtxBuilder = buildCtx;
+  } else if (rule === 'update' || rule === 'delete') {
+    if (req.params && req.params.id) {
+      const row = await db.findById(entity.tableName, req.params.id);
+      if (row) {
+        const allowed = evaluateExpression(condition, buildCtx(row));
+        if (!allowed) {
+          const err = new Error('Access denied by policy condition');
+          err.status = 403;
+          throw err;
+        }
       }
     }
   }
